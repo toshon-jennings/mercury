@@ -1,6 +1,8 @@
-# Hermes Desktop
 
-Hermes Desktop is an Electron app for installing, configuring, and chatting with [Hermes Agent](https://github.com/NousResearch/hermes-agent) from a native desktop interface.
+<img width="100%" alt="HERMES (1)" src="https://github.com/user-attachments/assets/9dba2a68-52c9-47e2-955c-3f8ef3e9e9c1" />
+
+
+Hermes Desktop is a desktop app for installing, configuring, and chatting with [Hermes Agent](https://github.com/NousResearch/hermes-agent) from a native desktop interface.
 
 Instead of asking you to manage the CLI by hand, the app walks through install, provider setup, and day-to-day usage in one place. It uses the official Hermes install script, stores Hermes in `~/.hermes`, and gives you a GUI for chat, sessions, profiles, memory, skills, tools, and settings.
 
