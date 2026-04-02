@@ -1,5 +1,5 @@
+<img width="100%" alt="HERMES DESKTOP" src="https://github.com/user-attachments/assets/80585955-3bae-4aee-af90-a1e61757ccb8" />
 
-<img width="100%" alt="HERMES (1)" src="https://github.com/user-attachments/assets/9dba2a68-52c9-47e2-955c-3f8ef3e9e9c1" />
 <br/><br/>
 <p align="center">
   <a href="https://hermes-agent.nousresearch.com/docs/"><img src="https://img.shields.io/badge/Docs-hermes--agent.nousresearch.com-FFD700?style=for-the-badge" alt="Documentation"></a>
