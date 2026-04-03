@@ -7,6 +7,8 @@
   <a href="https://github.com/NousResearch/hermes-agent/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
 </p>
 
+> **This project is in active development.** Features may change, and some things might break. If you run into a problem or have an idea, [open an issue](https://github.com/fathah/hermes-desktop/issues) — we'd love to hear from you. Contributions are welcome!
+
 Hermes Desktop is a desktop app for installing, configuring, and chatting with [Hermes Agent](https://github.com/NousResearch/hermes-agent) from a native desktop interface.
 
 Instead of asking you to manage the CLI by hand, the app walks through install, provider setup, and day-to-day usage in one place. It uses the official Hermes install script, stores Hermes in `~/.hermes`, and gives you a GUI for chat, sessions, profiles, memory, skills, tools, and settings.
@@ -23,6 +25,7 @@ Instead of asking you to manage the CLI by hand, the app walks through install, 
 - Desktop packaging with Electron Builder
 
 ## Preview
+
 <table>
 <tr>
 <td width="50%" align="center"><b>Office</b><br/><img width="100%" alt="Office" src="https://github.com/user-attachments/assets/214bfa60-48ec-4449-be40-370628205147" /></td>
@@ -49,24 +52,6 @@ On first launch, the app:
 5. Launches the main workspace once setup is complete.
 
 Chat requests are sent through the local Hermes CLI, and the desktop app streams the response back into the UI.
-
-## Tech Stack
-
-- Electron
-- React
-- TypeScript
-- Vite via `electron-vite`
-- Electron Builder
-
-## Project Structure
-
-```text
-src/main/                Electron main process, IPC handlers, Hermes integration
-src/preload/             Secure renderer bridge
-src/renderer/src/        React app and UI components
-resources/               App icons and packaged assets
-build/                   Packaging resources
-```
 
 ## Development
 
@@ -150,6 +135,10 @@ Hermes files are managed in:
 - The desktop app depends on the upstream Hermes Agent project for agent behavior and tool execution.
 - The built-in installer runs the official Hermes install script with `--skip-setup`, then completes provider configuration in the GUI.
 - Local model providers do not require an API key, but the compatible server must already be running.
+
+## Contributing
+
+Contributions are welcome! Check out the [Contributing Guide](CONTRIBUTING.md) to get started. If you're not sure where to begin, take a look at the [open issues](https://github.com/NousResearch/hermes-desktop/issues). Found a bug or have a feature request? [File an issue](https://github.com/NousResearch/hermes-desktop/issues/new).
 
 ## Related Project
 
