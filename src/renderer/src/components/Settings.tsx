@@ -31,15 +31,6 @@ const SECTIONS: SectionDef[] = [
     ]
   },
   {
-    title: 'Messaging Platforms',
-    items: [
-      { key: 'TELEGRAM_BOT_TOKEN', label: 'Telegram Bot Token', type: 'password', hint: 'Get from @BotFather on Telegram' },
-      { key: 'TELEGRAM_ALLOWED_USERS', label: 'Telegram Allowed Users', type: 'text', hint: 'Comma-separated Telegram user IDs' },
-      { key: 'DISCORD_BOT_TOKEN', label: 'Discord Bot Token', type: 'password', hint: 'From the Discord Developer Portal' },
-      { key: 'SLACK_BOT_TOKEN', label: 'Slack Bot Token', type: 'password', hint: 'xoxb-... token from Slack app settings' }
-    ]
-  },
-  {
     title: 'Tool API Keys',
     items: [
       { key: 'EXA_API_KEY', label: 'Exa Search API Key', type: 'password', hint: 'AI-native web search' },
@@ -90,7 +81,6 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
   const [env, setEnv] = useState<Record<string, string>>({})
   const [savedKey, setSavedKey] = useState<string | null>(null)
   const [hermesHome, setHermesHome] = useState('')
-  const [gatewayRunning, setGatewayRunning] = useState(false)
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set())
   const { theme, setTheme } = useTheme()
 
@@ -126,22 +116,11 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
     }
   }, [modelProvider, modelName, modelBaseUrl, saveModelConfig])
 
-  // Poll gateway status while Settings is mounted
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      const status = await window.hermesAPI.gatewayStatus()
-      setGatewayRunning(status)
-    }, 3000)
-    return () => clearInterval(interval)
-  }, [])
-
   async function loadConfig(): Promise<void> {
     const envData = await window.hermesAPI.getEnv(profile)
     setEnv(envData)
     const home = await window.hermesAPI.getHermesHome(profile)
     setHermesHome(home)
-    const gwStatus = await window.hermesAPI.gatewayStatus()
-    setGatewayRunning(gwStatus)
     const mc = await window.hermesAPI.getModelConfig(profile)
     setModelProvider(mc.provider)
     setModelName(mc.model)
@@ -170,16 +149,6 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
       else next.add(key)
       return next
     })
-  }
-
-  async function toggleGateway(): Promise<void> {
-    if (gatewayRunning) {
-      await window.hermesAPI.stopGateway()
-      setGatewayRunning(false)
-    } else {
-      await window.hermesAPI.startGateway()
-      setGatewayRunning(true)
-    }
   }
 
   const isCustomProvider = modelProvider === 'custom'
@@ -275,24 +244,6 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
           </div>
         </div>
       )}
-
-      <div className="settings-section">
-        <div className="settings-section-title">Gateway</div>
-        <div className="settings-field">
-          <label className="settings-field-label">Messaging Gateway</label>
-          <div className="settings-gateway-row">
-            <span className={`settings-gateway-status ${gatewayRunning ? 'running' : 'stopped'}`}>
-              {gatewayRunning ? 'Running' : 'Stopped'}
-            </span>
-            <button className="btn btn-secondary btn-sm" onClick={toggleGateway}>
-              {gatewayRunning ? 'Stop' : 'Start'}
-            </button>
-          </div>
-          <div className="settings-field-hint">
-            Connects Hermes to Telegram, Discord, Slack, and other platforms
-          </div>
-        </div>
-      </div>
 
       {SECTIONS.map((section) => (
         <div key={section.title} className="settings-section">

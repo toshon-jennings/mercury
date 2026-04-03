@@ -8,6 +8,7 @@ import Skills from './Skills'
 import Soul from './Soul'
 import Memory from './Memory'
 import Tools from './Tools'
+import Gateway from './Gateway'
 import hermeslogo from '../assets/hermes.png'
 import {
   ChatBubble,
@@ -20,10 +21,11 @@ import {
   Puzzle,
   Sparkles,
   Brain,
-  Wrench
+  Wrench,
+  Signal
 } from '../assets/icons'
 
-type View = 'chat' | 'sessions' | 'agents' | 'skills' | 'soul' | 'memory' | 'tools' | 'settings'
+type View = 'chat' | 'sessions' | 'agents' | 'skills' | 'soul' | 'memory' | 'tools' | 'gateway' | 'settings'
 
 function Layout(): React.JSX.Element {
   const [view, setView] = useState<View>('chat')
@@ -131,6 +133,13 @@ function Layout(): React.JSX.Element {
             Tools
           </button>
           <button
+            className={`sidebar-nav-item ${view === 'gateway' ? 'active' : ''}`}
+            onClick={() => setView('gateway')}
+          >
+            <Signal />
+            Gateway
+          </button>
+          <button
             className={`sidebar-nav-item ${view === 'settings' ? 'active' : ''}`}
             onClick={() => setView('settings')}
           >
@@ -205,6 +214,7 @@ function Layout(): React.JSX.Element {
         {view === 'soul' && <Soul profile={activeProfile} />}
         {view === 'memory' && <Memory profile={activeProfile} />}
         {view === 'tools' && <Tools profile={activeProfile} />}
+        {view === 'gateway' && <Gateway profile={activeProfile} />}
         {view === 'settings' && <Settings profile={activeProfile} />}
       </main>
     </div>

@@ -187,6 +187,14 @@ export function Wrench({ size, className }: IconProps): React.JSX.Element {
   )
 }
 
+export function Signal({ size, className }: IconProps): React.JSX.Element {
+  return (
+    <svg width={s(size)} height={s(size)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M2 20h.01M7 20v-4M12 20v-8M17 20V8M22 4v16" />
+    </svg>
+  )
+}
+
 export function Search({ size, className }: IconProps): React.JSX.Element {
   return (
     <svg width={s(size)} height={s(size)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
