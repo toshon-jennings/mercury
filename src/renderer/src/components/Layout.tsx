@@ -9,6 +9,7 @@ import Soul from './Soul'
 import Memory from './Memory'
 import Tools from './Tools'
 import Gateway from './Gateway'
+import Office from './Office'
 import hermeslogo from '../assets/hermes.png'
 import {
   ChatBubble,
@@ -22,10 +23,11 @@ import {
   Sparkles,
   Brain,
   Wrench,
-  Signal
+  Signal,
+  Building
 } from '../assets/icons'
 
-type View = 'chat' | 'sessions' | 'agents' | 'skills' | 'soul' | 'memory' | 'tools' | 'gateway' | 'settings'
+type View = 'chat' | 'sessions' | 'agents' | 'office' | 'skills' | 'soul' | 'memory' | 'tools' | 'gateway' | 'settings'
 
 function Layout(): React.JSX.Element {
   const [view, setView] = useState<View>('chat')
@@ -103,6 +105,13 @@ function Layout(): React.JSX.Element {
           >
             <Bot />
             Agents
+          </button>
+          <button
+            className={`sidebar-nav-item ${view === 'office' ? 'active' : ''}`}
+            onClick={() => setView('office')}
+          >
+            <Building />
+            Office
           </button>
           <button
             className={`sidebar-nav-item ${view === 'skills' ? 'active' : ''}`}
@@ -210,6 +219,7 @@ function Layout(): React.JSX.Element {
             }}
           />
         )}
+        {view === 'office' && <Office />}
         {view === 'skills' && <Skills profile={activeProfile} />}
         {view === 'soul' && <Soul profile={activeProfile} />}
         {view === 'memory' && <Memory profile={activeProfile} />}
