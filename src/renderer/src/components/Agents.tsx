@@ -101,9 +101,9 @@ function Agents({ activeProfile, onSelectProfile, onChatWith }: AgentsProps): Re
     <div className="agents-container">
       <div className="agents-header">
         <div>
-          <h2 className="agents-title">Agents</h2>
+          <h2 className="agents-title">Profiles</h2>
           <p className="agents-subtitle">
-            Each agent is an isolated Hermes instance with its own config, memory, and skills
+            Each profile is an isolated Hermes workspace with its own config, memory, and skills
           </p>
         </div>
         <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>

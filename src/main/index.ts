@@ -5,6 +5,20 @@ import icon from '../../resources/icon.png?asset'
 import { checkInstallStatus, runInstall, InstallProgress } from './installer'
 import { sendMessage, startGateway, stopGateway, isGatewayRunning } from './hermes'
 import {
+  getClaw3dStatus,
+  setupClaw3d,
+  startDevServer,
+  stopDevServer,
+  startAdapter,
+  stopAdapter,
+  stopAll as stopClaw3d,
+  setClaw3dPort,
+  getClaw3dPort,
+  setClaw3dWsUrl,
+  getClaw3dWsUrl,
+  Claw3dSetupProgress
+} from './claw3d'
+import {
   readEnv,
   setEnvValue,
   getConfigValue,
@@ -14,6 +28,7 @@ import {
   setModelConfig
 } from './config'
 import { listSessions, getSessionMessages, searchSessions } from './sessions'
+import { listModels, addModel, removeModel, updateModel } from './models'
 import { listProfiles, createProfile, deleteProfile, setActiveProfile } from './profiles'
 import { readMemory } from './memory'
 import { readSoul, writeSoul, resetSoul } from './soul'
@@ -213,6 +228,52 @@ function setupIPC(): void {
     searchSessions(query, limit)
   )
 
+  // Models
+  ipcMain.handle('list-models', () => listModels())
+  ipcMain.handle('add-model', (_event, name: string, provider: string, model: string, baseUrl: string) =>
+    addModel(name, provider, model, baseUrl)
+  )
+  ipcMain.handle('remove-model', (_event, id: string) => removeModel(id))
+  ipcMain.handle('update-model', (_event, id: string, fields: Record<string, string>) =>
+    updateModel(id, fields)
+  )
+
+  // Claw3D
+  ipcMain.handle('claw3d-status', () => getClaw3dStatus())
+
+  ipcMain.handle('claw3d-setup', async (event) => {
+    try {
+      await setupClaw3d((progress: Claw3dSetupProgress) => {
+        event.sender.send('claw3d-setup-progress', progress)
+      })
+      return { success: true }
+    } catch (err) {
+      return { success: false, error: (err as Error).message }
+    }
+  })
+
+  ipcMain.handle('claw3d-get-port', () => getClaw3dPort())
+  ipcMain.handle('claw3d-set-port', (_event, port: number) => {
+    setClaw3dPort(port)
+    return true
+  })
+  ipcMain.handle('claw3d-get-ws-url', () => getClaw3dWsUrl())
+  ipcMain.handle('claw3d-set-ws-url', (_event, url: string) => {
+    setClaw3dWsUrl(url)
+    return true
+  })
+
+  ipcMain.handle('claw3d-start-dev', () => startDevServer())
+  ipcMain.handle('claw3d-stop-dev', () => {
+    stopDevServer()
+    return true
+  })
+  ipcMain.handle('claw3d-start-adapter', () => startAdapter())
+  ipcMain.handle('claw3d-stop-adapter', () => {
+    stopAdapter()
+    return true
+  })
+
   // Shell
   ipcMain.handle('open-external', (_event, url: string) => {
     shell.openExternal(url)
@@ -342,6 +403,7 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   stopGateway()
+  stopClaw3d()
   if (process.platform !== 'darwin') {
     app.quit()
   }

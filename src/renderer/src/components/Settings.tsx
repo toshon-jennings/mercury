@@ -101,6 +101,11 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
   const saveModelConfig = useCallback(async () => {
     if (!modelLoaded.current) return
     await window.hermesAPI.setModelConfig(modelProvider, modelName, modelBaseUrl, profile)
+    // Auto-save to models library (dedup handled by backend)
+    if (modelName.trim()) {
+      const displayName = modelName.split('/').pop() || modelName
+      await window.hermesAPI.addModel(displayName, modelProvider, modelName, modelBaseUrl)
+    }
     setModelSaved(true)
     setTimeout(() => setModelSaved(false), 2000)
   }, [modelProvider, modelName, modelBaseUrl, profile])

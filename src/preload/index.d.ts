@@ -123,6 +123,48 @@ interface HermesAPI {
     }>
   >
 
+  // Models
+  listModels: () => Promise<
+    Array<{ id: string; name: string; provider: string; model: string; baseUrl: string; createdAt: number }>
+  >
+  addModel: (
+    name: string,
+    provider: string,
+    model: string,
+    baseUrl: string
+  ) => Promise<{ id: string; name: string; provider: string; model: string; baseUrl: string; createdAt: number }>
+  removeModel: (id: string) => Promise<boolean>
+  updateModel: (id: string, fields: Record<string, string>) => Promise<boolean>
+
+  // Claw3D
+  claw3dStatus: () => Promise<{
+    cloned: boolean
+    installed: boolean
+    devServerRunning: boolean
+    adapterRunning: boolean
+    port: number
+    portInUse: boolean
+    wsUrl: string
+  }>
+  claw3dSetup: () => Promise<{ success: boolean; error?: string }>
+  onClaw3dSetupProgress: (
+    callback: (progress: {
+      step: number
+      totalSteps: number
+      title: string
+      detail: string
+      log: string
+    }) => void
+  ) => () => void
+  claw3dGetPort: () => Promise<number>
+  claw3dSetPort: (port: number) => Promise<boolean>
+  claw3dGetWsUrl: () => Promise<string>
+  claw3dSetWsUrl: (url: string) => Promise<boolean>
+  claw3dStartDev: () => Promise<boolean>
+  claw3dStopDev: () => Promise<boolean>
+  claw3dStartAdapter: () => Promise<boolean>
+  claw3dStopAdapter: () => Promise<boolean>
+
   // Shell
   openExternal: (url: string) => Promise<void>
 }

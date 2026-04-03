@@ -10,11 +10,12 @@ import Memory from './Memory'
 import Tools from './Tools'
 import Gateway from './Gateway'
 import Office from './Office'
+import Models from './Models'
 import hermeslogo from '../assets/hermes.png'
 import {
   ChatBubble,
   Clock,
-  Bot,
+  Users,
   Settings as SettingsIcon,
   Sun,
   Monitor,
@@ -24,10 +25,11 @@ import {
   Brain,
   Wrench,
   Signal,
-  Building
+  Building,
+  Layers
 } from '../assets/icons'
 
-type View = 'chat' | 'sessions' | 'agents' | 'office' | 'skills' | 'soul' | 'memory' | 'tools' | 'gateway' | 'settings'
+type View = 'chat' | 'sessions' | 'agents' | 'office' | 'models' | 'skills' | 'soul' | 'memory' | 'tools' | 'gateway' | 'settings'
 
 function Layout(): React.JSX.Element {
   const [view, setView] = useState<View>('chat')
@@ -103,8 +105,8 @@ function Layout(): React.JSX.Element {
             className={`sidebar-nav-item ${view === 'agents' ? 'active' : ''}`}
             onClick={() => setView('agents')}
           >
-            <Bot />
-            Agents
+            <Users />
+            Profiles
           </button>
           <button
             className={`sidebar-nav-item ${view === 'office' ? 'active' : ''}`}
@@ -112,6 +114,13 @@ function Layout(): React.JSX.Element {
           >
             <Building />
             Office
+          </button>
+          <button
+            className={`sidebar-nav-item ${view === 'models' ? 'active' : ''}`}
+            onClick={() => setView('models')}
+          >
+            <Layers />
+            Models
           </button>
           <button
             className={`sidebar-nav-item ${view === 'skills' ? 'active' : ''}`}
@@ -219,7 +228,17 @@ function Layout(): React.JSX.Element {
             }}
           />
         )}
-        {view === 'office' && <Office />}
+        <div
+          style={{
+            display: view === 'office' ? 'flex' : 'none',
+            flex: 1,
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}
+        >
+          <Office />
+        </div>
+        {view === 'models' && <Models />}
         {view === 'skills' && <Skills profile={activeProfile} />}
         {view === 'soul' && <Soul profile={activeProfile} />}
         {view === 'memory' && <Memory profile={activeProfile} />}

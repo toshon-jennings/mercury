@@ -205,6 +205,14 @@ export function Signal({ size, className }: IconProps): React.JSX.Element {
   )
 }
 
+export function Layers({ size, className }: IconProps): React.JSX.Element {
+  return (
+    <svg width={s(size)} height={s(size)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+    </svg>
+  )
+}
+
 export function Search({ size, className }: IconProps): React.JSX.Element {
   return (
     <svg width={s(size)} height={s(size)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>

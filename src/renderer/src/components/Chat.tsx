@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Markdown from 'react-markdown'
 import icon from '../assets/icon.png'
-import { Trash, Send, Stop, Plus } from '../assets/icons'
+import { Trash, Send, Stop, Plus, ChevronDown } from '../assets/icons'
 
 function HermesAvatar({ size = 30 }: { size?: number }): React.JSX.Element {
   return (
@@ -42,6 +42,20 @@ export interface ChatMessage {
   content: string
 }
 
+interface ModelGroup {
+  provider: string
+  providerLabel: string
+  models: { provider: string; model: string; label: string }[]
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  openrouter: 'OpenRouter',
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  groq: 'Groq',
+  custom: 'Custom'
+}
+
 interface ChatProps {
   messages: ChatMessage[]
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
@@ -65,12 +79,81 @@ function Chat({
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const isLoadingRef = useRef(false)
 
+  // Model picker state
+  const [currentModel, setCurrentModel] = useState('')
+  const [currentProvider, setCurrentProvider] = useState('auto')
+  const [currentBaseUrl, setCurrentBaseUrl] = useState('')
+  const [modelGroups, setModelGroups] = useState<ModelGroup[]>([])
+  const [showModelPicker, setShowModelPicker] = useState(false)
+  const [customModelInput, setCustomModelInput] = useState('')
+  const pickerRef = useRef<HTMLDivElement>(null)
+
   // Keep ref in sync for use in IPC callbacks
   isLoadingRef.current = isLoading
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
+
+  // Load model config and build available models list
+  useEffect(() => {
+    loadModelConfig()
+  }, [profile])
+
+  async function loadModelConfig(): Promise<void> {
+    const [mc, savedModels] = await Promise.all([
+      window.hermesAPI.getModelConfig(profile),
+      window.hermesAPI.listModels()
+    ])
+    setCurrentModel(mc.model)
+    setCurrentProvider(mc.provider)
+    setCurrentBaseUrl(mc.baseUrl)
+
+    // Group saved models by provider
+    const groupMap = new Map<string, ModelGroup>()
+    for (const m of savedModels) {
+      if (!groupMap.has(m.provider)) {
+        groupMap.set(m.provider, {
+          provider: m.provider,
+          providerLabel: PROVIDER_LABELS[m.provider] || m.provider,
+          models: []
+        })
+      }
+      groupMap.get(m.provider)!.models.push({
+        provider: m.provider,
+        model: m.model,
+        label: m.name
+      })
+    }
+    setModelGroups(Array.from(groupMap.values()))
+  }
+
+  // Close picker on click outside
+  useEffect(() => {
+    if (!showModelPicker) return
+    function handleClickOutside(e: MouseEvent): void {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowModelPicker(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showModelPicker])
+
+  async function selectModel(provider: string, model: string): Promise<void> {
+    const baseUrl = provider === 'custom' ? currentBaseUrl : ''
+    await window.hermesAPI.setModelConfig(provider, model, baseUrl, profile)
+    setCurrentModel(model)
+    setCurrentProvider(provider)
+    setShowModelPicker(false)
+    setCustomModelInput('')
+  }
+
+  async function handleCustomModelSubmit(): Promise<void> {
+    const model = customModelInput.trim()
+    if (!model) return
+    await selectModel(currentProvider === 'auto' ? 'auto' : currentProvider, model)
+  }
 
   // IPC listeners — stable callback refs, registered once
   useEffect(() => {
@@ -176,6 +259,12 @@ function Chat({
     setMessages([])
   }
 
+  const displayModel = currentModel
+    ? currentModel.split('/').pop() || currentModel
+    : currentProvider === 'auto'
+      ? 'Auto'
+      : 'No model set'
+
   const lastMessageIsAgent = messages.length > 0 && messages[messages.length - 1].role === 'agent'
 
   return (
@@ -277,6 +366,52 @@ function Chat({
             >
               <Send size={16} />
             </button>
+          )}
+        </div>
+
+        <div className="chat-model-bar" ref={pickerRef}>
+          <button
+            className="chat-model-trigger"
+            onClick={() => setShowModelPicker(!showModelPicker)}
+          >
+            <span className="chat-model-name">{displayModel}</span>
+            <ChevronDown size={12} />
+          </button>
+
+          {showModelPicker && (
+            <div className="chat-model-dropdown">
+              {modelGroups.map((group) => (
+                <div key={group.provider} className="chat-model-group">
+                  <div className="chat-model-group-label">{group.providerLabel}</div>
+                  {group.models.map((m) => (
+                    <button
+                      key={m.model}
+                      className={`chat-model-option ${currentModel === m.model ? 'active' : ''}`}
+                      onClick={() => selectModel(m.provider, m.model)}
+                    >
+                      <span className="chat-model-option-label">{m.label}</span>
+                      <span className="chat-model-option-id">{m.model}</span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+
+              <div className="chat-model-group">
+                <div className="chat-model-group-label">Custom</div>
+                <div className="chat-model-custom">
+                  <input
+                    className="chat-model-custom-input"
+                    type="text"
+                    value={customModelInput}
+                    onChange={(e) => setCustomModelInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCustomModelSubmit()
+                    }}
+                    placeholder="Type model name..."
+                  />
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
