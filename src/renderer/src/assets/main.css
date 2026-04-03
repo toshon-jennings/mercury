@@ -1183,12 +1183,17 @@ body {
   width: 320px;
   max-height: 360px;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--bg-secondary);
   border: 1px solid var(--border-bright);
   border-radius: var(--radius-md);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   z-index: 100;
   padding: 6px;
+}
+
+.chat-model-custom-input {
+  box-sizing: border-box;
 }
 
 .chat-model-group {
