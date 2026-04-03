@@ -22,6 +22,16 @@ Instead of asking you to manage the CLI by hand, the app walks through install, 
 - Gateway controls for Hermes messaging integrations
 - Desktop packaging with Electron Builder
 
+## Preview
+<table><tr><td><img width="100%" alt="Hermes Desktop" src="https://github.com/user-attachments/assets/214bfa60-48ec-4449-be40-370628205147" /></td>
+<td><img width="100%" alt="Hermes Desktop" src="https://github.com/user-attachments/assets/ca84a56c-4d14-4775-96bb-c725069988be" /></td></tr>
+
+<tr><td><img width="100%" alt="Hermes Desktop" src="https://github.com/user-attachments/assets/bd812e4a-bbdc-4141-b3a8-1ab5b0e561d4" /></td>
+<td><img width="100%" alt="Hermes Desktop" src="https://github.com/user-attachments/assets/ad051fbe-055d-40d2-b6dd-959c522412d2" /></td></tr>
+
+<tr><td><img width="100%" alt="Hermes Desktop" src="https://github.com/user-attachments/assets/b3f7e0d8-b087-4935-b57c-f8db30491f2e" /></td>
+<td><img width="100%" alt="Hermes Desktop" src="https://github.com/user-attachments/assets/508c3501-52eb-419d-8cfd-06268875ff62" /></td></tr></table>
+
 ## How It Works
 
 On first launch, the app:
