@@ -1,40 +1,53 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { ThemeProvider } from './components/ThemeProvider'
 import Welcome from './components/Welcome'
 import Install from './components/Install'
 import Setup from './components/Setup'
 import Layout from './components/Layout'
+import SplashScreen from './components/SplashScreen'
 
-type Screen = 'loading' | 'welcome' | 'installing' | 'setup' | 'main'
+type Screen = 'splash' | 'welcome' | 'installing' | 'setup' | 'main'
 
 function App(): React.JSX.Element {
-  const [screen, setScreen] = useState<Screen>('loading')
+  const [screen, setScreen] = useState<Screen>('splash')
   const [installError, setInstallError] = useState<string | null>(null)
+  const [nextScreen, setNextScreen] = useState<Screen | null>(null)
+  const [splashDone, setSplashDone] = useState(false)
   const isMac = window.electron?.process?.platform === 'darwin'
 
-  // Run install check on first render only
-  if (screen === 'loading') {
+  // Run install check during splash
+  useEffect(() => {
     window.hermesAPI
       .checkInstall()
       .then((status) => {
         if (!status.installed) {
-          setScreen('welcome')
+          setNextScreen('welcome')
         } else if (!status.verified) {
-          // Files exist but install is broken
           setInstallError(
             'Hermes is installed but appears to be broken. Try reinstalling to fix it.'
           )
-          setScreen('welcome')
+          setNextScreen('welcome')
         } else if (!status.hasApiKey) {
-          setScreen('setup')
+          setNextScreen('setup')
         } else {
-          setScreen('main')
+          setNextScreen('main')
         }
       })
       .catch(() => {
-        setScreen('welcome')
+        setNextScreen('welcome')
       })
-  }
+  }, [])
+
+  // Transition away from splash when both animation and install check are done
+  useEffect(() => {
+    if (splashDone && nextScreen) {
+      setScreen(nextScreen)
+    }
+  }, [splashDone, nextScreen])
+
+  const handleSplashFinished = useCallback(() => {
+    setSplashDone(true)
+  }, [])
 
   function handleInstallComplete(): void {
     setInstallError(null)
@@ -53,17 +66,34 @@ function App(): React.JSX.Element {
 
   function handleRecheck(): void {
     setInstallError(null)
-    setScreen('loading')
+    setScreen('splash')
+    setSplashDone(false)
+    setNextScreen(null)
+    window.hermesAPI
+      .checkInstall()
+      .then((status) => {
+        if (!status.installed) {
+          setNextScreen('welcome')
+        } else if (!status.verified) {
+          setInstallError(
+            'Hermes is installed but appears to be broken. Try reinstalling to fix it.'
+          )
+          setNextScreen('welcome')
+        } else if (!status.hasApiKey) {
+          setNextScreen('setup')
+        } else {
+          setNextScreen('main')
+        }
+      })
+      .catch(() => {
+        setNextScreen('welcome')
+      })
   }
 
   function renderScreen(): React.JSX.Element {
     switch (screen) {
-      case 'loading':
-        return (
-          <div className="screen loading-screen">
-            <div className="loading-spinner" />
-          </div>
-        )
+      case 'splash':
+        return <SplashScreen onFinished={handleSplashFinished} />
       case 'welcome':
         return (
           <Welcome

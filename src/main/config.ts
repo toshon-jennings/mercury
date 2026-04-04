@@ -118,17 +118,17 @@ export function setModelConfig(provider: string, model: string, baseUrl: string,
 
   let content = readFileSync(configFile, 'utf-8')
 
-  const providerRegex = /^(\s*#?\s*provider:\s*)["']?[^"'\n#]*["']?/m
+  const providerRegex = /^(\s*provider:\s*)["']?[^"'\n#]*["']?/m
   if (providerRegex.test(content)) {
     content = content.replace(providerRegex, `$1"${provider}"`)
   }
 
-  const modelRegex = /^(\s*#?\s*default:\s*)["']?[^"'\n#]*["']?/m
+  const modelRegex = /^(\s*default:\s*)["']?[^"'\n#]*["']?/m
   if (modelRegex.test(content)) {
     content = content.replace(modelRegex, `$1"${model}"`)
   }
 
-  const baseUrlRegex = /^(\s*#?\s*base_url:\s*)["']?[^"'\n#]*["']?/m
+  const baseUrlRegex = /^(\s*base_url:\s*)["']?[^"'\n#]*["']?/m
   if (baseUrlRegex.test(content)) {
     content = content.replace(baseUrlRegex, `$1"${baseUrl}"`)
   }

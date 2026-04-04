@@ -1,7 +1,7 @@
 import { app, shell, BrowserWindow, ipcMain, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { autoUpdater } from 'electron-updater'
+import type { AppUpdater } from 'electron-updater'
 import icon from '../../resources/icon.png?asset'
 import { checkInstallStatus, runInstall, InstallProgress } from './installer'
 import { sendMessage, startGateway, stopGateway, isGatewayRunning } from './hermes'
@@ -46,6 +46,14 @@ import {
   uninstallSkill
 } from './skills'
 
+process.on('uncaughtException', (err) => {
+  console.error('[MAIN UNCAUGHT]', err)
+})
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[MAIN UNHANDLED REJECTION]', reason)
+})
+
 let mainWindow: BrowserWindow | null = null
 let currentChatAbort: (() => void) | null = null
 
@@ -69,6 +77,20 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow!.show()
+  })
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[CRASH] Renderer process gone:', details.reason, details.exitCode)
+  })
+
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    if (level >= 2) {
+      console.error(`[RENDERER ERROR] ${message} (${sourceId}:${line})`)
+    }
+  })
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+    console.error('[LOAD FAIL]', errorCode, errorDescription)
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -428,6 +450,20 @@ function buildMenu(): void {
 }
 
 function setupUpdater(): void {
+  // IPC handlers must always be registered to avoid invoke errors
+  ipcMain.handle('get-app-version', () => app.getVersion())
+
+  if (!app.isPackaged) {
+    // Skip auto-update in dev mode
+    ipcMain.handle('check-for-updates', async () => null)
+    ipcMain.handle('download-update', () => true)
+    ipcMain.handle('install-update', () => {})
+    return
+  }
+
+  // Dynamic import to avoid electron-updater issues in dev mode
+  const { autoUpdater } = require('electron-updater') as { autoUpdater: AppUpdater }
+
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
 
@@ -452,7 +488,6 @@ function setupUpdater(): void {
     mainWindow?.webContents.send('update-error', err.message)
   })
 
-  // IPC handlers for update actions
   ipcMain.handle('check-for-updates', async () => {
     try {
       const result = await autoUpdater.checkForUpdates()
@@ -471,9 +506,6 @@ function setupUpdater(): void {
     autoUpdater.quitAndInstall(false, true)
   })
 
-  ipcMain.handle('get-app-version', () => app.getVersion())
-
-  // Check for updates after a short delay
   setTimeout(() => {
     autoUpdater.checkForUpdates().catch(() => {})
   }, 5000)

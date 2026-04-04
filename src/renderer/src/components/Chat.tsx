@@ -4,7 +4,7 @@ import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import icon from '../assets/icon.png'
-import { Trash, Send, Stop, Plus, ChevronDown, Copy } from '../assets/icons'
+import { Trash2 as Trash, Send, Square as Stop, Plus, ChevronDown, Copy, Search, Clock, Mail, Code, ChartLine, Bell } from 'lucide-react'
 
 function HermesAvatar({ size = 30 }: { size?: number }): React.JSX.Element {
   return (
@@ -324,7 +324,12 @@ function Chat({
 
     try {
       await window.hermesAPI.sendMessage(text, profile, hermesSessionId || undefined)
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      setMessages((prev) => [
+        ...prev,
+        { id: `error-${Date.now()}`, role: 'agent', content: `Error: ${msg}` }
+      ])
       setIsLoading(false)
     }
   }
@@ -339,7 +344,12 @@ function Chat({
     setMessages((prev) => [...prev, { id: `user-btw-${Date.now()}`, role: 'user', content: `💭 ${text}` }])
     try {
       await window.hermesAPI.sendMessage(`/btw ${text}`, profile, hermesSessionId || undefined)
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
+      setMessages((prev) => [
+        ...prev,
+        { id: `error-${Date.now()}`, role: 'agent', content: `Error: ${msg}` }
+      ])
       setIsLoading(false)
     }
   }
@@ -423,10 +433,20 @@ function Chat({
       <div className="chat-messages">
         {messages.length === 0 ? (
           <div className="chat-empty">
-            <HermesAvatar size={48} />
+            <div className="chat-empty-icon">
+              <img src={icon} width={64} height={64} alt="" />
+            </div>
             <div className="chat-empty-text">How can I help you today?</div>
             <div className="chat-empty-hint">
               Ask me to write code, answer questions, search the web, and more
+            </div>
+            <div className="chat-empty-suggestions">
+              <button className="chat-suggestion" onClick={() => { setInput('Search the web for today\'s top tech news'); inputRef.current?.focus() }}><Search size={16} />Search the web</button>
+              <button className="chat-suggestion" onClick={() => { setInput('Set a reminder to check emails every day at 9 AM'); inputRef.current?.focus() }}><Bell size={16} />Set a reminder</button>
+              <button className="chat-suggestion" onClick={() => { setInput('Read my latest emails and summarize them'); inputRef.current?.focus() }}><Mail size={16} />Summarize emails</button>
+              <button className="chat-suggestion" onClick={() => { setInput('Write a Python script to rename all files in a folder'); inputRef.current?.focus() }}><Code size={16} />Write a script</button>
+              <button className="chat-suggestion" onClick={() => { setInput('Schedule a cron job to back up my database every night'); inputRef.current?.focus() }}><Clock size={16} />Schedule a cron job</button>
+              <button className="chat-suggestion" onClick={() => { setInput('Analyze this CSV file and show key insights'); inputRef.current?.focus() }}><ChartLine size={16} />Analyze data</button>
             </div>
           </div>
         ) : (

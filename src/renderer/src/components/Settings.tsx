@@ -311,7 +311,7 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
                 {entries.map((entry, idx) => (
                   <div key={idx} className="settings-pool-entry">
                     <span className="settings-pool-label">{entry.label || `Key ${idx + 1}`}</span>
-                    <span className="settings-pool-key">{entry.key.slice(0, 8)}...{entry.key.slice(-4)}</span>
+                    <span className="settings-pool-key">{entry.key ? `${entry.key.slice(0, 8)}...${entry.key.slice(-4)}` : '(empty)'}</span>
                     <button className="btn-ghost" style={{ color: 'var(--error)', fontSize: 11 }} onClick={() => handleRemovePoolKey(provider, idx)}>
                       Remove
                     </button>
