@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Refresh, ExternalLink } from '../assets/icons'
+import { Refresh, ExternalLink, Settings } from '../assets/icons'
 
 type OfficeState = 'checking' | 'not-installed' | 'installing' | 'ready' | 'error'
 
@@ -13,12 +13,16 @@ interface SetupProgress {
 
 function Office(): React.JSX.Element {
   const [state, setState] = useState<OfficeState>('checking')
-  const [devRunning, setDevRunning] = useState(false)
-  const [adapterRunning, setAdapterRunning] = useState(false)
+  const [running, setRunning] = useState(false)
+  const [starting, setStarting] = useState(false)
   const [port, setPort] = useState(3000)
   const [portInput, setPortInput] = useState('3000')
   const [portInUse, setPortInUse] = useState(false)
   const [wsUrlInput, setWsUrlInput] = useState('ws://localhost:18789')
+  const [error, setError] = useState('')
+  const [showLogs, setShowLogs] = useState(false)
+  const [logs, setLogs] = useState('')
+  const [showSettings, setShowSettings] = useState(false)
   const [progress, setProgress] = useState<SetupProgress>({
     step: 0,
     totalSteps: 2,
@@ -26,8 +30,8 @@ function Office(): React.JSX.Element {
     detail: '',
     log: ''
   })
-  const [error, setError] = useState('')
   const [webviewReady, setWebviewReady] = useState(false)
+  const [webviewError, setWebviewError] = useState('')
   const logRef = useRef<HTMLDivElement>(null)
   const webviewRef = useRef<HTMLWebViewElement>(null)
 
@@ -40,57 +44,74 @@ function Office(): React.JSX.Element {
     if (state !== 'ready') return
     const interval = setInterval(async () => {
       const status = await window.hermesAPI.claw3dStatus()
-      setDevRunning(status.devServerRunning)
-      setAdapterRunning(status.adapterRunning)
+      setRunning(status.running)
       setPort(status.port)
       setPortInUse(status.portInUse)
-
-    }, 3000)
+      if (status.error && !error) {
+        setError(status.error)
+      }
+      // If was starting and now both are up, clear starting state
+      if (starting && status.running) {
+        setStarting(false)
+      }
+      // If processes died unexpectedly
+      if (!starting && !status.running && running) {
+        setRunning(false)
+        if (status.error) setError(status.error)
+      }
+    }, 2000)
     return () => clearInterval(interval)
-  }, [state])
+  }, [state, starting, running, error])
 
   // Auto-scroll log
   useEffect(() => {
     if (logRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight
     }
-  }, [progress.log])
+  }, [progress.log, logs])
 
-  // Listen for webview load + inject onboarding skip
+  // Webview load/error handling
   useEffect(() => {
     const wv = webviewRef.current as unknown as {
-      addEventListener: (e: string, fn: () => void) => void
-      removeEventListener: (e: string, fn: () => void) => void
+      addEventListener: (e: string, fn: (evt?: unknown) => void) => void
+      removeEventListener: (e: string, fn: (evt?: unknown) => void) => void
       executeJavaScript?: (code: string) => Promise<unknown>
     }
     if (!wv) return
     const onLoad = (): void => {
       setWebviewReady(true)
-      // Skip Claw3D onboarding by setting localStorage flag
+      setWebviewError('')
       if (wv.executeJavaScript) {
         wv.executeJavaScript(
           `try { localStorage.setItem("claw3d:onboarding:completed", "true") } catch(e) {}`
         ).catch(() => {})
       }
     }
-    const onFail = (): void => setWebviewReady(false)
+    const onFail = (evt: unknown): void => {
+      setWebviewReady(false)
+      const e = evt as { errorDescription?: string; errorCode?: number }
+      if (e?.errorCode === -3) return // Aborted — ignore (happens on reload)
+      setWebviewError(
+        e?.errorDescription || 'Failed to load Claw3D. The dev server may still be starting up.'
+      )
+    }
     wv.addEventListener('did-finish-load', onLoad)
     wv.addEventListener('did-fail-load', onFail)
     return () => {
       wv.removeEventListener('did-finish-load', onLoad)
       wv.removeEventListener('did-fail-load', onFail)
     }
-  }, [devRunning, port])
+  }, [running, port])
 
   async function checkStatus(): Promise<void> {
     setState('checking')
     const status = await window.hermesAPI.claw3dStatus()
-    setDevRunning(status.devServerRunning)
-    setAdapterRunning(status.adapterRunning)
+    setRunning(status.running)
     setPort(status.port)
     setPortInput(String(status.port))
     setPortInUse(status.portInUse)
     setWsUrlInput(status.wsUrl || 'ws://localhost:18789')
+    if (status.error) setError(status.error)
     if (status.installed) {
       setState('ready')
     } else {
@@ -122,24 +143,27 @@ function Office(): React.JSX.Element {
     }
   }
 
-  async function toggleDevServer(): Promise<void> {
-    if (devRunning) {
-      await window.hermesAPI.claw3dStopDev()
-      setDevRunning(false)
+  async function handleStartStop(): Promise<void> {
+    if (running) {
+      await window.hermesAPI.claw3dStopAll()
+      setRunning(false)
       setWebviewReady(false)
+      setWebviewError('')
+      setError('')
     } else {
-      const ok = await window.hermesAPI.claw3dStartDev()
-      if (ok) setDevRunning(true)
-    }
-  }
-
-  async function toggleAdapter(): Promise<void> {
-    if (adapterRunning) {
-      await window.hermesAPI.claw3dStopAdapter()
-      setAdapterRunning(false)
-    } else {
-      const ok = await window.hermesAPI.claw3dStartAdapter()
-      if (ok) setAdapterRunning(true)
+      setError('')
+      setWebviewError('')
+      setStarting(true)
+      const result = await window.hermesAPI.claw3dStartAll()
+      if (!result.success) {
+        setError(result.error || 'Failed to start Claw3D')
+        setStarting(false)
+      } else {
+        // Give processes a moment to actually start, polling will confirm
+        setTimeout(() => {
+          setRunning(true)
+        }, 2000)
+      }
     }
   }
 
@@ -148,7 +172,6 @@ function Office(): React.JSX.Element {
     if (isNaN(newPort) || newPort < 1024 || newPort > 65535) return
     await window.hermesAPI.claw3dSetPort(newPort)
     setPort(newPort)
-    // Re-check if new port is in use
     const status = await window.hermesAPI.claw3dStatus()
     setPortInUse(status.portInUse)
   }
@@ -159,7 +182,14 @@ function Office(): React.JSX.Element {
     await window.hermesAPI.claw3dSetWsUrl(trimmed)
   }
 
+  async function loadLogs(): Promise<void> {
+    const l = await window.hermesAPI.claw3dGetLogs()
+    setLogs(l)
+    setShowLogs(true)
+  }
+
   function refreshWebview(): void {
+    setWebviewError('')
     const wv = webviewRef.current as unknown as { reload?: () => void }
     if (wv?.reload) wv.reload()
   }
@@ -226,21 +256,18 @@ function Office(): React.JSX.Element {
         <h1 className="settings-header">Office</h1>
         <div className="office-installing">
           <h2 className="office-install-title">Setting Up Claw3D</h2>
-
           <div className="install-progress-container">
             <div className="install-progress-bar">
               <div className="install-progress-fill" style={{ width: `${percent}%` }} />
             </div>
             <div className="install-percent">{percent}%</div>
           </div>
-
           <div className="install-step-info">
             <div className="install-step-title">
               Step {progress.step}/{progress.totalSteps}: {progress.title}
             </div>
             <div className="install-step-detail">{progress.detail}</div>
           </div>
-
           <div className="install-log" ref={logRef}>
             {progress.log || 'Waiting to start...'}
           </div>
@@ -253,48 +280,22 @@ function Office(): React.JSX.Element {
   return (
     <div className="office-ready">
       <div className="office-toolbar">
-        <h1 className="office-toolbar-title">Office</h1>
-        <div className="office-services">
-          <div className="office-service">
-            <span className={`office-status-dot ${devRunning ? 'running' : 'stopped'}`} />
-            <span className="office-service-label">Dev Server</span>
-            <button className="btn btn-secondary btn-sm" onClick={toggleDevServer}>
-              {devRunning ? 'Stop' : 'Start'}
-            </button>
-          </div>
-          <div className="office-service">
-            <span className={`office-status-dot ${adapterRunning ? 'running' : 'stopped'}`} />
-            <span className="office-service-label">Adapter</span>
-            <button className="btn btn-secondary btn-sm" onClick={toggleAdapter}>
-              {adapterRunning ? 'Stop' : 'Start'}
-            </button>
-          </div>
-          <div className="office-port">
-            <label className="office-port-label">Port</label>
-            <input
-              className="office-port-input"
-              type="number"
-              min={1024}
-              max={65535}
-              value={portInput}
-              onChange={(e) => setPortInput(e.target.value)}
-              onBlur={handlePortSave}
-              onKeyDown={(e) => { if (e.key === 'Enter') handlePortSave() }}
-            />
-          </div>
-          <div className="office-port">
-            <label className="office-port-label">WS</label>
-            <input
-              className="office-ws-input"
-              type="text"
-              value={wsUrlInput}
-              onChange={(e) => setWsUrlInput(e.target.value)}
-              onBlur={handleWsUrlSave}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleWsUrlSave() }}
-              placeholder="ws://localhost:18789"
-            />
-          </div>
-          {devRunning && (
+        <div className="office-toolbar-left">
+          <h1 className="office-toolbar-title">Office</h1>
+          <span className={`office-status-dot ${running ? 'running' : 'stopped'}`} />
+          <span className="office-status-label">
+            {starting ? 'Starting...' : running ? 'Running' : 'Stopped'}
+          </span>
+        </div>
+        <div className="office-toolbar-right">
+          <button
+            className={`btn btn-sm ${running ? 'btn-secondary' : 'btn-primary'}`}
+            onClick={handleStartStop}
+            disabled={starting || (portInUse && !running)}
+          >
+            {starting ? 'Starting...' : running ? 'Stop' : 'Start'}
+          </button>
+          {running && (
             <>
               <button className="btn-ghost office-toolbar-btn" onClick={refreshWebview} title="Refresh">
                 <Refresh size={16} />
@@ -308,22 +309,103 @@ function Office(): React.JSX.Element {
               </button>
             </>
           )}
+          <button
+            className="btn-ghost office-toolbar-btn"
+            onClick={() => setShowSettings(!showSettings)}
+            title="Settings"
+          >
+            <Settings size={16} />
+          </button>
         </div>
       </div>
 
-      {portInUse && !devRunning && (
-        <div className="office-port-warning">
-          Port {port} is already in use by another application. Change the port or stop the other process before starting.
+      {showSettings && (
+        <div className="office-settings-bar">
+          <div className="office-setting">
+            <label className="office-setting-label">Port</label>
+            <input
+              className="office-port-input"
+              type="number"
+              min={1024}
+              max={65535}
+              value={portInput}
+              onChange={(e) => setPortInput(e.target.value)}
+              onBlur={handlePortSave}
+              onKeyDown={(e) => { if (e.key === 'Enter') handlePortSave() }}
+            />
+          </div>
+          <div className="office-setting">
+            <label className="office-setting-label">WebSocket URL</label>
+            <input
+              className="office-ws-input"
+              type="text"
+              value={wsUrlInput}
+              onChange={(e) => setWsUrlInput(e.target.value)}
+              onBlur={handleWsUrlSave}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleWsUrlSave() }}
+              placeholder="ws://localhost:18789"
+            />
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={loadLogs}>
+            View Logs
+          </button>
+        </div>
+      )}
+
+      {portInUse && !running && (
+        <div className="office-warning-bar">
+          Port {port} is already in use. Change the port in settings or stop the other process.
+        </div>
+      )}
+
+      {error && (
+        <div className="office-error-bar">
+          <div className="office-error-text">{error}</div>
+          <div className="office-error-actions">
+            <button className="btn btn-secondary btn-sm" onClick={loadLogs}>View Logs</button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setError('')}>Dismiss</button>
+          </div>
+        </div>
+      )}
+
+      {showLogs && (
+        <div className="office-logs-panel">
+          <div className="office-logs-header">
+            <span>Process Logs</span>
+            <button className="btn-ghost" onClick={() => setShowLogs(false)}>Close</button>
+          </div>
+          <div className="office-logs-content" ref={logRef}>
+            {logs || 'No logs yet. Start the services to see output.'}
+          </div>
         </div>
       )}
 
       <div className="office-content">
-        {devRunning ? (
+        {running && !showLogs ? (
           <>
-            {!webviewReady && (
+            {(!webviewReady || webviewError) && (
               <div className="office-loading-overlay">
-                <div className="office-spinner" />
-                <p className="office-muted">Loading Claw3D...</p>
+                {webviewError ? (
+                  <div className="office-webview-error">
+                    <p className="office-webview-error-title">Could not load Claw3D</p>
+                    <p className="office-muted">{webviewError}</p>
+                    <div className="office-webview-error-actions">
+                      <button className="btn btn-primary btn-sm" onClick={refreshWebview}>
+                        Retry
+                      </button>
+                      <button className="btn btn-secondary btn-sm" onClick={loadLogs}>
+                        View Logs
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="office-spinner" />
+                    <p className="office-muted">
+                      {starting ? 'Starting Claw3D services...' : 'Loading Claw3D...'}
+                    </p>
+                  </>
+                )}
               </div>
             )}
             <webview
@@ -332,18 +414,15 @@ function Office(): React.JSX.Element {
               style={{ width: '100%', height: '100%', border: 'none' }}
             />
           </>
-        ) : (
+        ) : !showLogs ? (
           <div className="office-center">
-            <p className="office-muted">Start the Dev Server to view Claw3D</p>
-            <button
-              className="btn btn-primary"
-              onClick={toggleDevServer}
-              disabled={portInUse}
-            >
-              Start Dev Server
-            </button>
+            <p className="office-muted">
+              {portInUse && !running
+                ? `Port ${port} is in use. Change it in settings to start.`
+                : 'Click Start to launch Claw3D'}
+            </p>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   )

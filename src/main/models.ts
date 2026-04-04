@@ -2,6 +2,7 @@ import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { HERMES_HOME } from './installer'
+import DEFAULT_MODELS from './default-models'
 
 const MODELS_FILE = join(HERMES_HOME, 'models.json')
 
@@ -27,7 +28,23 @@ function writeModels(models: SavedModel[]): void {
   writeFileSync(MODELS_FILE, JSON.stringify(models, null, 2), 'utf-8')
 }
 
+function seedDefaults(): SavedModel[] {
+  const models: SavedModel[] = DEFAULT_MODELS.map((m) => ({
+    id: randomUUID(),
+    name: m.name,
+    provider: m.provider,
+    model: m.model,
+    baseUrl: m.baseUrl,
+    createdAt: Date.now()
+  }))
+  writeModels(models)
+  return models
+}
+
 export function listModels(): SavedModel[] {
+  if (!existsSync(MODELS_FILE)) {
+    return seedDefaults()
+  }
   return readModels()
 }
 

@@ -4,7 +4,7 @@
   "description": "Hermes Agent Desktop — self-improving AI assistant",
   "main": "./out/main/index.js",
   "author": "fathah",
-  "homepage": "https://github.com/NousResearch/hermes-agent",
+  "homepage": "https://github.com/fathah/hermes-desktop",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

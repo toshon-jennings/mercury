@@ -26,7 +26,8 @@ import {
   Wrench,
   Signal,
   Building,
-  Layers
+  Layers,
+  Download
 } from '../assets/icons'
 
 type View = 'chat' | 'sessions' | 'agents' | 'office' | 'models' | 'skills' | 'soul' | 'memory' | 'tools' | 'gateway' | 'settings'
@@ -38,6 +39,38 @@ function Layout(): React.JSX.Element {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [activeProfile, setActiveProfile] = useState('default')
+
+  // Auto-update state
+  const [updateVersion, setUpdateVersion] = useState<string | null>(null)
+  const [updateState, setUpdateState] = useState<'available' | 'downloading' | 'ready' | null>(null)
+  const [downloadPercent, setDownloadPercent] = useState(0)
+
+  useEffect(() => {
+    const cleanupAvailable = window.hermesAPI.onUpdateAvailable((info) => {
+      setUpdateVersion(info.version)
+      setUpdateState('available')
+    })
+    const cleanupProgress = window.hermesAPI.onUpdateDownloadProgress((info) => {
+      setDownloadPercent(info.percent)
+    })
+    const cleanupDownloaded = window.hermesAPI.onUpdateDownloaded(() => {
+      setUpdateState('ready')
+    })
+    return () => {
+      cleanupAvailable()
+      cleanupProgress()
+      cleanupDownloaded()
+    }
+  }, [])
+
+  async function handleUpdate(): Promise<void> {
+    if (updateState === 'available') {
+      setUpdateState('downloading')
+      await window.hermesAPI.downloadUpdate()
+    } else if (updateState === 'ready') {
+      await window.hermesAPI.installUpdate()
+    }
+  }
 
   const handleNewChat = useCallback(() => {
     // Abort any in-flight chat before clearing
@@ -190,6 +223,14 @@ function Layout(): React.JSX.Element {
               <Moon size={14} />
             </button>
           </div>
+          {updateState && (
+            <button className="sidebar-update-btn" onClick={handleUpdate}>
+              <Download size={13} />
+              {updateState === 'available' && <span>Update v{updateVersion}</span>}
+              {updateState === 'downloading' && <span>Downloading {downloadPercent}%</span>}
+              {updateState === 'ready' && <span>Restart to update</span>}
+            </button>
+          )}
           <div className="sidebar-footer-text">{activeProfile === 'default' ? 'Hermes Agent' : activeProfile}</div>
         </div>
       </aside>

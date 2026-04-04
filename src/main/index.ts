@@ -1,6 +1,7 @@
 import { app, shell, BrowserWindow, ipcMain, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { autoUpdater } from 'electron-updater'
 import icon from '../../resources/icon.png?asset'
 import { checkInstallStatus, runInstall, InstallProgress } from './installer'
 import { sendMessage, startGateway, stopGateway, isGatewayRunning } from './hermes'
@@ -11,7 +12,9 @@ import {
   stopDevServer,
   startAdapter,
   stopAdapter,
+  startAll as startClaw3dAll,
   stopAll as stopClaw3d,
+  getClaw3dLogs,
   setClaw3dPort,
   getClaw3dPort,
   setClaw3dWsUrl,
@@ -125,36 +128,40 @@ function setupIPC(): void {
   )
 
   // Chat
-  ipcMain.handle('send-message', (event, message: string, profile?: string) => {
-    return new Promise<string>((resolve, reject) => {
-      if (currentChatAbort) {
-        currentChatAbort()
-      }
+  ipcMain.handle(
+    'send-message',
+    (event, message: string, profile?: string, resumeSessionId?: string) => {
+      return new Promise<{ response: string; sessionId?: string }>((resolve, reject) => {
+        if (currentChatAbort) {
+          currentChatAbort()
+        }
 
-      let fullResponse = ''
+        let fullResponse = ''
 
-      const handle = sendMessage(
-        message,
-        (chunk) => {
-          fullResponse += chunk
-          event.sender.send('chat-chunk', chunk)
-        },
-        () => {
-          currentChatAbort = null
-          event.sender.send('chat-done')
-          resolve(fullResponse)
-        },
-        (error) => {
-          currentChatAbort = null
-          event.sender.send('chat-error', error)
-          reject(new Error(error))
-        },
-        profile
-      )
+        const handle = sendMessage(
+          message,
+          (chunk) => {
+            fullResponse += chunk
+            event.sender.send('chat-chunk', chunk)
+          },
+          (sessionId) => {
+            currentChatAbort = null
+            event.sender.send('chat-done', sessionId || '')
+            resolve({ response: fullResponse, sessionId })
+          },
+          (error) => {
+            currentChatAbort = null
+            event.sender.send('chat-error', error)
+            reject(new Error(error))
+          },
+          profile,
+          resumeSessionId
+        )
 
-      currentChatAbort = handle.abort
-    })
-  })
+        currentChatAbort = handle.abort
+      })
+    }
+  )
 
   ipcMain.handle('abort-chat', () => {
     if (currentChatAbort) {
@@ -262,6 +269,13 @@ function setupIPC(): void {
     setClaw3dWsUrl(url)
     return true
   })
+
+  ipcMain.handle('claw3d-start-all', () => startClaw3dAll())
+  ipcMain.handle('claw3d-stop-all', () => {
+    stopClaw3d()
+    return true
+  })
+  ipcMain.handle('claw3d-get-logs', () => getClaw3dLogs())
 
   ipcMain.handle('claw3d-start-dev', () => startDevServer())
   ipcMain.handle('claw3d-stop-dev', () => {
@@ -384,6 +398,58 @@ function buildMenu(): void {
   Menu.setApplicationMenu(menu)
 }
 
+function setupUpdater(): void {
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = true
+
+  autoUpdater.on('update-available', (info) => {
+    mainWindow?.webContents.send('update-available', {
+      version: info.version,
+      releaseNotes: info.releaseNotes
+    })
+  })
+
+  autoUpdater.on('download-progress', (progress) => {
+    mainWindow?.webContents.send('update-download-progress', {
+      percent: Math.round(progress.percent)
+    })
+  })
+
+  autoUpdater.on('update-downloaded', () => {
+    mainWindow?.webContents.send('update-downloaded')
+  })
+
+  autoUpdater.on('error', (err) => {
+    mainWindow?.webContents.send('update-error', err.message)
+  })
+
+  // IPC handlers for update actions
+  ipcMain.handle('check-for-updates', async () => {
+    try {
+      const result = await autoUpdater.checkForUpdates()
+      return result?.updateInfo?.version || null
+    } catch {
+      return null
+    }
+  })
+
+  ipcMain.handle('download-update', () => {
+    autoUpdater.downloadUpdate()
+    return true
+  })
+
+  ipcMain.handle('install-update', () => {
+    autoUpdater.quitAndInstall(false, true)
+  })
+
+  ipcMain.handle('get-app-version', () => app.getVersion())
+
+  // Check for updates after a short delay
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch(() => {})
+  }, 5000)
+}
+
 app.whenReady().then(() => {
   app.name = 'Hermes'
   electronApp.setAppUserModelId('com.nousresearch.hermes')
@@ -395,6 +461,7 @@ app.whenReady().then(() => {
   buildMenu()
   setupIPC()
   createWindow()
+  setupUpdater()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

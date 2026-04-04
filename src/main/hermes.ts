@@ -15,41 +15,22 @@ function stripAnsi(str: string): string {
 
 interface ChatHandle {
   abort: () => void
+  sessionId?: string
 }
 
-// Filter out CLI chrome — box drawing, banner, session metadata
-function isNoiseLine(line: string): boolean {
-  const t = line.trim()
-  if (!t) return true
-  // Box drawing and rules
-  if (/^[╭╰│╮╯─┌┐└┘┤├┬┴┼]/.test(t)) return true
-  if (/[╭╰╮╯]/.test(t) && /[─]/.test(t)) return true
-  // Braille art (logo)
-  if (/^[⠀-⣿]{2,}/.test(t)) return true
-  // Banner content
-  if (/Hermes Agent v\d/.test(t)) return true
-  if (/Available Tools|Available Skills/.test(t)) return true
-  if (/^\d+ tools · \d+ skills/.test(t)) return true
-  if (/nousresearch\.com/i.test(t)) return true
-  // Tool/skill listings
-  if (/^(browser|clarify|code_execution|cronjob|delegation|file|homeassistant|honcho|memory|notification|personality|search|session|skills|terminal|tts|web|apple|autonomous|creative|data|devops|email|gaming|general|github|inference|leisure|mcp|media|mlops|note|productivity|red|research|smart|social|software):/.test(t)) return true
-  if (/^\(and \d+ more/.test(t)) return true
-  // Session metadata
-  if (/^Session:|^session_id:|^Resume this session|^hermes --resume|^Duration:|^Messages:/.test(t)) return true
-  // Status lines and warnings
-  if (/^Query:|^Initializing agent/.test(t)) return true
-  if (/^Warning: Unknown toolsets?:/.test(t)) return true
-  // Hermes response box header/footer
-  if (/⚕\s*Hermes/.test(t)) return true
-  return false
-}
+// Patterns to filter from Hermes CLI output (box drawing chrome)
+const NOISE_PATTERNS = [
+  /^[╭╰│╮╯─┌┐└┘┤├┬┴┼]/,
+  /⚕\s*Hermes/
+]
 
 export function sendMessage(
   message: string,
   onChunk: (text: string) => void,
-  onDone: () => void,
+  onDone: (sessionId?: string) => void,
   onError: (error: string) => void,
-  profile?: string
+  profile?: string,
+  resumeSessionId?: string
 ): ChatHandle {
   // Read config from the correct profile
   const mc = getModelConfig(profile)
@@ -59,7 +40,12 @@ export function sendMessage(
   if (profile && profile !== 'default') {
     args.push('-p', profile)
   }
-  args.push('chat', '-q', message, '--source', 'desktop')
+  args.push('chat', '-q', message, '-Q', '--source', 'desktop')
+
+  // Resume previous session for conversation continuity
+  if (resumeSessionId) {
+    args.push('--resume', resumeSessionId)
+  }
 
   if (mc.model) {
     args.push('-m', mc.model)
@@ -103,29 +89,36 @@ export function sendMessage(
   })
 
   let hasOutput = false
+  let capturedSessionId = ''
+
+  let outputBuffer = ''
 
   function processOutput(raw: Buffer): void {
     const text = stripAnsi(raw.toString())
+    outputBuffer += text
 
-    // Process line by line for filtering, but preserve partial lines for streaming
-    const lines = text.split('\n')
-    const clean: string[] = []
-
-    for (const line of lines) {
-      // Always forward errors
-      if (/❌|⚠️/.test(line)) {
-        clean.push(line)
-        continue
-      }
-      if (!isNoiseLine(line)) {
-        clean.push(line)
-      }
+    // Check for session_id in the accumulated buffer (appears at the end)
+    const sidMatch = outputBuffer.match(/session_id:\s*(\S+)/)
+    if (sidMatch) {
+      capturedSessionId = sidMatch[1]
     }
 
-    const result = clean.join('\n')
-    if (result.trim()) {
+    // Strip session_id line from the chunk before forwarding
+    const cleaned = text.replace(/session_id:\s*\S+\n?/g, '')
+
+    // With -Q mode, minimal filtering — only strip box drawing chrome
+    const lines = cleaned.split('\n')
+    const result: string[] = []
+    for (const line of lines) {
+      const t = line.trim()
+      if (t && NOISE_PATTERNS.some((p) => p.test(t))) continue
+      result.push(line)
+    }
+
+    const output = result.join('\n')
+    if (output) {
       hasOutput = true
-      onChunk(result)
+      onChunk(output)
     }
   }
 
@@ -143,7 +136,7 @@ export function sendMessage(
 
   proc.on('close', (code) => {
     if (code === 0 || hasOutput) {
-      onDone()
+      onDone(capturedSessionId || undefined)
     } else {
       onError(`Hermes exited with code ${code}`)
     }

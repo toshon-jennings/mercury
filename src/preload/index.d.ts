@@ -31,10 +31,14 @@ interface HermesAPI {
   setModelConfig: (provider: string, model: string, baseUrl: string, profile?: string) => Promise<boolean>
 
   // Chat
-  sendMessage: (message: string, profile?: string) => Promise<string>
+  sendMessage: (
+    message: string,
+    profile?: string,
+    resumeSessionId?: string
+  ) => Promise<{ response: string; sessionId?: string }>
   abortChat: () => Promise<void>
   onChatChunk: (callback: (chunk: string) => void) => () => void
-  onChatDone: (callback: () => void) => () => void
+  onChatDone: (callback: (sessionId?: string) => void) => () => void
   onChatError: (callback: (error: string) => void) => () => void
 
   // Gateway
@@ -145,6 +149,8 @@ interface HermesAPI {
     port: number
     portInUse: boolean
     wsUrl: string
+    running: boolean
+    error: string
   }>
   claw3dSetup: () => Promise<{ success: boolean; error?: string }>
   onClaw3dSetupProgress: (
@@ -160,10 +166,22 @@ interface HermesAPI {
   claw3dSetPort: (port: number) => Promise<boolean>
   claw3dGetWsUrl: () => Promise<string>
   claw3dSetWsUrl: (url: string) => Promise<boolean>
+  claw3dStartAll: () => Promise<{ success: boolean; error?: string }>
+  claw3dStopAll: () => Promise<boolean>
+  claw3dGetLogs: () => Promise<string>
   claw3dStartDev: () => Promise<boolean>
   claw3dStopDev: () => Promise<boolean>
   claw3dStartAdapter: () => Promise<boolean>
   claw3dStopAdapter: () => Promise<boolean>
+
+  // Updates
+  checkForUpdates: () => Promise<string | null>
+  downloadUpdate: () => Promise<boolean>
+  installUpdate: () => Promise<void>
+  getAppVersion: () => Promise<string>
+  onUpdateAvailable: (callback: (info: { version: string; releaseNotes: string }) => void) => () => void
+  onUpdateDownloadProgress: (callback: (info: { percent: number }) => void) => () => void
+  onUpdateDownloaded: (callback: () => void) => () => void
 
   // Shell
   openExternal: (url: string) => Promise<void>

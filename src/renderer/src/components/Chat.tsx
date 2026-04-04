@@ -75,6 +75,7 @@ function Chat({
 }: ChatProps): React.JSX.Element {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [hermesSessionId, setHermesSessionId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const isLoadingRef = useRef(false)
@@ -94,6 +95,13 @@ function Chat({
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [])
+
+  // Reset hermes session when messages are cleared (new chat)
+  useEffect(() => {
+    if (messages.length === 0) {
+      setHermesSessionId(null)
+    }
+  }, [messages])
 
   // Load model config and build available models list
   useEffect(() => {
@@ -167,7 +175,8 @@ function Chat({
       })
     })
 
-    const cleanupDone = window.hermesAPI.onChatDone(() => {
+    const cleanupDone = window.hermesAPI.onChatDone((sessionId) => {
+      if (sessionId) setHermesSessionId(sessionId)
       setIsLoading(false)
     })
 
@@ -223,7 +232,7 @@ function Chat({
     onSessionStarted?.()
 
     try {
-      await window.hermesAPI.sendMessage(text, profile)
+      await window.hermesAPI.sendMessage(text, profile, hermesSessionId || undefined)
     } catch {
       setIsLoading(false)
     }
@@ -257,6 +266,7 @@ function Chat({
       setIsLoading(false)
     }
     setMessages([])
+    setHermesSessionId(null)
   }
 
   const displayModel = currentModel
@@ -372,7 +382,10 @@ function Chat({
         <div className="chat-model-bar" ref={pickerRef}>
           <button
             className="chat-model-trigger"
-            onClick={() => setShowModelPicker(!showModelPicker)}
+            onClick={() => {
+              if (!showModelPicker) loadModelConfig()
+              setShowModelPicker(!showModelPicker)
+            }}
           >
             <span className="chat-model-name">{displayModel}</span>
             <ChevronDown size={12} />

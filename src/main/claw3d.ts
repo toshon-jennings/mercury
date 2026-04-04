@@ -17,6 +17,10 @@ const CLAW3D_SETTINGS_DIR = join(homedir(), '.openclaw', 'claw3d')
 
 let devServerProcess: ChildProcess | null = null
 let adapterProcess: ChildProcess | null = null
+let devServerLogs = ''
+let adapterLogs = ''
+let devServerError = ''
+let adapterError = ''
 
 function getSavedPort(): number {
   try {
@@ -135,9 +139,11 @@ export interface Claw3dStatus {
   installed: boolean
   devServerRunning: boolean
   adapterRunning: boolean
+  running: boolean // true when both dev + adapter are up
   port: number
   portInUse: boolean
   wsUrl: string
+  error: string // last error from either process
 }
 
 export interface Claw3dSetupProgress {
@@ -201,14 +207,18 @@ export async function getClaw3dStatus(): Promise<Claw3dStatus> {
   const devRunning = isDevServerRunning()
   // Only check port conflict when dev server is NOT running
   const portInUse = devRunning ? false : await checkPort(port)
+  const adapterUp = isAdapterRunning()
+  const error = devServerError || adapterError
   return {
     cloned,
     installed,
     devServerRunning: devRunning,
-    adapterRunning: isAdapterRunning(),
+    adapterRunning: adapterUp,
+    running: devRunning && adapterUp,
     port,
     portInUse,
-    wsUrl: getSavedWsUrl()
+    wsUrl: getSavedWsUrl(),
+    error
   }
 }
 
@@ -385,6 +395,8 @@ export function startDevServer(): boolean {
   if (isDevServerRunning()) return true
   if (!existsSync(join(CLAW3D_DIR, 'node_modules'))) return false
 
+  devServerError = ''
+  devServerLogs = ''
   const port = getSavedPort()
   const npm = findNpm()
   const proc = spawn(npm, ['run', 'dev'], {
@@ -403,12 +415,30 @@ export function startDevServer(): boolean {
   devServerProcess = proc
   if (proc.pid) writePid(DEV_PID_FILE, proc.pid)
 
-  proc.on('close', () => {
+  proc.stdout?.on('data', (data: Buffer) => {
+    devServerLogs += stripAnsi(data.toString())
+    // Keep only last 2000 chars
+    if (devServerLogs.length > 2000) devServerLogs = devServerLogs.slice(-2000)
+  })
+
+  proc.stderr?.on('data', (data: Buffer) => {
+    const text = stripAnsi(data.toString())
+    devServerLogs += text
+    if (devServerLogs.length > 2000) devServerLogs = devServerLogs.slice(-2000)
+    // Capture real errors (not warnings)
+    if (/error|EADDRINUSE|ENOENT|failed|fatal/i.test(text) && !/warning/i.test(text)) {
+      devServerError = text.trim().slice(0, 300)
+    }
+  })
+
+  proc.on('close', (code) => {
+    if (code && code !== 0 && !devServerError) {
+      devServerError = `Dev server exited with code ${code}. Check if port ${port} is available.`
+    }
     devServerProcess = null
     cleanupPid(DEV_PID_FILE)
   })
 
-  // Don't keep parent alive just for this
   proc.unref()
   return true
 }
@@ -438,6 +468,8 @@ export function startAdapter(): boolean {
   if (isAdapterRunning()) return true
   if (!existsSync(join(CLAW3D_DIR, 'node_modules'))) return false
 
+  adapterError = ''
+  adapterLogs = ''
   const npm = findNpm()
   const proc = spawn(npm, ['run', 'hermes-adapter'], {
     cwd: CLAW3D_DIR,
@@ -454,7 +486,24 @@ export function startAdapter(): boolean {
   adapterProcess = proc
   if (proc.pid) writePid(ADAPTER_PID_FILE, proc.pid)
 
-  proc.on('close', () => {
+  proc.stdout?.on('data', (data: Buffer) => {
+    adapterLogs += stripAnsi(data.toString())
+    if (adapterLogs.length > 2000) adapterLogs = adapterLogs.slice(-2000)
+  })
+
+  proc.stderr?.on('data', (data: Buffer) => {
+    const text = stripAnsi(data.toString())
+    adapterLogs += text
+    if (adapterLogs.length > 2000) adapterLogs = adapterLogs.slice(-2000)
+    if (/error|EADDRINUSE|ENOENT|failed|fatal/i.test(text) && !/warning/i.test(text)) {
+      adapterError = text.trim().slice(0, 300)
+    }
+  })
+
+  proc.on('close', (code) => {
+    if (code && code !== 0 && !adapterError) {
+      adapterError = `Hermes adapter exited with code ${code}`
+    }
     adapterProcess = null
     cleanupPid(ADAPTER_PID_FILE)
   })
@@ -484,7 +533,40 @@ export function stopAdapter(): void {
   cleanupPid(ADAPTER_PID_FILE)
 }
 
+export function startAll(): { success: boolean; error?: string } {
+  if (!existsSync(join(CLAW3D_DIR, 'node_modules'))) {
+    return { success: false, error: 'Claw3D is not installed. Please install it first.' }
+  }
+
+  const port = getSavedPort()
+
+  // Start dev server
+  const devOk = startDevServer()
+  if (!devOk) {
+    return { success: false, error: `Failed to start dev server on port ${port}` }
+  }
+
+  // Start adapter
+  const adapterOk = startAdapter()
+  if (!adapterOk) {
+    return { success: false, error: 'Failed to start Hermes adapter' }
+  }
+
+  return { success: true }
+}
+
 export function stopAll(): void {
   stopDevServer()
   stopAdapter()
+  devServerError = ''
+  adapterError = ''
+}
+
+export function getClaw3dLogs(): string {
+  return [
+    devServerLogs ? `=== Dev Server ===\n${devServerLogs}` : '',
+    adapterLogs ? `=== Adapter ===\n${adapterLogs}` : ''
+  ]
+    .filter(Boolean)
+    .join('\n\n')
 }
