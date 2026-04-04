@@ -77,6 +77,21 @@ const hermesAPI = {
     return () => ipcRenderer.removeListener('chat-done', handler)
   },
 
+  onChatToolProgress: (callback: (tool: string) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, tool: string): void => callback(tool)
+    ipcRenderer.on('chat-tool-progress', handler)
+    return () => ipcRenderer.removeListener('chat-tool-progress', handler)
+  },
+
+  onChatUsage: (
+    callback: (usage: { promptTokens: number; completionTokens: number; totalTokens: number }) => void
+  ): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, usage: unknown): void =>
+      callback(usage as { promptTokens: number; completionTokens: number; totalTokens: number })
+    ipcRenderer.on('chat-usage', handler)
+    return () => ipcRenderer.removeListener('chat-usage', handler)
+  },
+
   onChatError: (callback: (error: string) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, error: string): void => callback(error)
     ipcRenderer.on('chat-error', handler)
@@ -178,6 +193,12 @@ const hermesAPI = {
       snippet: string
     }>
   > => ipcRenderer.invoke('search-sessions', query, limit),
+
+  // Credential Pool
+  getCredentialPool: (): Promise<Record<string, Array<{ key: string; label: string }>>> =>
+    ipcRenderer.invoke('get-credential-pool'),
+  setCredentialPool: (provider: string, entries: Array<{ key: string; label: string }>): Promise<boolean> =>
+    ipcRenderer.invoke('set-credential-pool', provider, entries),
 
   // Models
   listModels: (): Promise<

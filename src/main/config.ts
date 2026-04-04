@@ -154,3 +154,41 @@ export function setModelConfig(provider: string, model: string, baseUrl: string,
 export function getHermesHome(profile?: string): string {
   return profilePaths(profile).home
 }
+
+// ── Credential Pool (auth.json) ──────────────────────────
+
+const AUTH_FILE = join(HERMES_HOME, 'auth.json')
+
+interface CredentialEntry {
+  key: string
+  label: string
+}
+
+function readAuthStore(): Record<string, unknown> {
+  try {
+    if (!existsSync(AUTH_FILE)) return {}
+    return JSON.parse(readFileSync(AUTH_FILE, 'utf-8'))
+  } catch {
+    return {}
+  }
+}
+
+function writeAuthStore(store: Record<string, unknown>): void {
+  writeFileSync(AUTH_FILE, JSON.stringify(store, null, 2), 'utf-8')
+}
+
+export function getCredentialPool(): Record<string, CredentialEntry[]> {
+  const store = readAuthStore()
+  const pool = store.credential_pool
+  if (!pool || typeof pool !== 'object') return {}
+  return pool as Record<string, CredentialEntry[]>
+}
+
+export function setCredentialPool(provider: string, entries: CredentialEntry[]): void {
+  const store = readAuthStore()
+  if (!store.credential_pool || typeof store.credential_pool !== 'object') {
+    store.credential_pool = {}
+  }
+  ;(store.credential_pool as Record<string, CredentialEntry[]>)[provider] = entries
+  writeAuthStore(store)
+}

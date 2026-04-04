@@ -14,12 +14,29 @@ function HermesAvatar({ size = 30 }: { size?: number }): React.JSX.Element {
   )
 }
 
+// Diff viewer with colored +/- lines
+function DiffView({ code }: { code: string }): React.JSX.Element {
+  const lines = code.split('\n')
+  return (
+    <div className="chat-diff-content">
+      {lines.map((line, i) => {
+        let cls = 'chat-diff-line'
+        if (line.startsWith('+')) cls += ' chat-diff-add'
+        else if (line.startsWith('-')) cls += ' chat-diff-remove'
+        else if (line.startsWith('@@')) cls += ' chat-diff-hunk'
+        return <div key={i} className={cls}>{line || '\u00A0'}</div>
+      })}
+    </div>
+  )
+}
+
 // Code block with syntax highlighting and copy button
 function CodeBlock({ className, children }: { className?: string; children?: React.ReactNode }): React.JSX.Element {
   const [copied, setCopied] = useState(false)
   const code = String(children).replace(/\n$/, '')
   const match = /language-(\w+)/.exec(className || '')
   const language = match ? match[1] : ''
+  const isDiff = language === 'diff'
 
   function handleCopy(): void {
     navigator.clipboard.writeText(code)
@@ -30,24 +47,28 @@ function CodeBlock({ className, children }: { className?: string; children?: Rea
   return (
     <div className="chat-code-block">
       <div className="chat-code-header">
-        <span className="chat-code-lang">{language || 'code'}</span>
+        <span className="chat-code-lang">{isDiff ? 'diff' : language || 'code'}</span>
         <button className="chat-code-copy" onClick={handleCopy}>
           {copied ? 'Copied!' : <Copy size={13} />}
         </button>
       </div>
-      <SyntaxHighlighter
-        style={oneDark}
-        language={language || 'text'}
-        PreTag="div"
-        customStyle={{
-          margin: 0,
-          borderRadius: '0 0 6px 6px',
-          fontSize: '13px',
-          padding: '12px'
-        }}
-      >
-        {code}
-      </SyntaxHighlighter>
+      {isDiff ? (
+        <DiffView code={code} />
+      ) : (
+        <SyntaxHighlighter
+          style={oneDark}
+          language={language || 'text'}
+          PreTag="div"
+          customStyle={{
+            margin: 0,
+            borderRadius: '0 0 6px 6px',
+            fontSize: '13px',
+            padding: '12px'
+          }}
+        >
+          {code}
+        </SyntaxHighlighter>
+      )}
     </div>
   )
 }
@@ -125,6 +146,8 @@ function Chat({
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [hermesSessionId, setHermesSessionId] = useState<string | null>(null)
+  const [toolProgress, setToolProgress] = useState<string | null>(null)
+  const [usage, setUsage] = useState<{ promptTokens: number; completionTokens: number; totalTokens: number } | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const isLoadingRef = useRef(false)
@@ -217,15 +240,19 @@ function Chat({
     const cleanupChunk = window.hermesAPI.onChatChunk((chunk) => {
       setMessages((prev) => {
         const last = prev[prev.length - 1]
+        // Append to existing agent message
         if (last && last.role === 'agent') {
           return [...prev.slice(0, -1), { ...last, content: last.content + chunk }]
         }
+        // Only create a new message if chunk has visible content
+        if (!chunk || !chunk.trim()) return prev
         return [...prev, { id: `agent-${Date.now()}`, role: 'agent', content: chunk }]
       })
     })
 
     const cleanupDone = window.hermesAPI.onChatDone((sessionId) => {
       if (sessionId) setHermesSessionId(sessionId)
+      setToolProgress(null)
       setIsLoading(false)
     })
 
@@ -234,13 +261,28 @@ function Chat({
         ...prev,
         { id: `error-${Date.now()}`, role: 'agent', content: `Error: ${error}` }
       ])
+      setToolProgress(null)
       setIsLoading(false)
+    })
+
+    const cleanupToolProgress = window.hermesAPI.onChatToolProgress((tool) => {
+      setToolProgress(tool)
+    })
+
+    const cleanupUsage = window.hermesAPI.onChatUsage((u) => {
+      setUsage((prev) => ({
+        promptTokens: (prev?.promptTokens || 0) + u.promptTokens,
+        completionTokens: (prev?.completionTokens || 0) + u.completionTokens,
+        totalTokens: (prev?.totalTokens || 0) + u.totalTokens
+      }))
     })
 
     return () => {
       cleanupChunk()
       cleanupDone()
       cleanupError()
+      cleanupToolProgress()
+      cleanupUsage()
     }
   }, [setMessages])
 
@@ -287,6 +329,21 @@ function Chat({
     }
   }
 
+  async function handleQuickAsk(): Promise<void> {
+    const text = input.trim()
+    if (!text || isLoading) return
+    // /btw sends an ephemeral side question that doesn't pollute conversation context
+    setInput('')
+    if (inputRef.current) inputRef.current.style.height = 'auto'
+    setIsLoading(true)
+    setMessages((prev) => [...prev, { id: `user-btw-${Date.now()}`, role: 'user', content: `💭 ${text}` }])
+    try {
+      await window.hermesAPI.sendMessage(`/btw ${text}`, profile, hermesSessionId || undefined)
+    } catch {
+      setIsLoading(false)
+    }
+  }
+
   function handleKeyDown(e: React.KeyboardEvent): void {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -316,6 +373,8 @@ function Chat({
     }
     setMessages([])
     setHermesSessionId(null)
+    setUsage(null)
+    setToolProgress(null)
   }
 
   const displayModel = currentModel
@@ -329,8 +388,15 @@ function Chat({
   return (
     <div className="chat-container">
       <div className="chat-header">
-        <div className="chat-header-title">
-          {sessionId ? `Session ${sessionId.slice(-6)}` : 'New Chat'}
+        <div className="chat-header-left">
+          <div className="chat-header-title">
+            {sessionId ? `Session ${sessionId.slice(-6)}` : 'New Chat'}
+          </div>
+          {usage && (
+            <span className="chat-token-counter" title={`Prompt: ${usage.promptTokens} | Completion: ${usage.completionTokens}`}>
+              {usage.totalTokens.toLocaleString()} tokens
+            </span>
+          )}
         </div>
         <div className="chat-header-actions">
           {onNewChat && (
@@ -364,7 +430,7 @@ function Chat({
             </div>
           </div>
         ) : (
-          messages.map((msg) => (
+          messages.filter((m) => m.content.trim()).map((msg) => (
             <div key={msg.id} className={`chat-message chat-message-${msg.role}`}>
               {msg.role === 'user' ? (
                 <div className="chat-avatar chat-avatar-user">U</div>
@@ -379,6 +445,35 @@ function Chat({
                   msg.content
                 )}
               </div>
+              {msg.role === 'agent' &&
+                !isLoading &&
+                msg === messages[messages.length - 1] &&
+                /⚠️.*dangerous|requires? (your )?approval|\/approve.*\/deny|do you want (me )?to (proceed|continue|run|execute)/i.test(msg.content) && (
+                <div className="chat-approval-bar">
+                  <button
+                    className="chat-approval-btn chat-approve"
+                    onClick={() => {
+                      setInput('')
+                      setIsLoading(true)
+                      setMessages((prev) => [...prev, { id: `user-approve-${Date.now()}`, role: 'user', content: '/approve' }])
+                      window.hermesAPI.sendMessage('/approve', profile, hermesSessionId || undefined).catch(() => setIsLoading(false))
+                    }}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    className="chat-approval-btn chat-deny"
+                    onClick={() => {
+                      setInput('')
+                      setIsLoading(true)
+                      setMessages((prev) => [...prev, { id: `user-deny-${Date.now()}`, role: 'user', content: '/deny' }])
+                      window.hermesAPI.sendMessage('/deny', profile, hermesSessionId || undefined).catch(() => setIsLoading(false))
+                    }}
+                  >
+                    Deny
+                  </button>
+                </div>
+              )}
             </div>
           ))
         )}
@@ -387,13 +482,21 @@ function Chat({
           <div className="chat-message chat-message-agent">
             <HermesAvatar />
             <div className="chat-bubble chat-bubble-agent">
-              <div className="chat-typing">
-                <span className="chat-typing-dot" />
-                <span className="chat-typing-dot" />
-                <span className="chat-typing-dot" />
-              </div>
+              {toolProgress ? (
+                <div className="chat-tool-progress">{toolProgress}</div>
+              ) : (
+                <div className="chat-typing">
+                  <span className="chat-typing-dot" />
+                  <span className="chat-typing-dot" />
+                  <span className="chat-typing-dot" />
+                </div>
+              )}
             </div>
           </div>
+        )}
+
+        {isLoading && toolProgress && lastMessageIsAgent && (
+          <div className="chat-tool-progress-inline">{toolProgress}</div>
         )}
 
         <div ref={messagesEndRef} />
@@ -417,14 +520,25 @@ function Chat({
               <Stop size={14} />
             </button>
           ) : (
-            <button
-              className="chat-send-btn"
-              onClick={handleSend}
-              disabled={!input.trim()}
-              title="Send"
-            >
-              <Send size={16} />
-            </button>
+            <>
+              {input.trim() && hermesSessionId && (
+                <button
+                  className="chat-btw-btn"
+                  onClick={handleQuickAsk}
+                  title="Quick Ask (/btw) — side question that won't affect conversation context"
+                >
+                  💭
+                </button>
+              )}
+              <button
+                className="chat-send-btn"
+                onClick={handleSend}
+                disabled={!input.trim()}
+                title="Send"
+              >
+                <Send size={16} />
+              </button>
+            </>
           )}
         </div>
 

@@ -67,11 +67,17 @@ platforms:
 //  HTTP API streaming (fast path — no process spawn)
 // ────────────────────────────────────────────────────
 
+export interface ChatCallbacks {
+  onChunk: (text: string) => void
+  onDone: (sessionId?: string) => void
+  onError: (error: string) => void
+  onToolProgress?: (tool: string) => void
+  onUsage?: (usage: { promptTokens: number; completionTokens: number; totalTokens: number }) => void
+}
+
 function sendMessageViaApi(
   message: string,
-  onChunk: (text: string) => void,
-  onDone: (sessionId?: string) => void,
-  onError: (error: string) => void,
+  cb: ChatCallbacks,
   profile?: string,
   resumeSessionId?: string
 ): ChatHandle {
@@ -94,6 +100,44 @@ function sendMessageViaApi(
 
   let sessionId = resumeSessionId || ''
   let hasContent = false
+  // Tool progress pattern: `emoji tool_name` or `emoji description`
+  const toolProgressRe = /^`([^\s`]+)\s+([^`]+)`$/
+
+  function processSseData(data: string): boolean {
+    if (data === '[DONE]') {
+      cb.onDone(sessionId || undefined)
+      return true // signals done
+    }
+    try {
+      const parsed = JSON.parse(data)
+      const choice = parsed.choices?.[0]
+      const delta = choice?.delta
+
+      // Extract usage from final chunk
+      if (parsed.usage && cb.onUsage) {
+        cb.onUsage({
+          promptTokens: parsed.usage.prompt_tokens || 0,
+          completionTokens: parsed.usage.completion_tokens || 0,
+          totalTokens: parsed.usage.total_tokens || 0
+        })
+      }
+
+      if (delta?.content) {
+        const content = delta.content.trim()
+        // Detect tool progress lines: `🔍 search_web`
+        const match = toolProgressRe.exec(content)
+        if (match && cb.onToolProgress) {
+          cb.onToolProgress(`${match[1]} ${match[2]}`)
+        } else {
+          hasContent = true
+          cb.onChunk(delta.content)
+        }
+      }
+    } catch {
+      /* malformed chunk — skip */
+    }
+    return false
+  }
 
   const req = http.request(
     `${API_URL}/v1/chat/completions`,
@@ -103,21 +147,18 @@ function sendMessageViaApi(
       signal: controller.signal
     },
     (res) => {
-      // Capture session ID from response headers
       const sid = res.headers['x-hermes-session-id']
-      if (sid && typeof sid === 'string') {
-        sessionId = sid
-      }
+      if (sid && typeof sid === 'string') sessionId = sid
 
       if (res.statusCode !== 200) {
-        let body = ''
-        res.on('data', (d) => { body += d.toString() })
+        let errBody = ''
+        res.on('data', (d) => { errBody += d.toString() })
         res.on('end', () => {
           try {
-            const err = JSON.parse(body)
-            onError(err.error?.message || `API error ${res.statusCode}`)
+            const err = JSON.parse(errBody)
+            cb.onError(err.error?.message || `API error ${res.statusCode}`)
           } catch {
-            onError(`API server returned ${res.statusCode}`)
+            cb.onError(`API server returned ${res.statusCode}`)
           }
         })
         return
@@ -127,64 +168,34 @@ function sendMessageViaApi(
 
       res.on('data', (chunk: Buffer) => {
         buffer += chunk.toString()
-
-        // Parse SSE events
         const parts = buffer.split('\n\n')
-        buffer = parts.pop() || '' // Keep incomplete chunk
+        buffer = parts.pop() || ''
 
         for (const part of parts) {
           for (const line of part.split('\n')) {
             if (!line.startsWith('data: ')) continue
-            const data = line.slice(6)
-            if (data === '[DONE]') {
-              onDone(sessionId || undefined)
-              return
-            }
-            try {
-              const parsed = JSON.parse(data)
-              const delta = parsed.choices?.[0]?.delta
-              if (delta?.content) {
-                hasContent = true
-                onChunk(delta.content)
-              }
-            } catch {
-              /* malformed chunk — skip */
-            }
+            if (processSseData(line.slice(6))) return
           }
         }
       })
 
       res.on('end', () => {
-        // Process any remaining buffer
         if (buffer.trim()) {
           for (const line of buffer.split('\n')) {
             if (!line.startsWith('data: ')) continue
-            const data = line.slice(6)
-            if (data === '[DONE]') break
-            try {
-              const parsed = JSON.parse(data)
-              const delta = parsed.choices?.[0]?.delta
-              if (delta?.content) {
-                hasContent = true
-                onChunk(delta.content)
-              }
-            } catch { /* skip */ }
+            if (processSseData(line.slice(6))) return
           }
         }
-        if (hasContent) {
-          onDone(sessionId || undefined)
-        }
+        if (hasContent) cb.onDone(sessionId || undefined)
       })
 
-      res.on('error', (err) => {
-        onError(`Stream error: ${err.message}`)
-      })
+      res.on('error', (err) => cb.onError(`Stream error: ${err.message}`))
     }
   )
 
   req.on('error', (err) => {
-    if (err.name === 'AbortError') return // User aborted
-    onError(`API request failed: ${err.message}`)
+    if (err.name === 'AbortError') return
+    cb.onError(`API request failed: ${err.message}`)
   })
 
   req.write(body)
@@ -208,9 +219,7 @@ const NOISE_PATTERNS = [
 
 function sendMessageViaCli(
   message: string,
-  onChunk: (text: string) => void,
-  onDone: (sessionId?: string) => void,
-  onError: (error: string) => void,
+  cb: ChatCallbacks,
   profile?: string,
   resumeSessionId?: string
 ): ChatHandle {
@@ -286,7 +295,7 @@ function sendMessageViaCli(
     const output = result.join('\n')
     if (output) {
       hasOutput = true
-      onChunk(output)
+      cb.onChunk(output)
     }
   }
 
@@ -297,21 +306,21 @@ function sendMessageViaCli(
     if (text.trim() && !text.includes('UserWarning') && !text.includes('FutureWarning')) {
       if (/❌|⚠️|Error|Traceback/.test(text)) {
         hasOutput = true
-        onChunk(text)
+        cb.onChunk(text)
       }
     }
   })
 
   proc.on('close', (code) => {
     if (code === 0 || hasOutput) {
-      onDone(capturedSessionId || undefined)
+      cb.onDone(capturedSessionId || undefined)
     } else {
-      onError(`Hermes exited with code ${code}`)
+      cb.onError(`Hermes exited with code ${code}`)
     }
   })
 
   proc.on('error', (err) => {
-    onError(err.message)
+    cb.onError(err.message)
   })
 
   return {
@@ -332,9 +341,7 @@ let apiServerAvailable: boolean | null = null // cached after first check
 
 export async function sendMessage(
   message: string,
-  onChunk: (text: string) => void,
-  onDone: (sessionId?: string) => void,
-  onError: (error: string) => void,
+  cb: ChatCallbacks,
   profile?: string,
   resumeSessionId?: string
 ): Promise<ChatHandle> {
@@ -344,11 +351,11 @@ export async function sendMessage(
   }
 
   if (apiServerAvailable) {
-    return sendMessageViaApi(message, onChunk, onDone, onError, profile, resumeSessionId)
+    return sendMessageViaApi(message, cb, profile, resumeSessionId)
   }
 
   // Fallback to CLI
-  return sendMessageViaCli(message, onChunk, onDone, onError, profile, resumeSessionId)
+  return sendMessageViaCli(message, cb, profile, resumeSessionId)
 }
 
 // Re-check API server availability periodically

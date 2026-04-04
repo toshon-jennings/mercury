@@ -39,6 +39,10 @@ interface HermesAPI {
   abortChat: () => Promise<void>
   onChatChunk: (callback: (chunk: string) => void) => () => void
   onChatDone: (callback: (sessionId?: string) => void) => () => void
+  onChatToolProgress: (callback: (tool: string) => void) => () => void
+  onChatUsage: (
+    callback: (usage: { promptTokens: number; completionTokens: number; totalTokens: number }) => void
+  ) => () => void
   onChatError: (callback: (error: string) => void) => () => void
 
   // Gateway
@@ -126,6 +130,10 @@ interface HermesAPI {
       snippet: string
     }>
   >
+
+  // Credential Pool
+  getCredentialPool: () => Promise<Record<string, Array<{ key: string; label: string }>>>
+  setCredentialPool: (provider: string, entries: Array<{ key: string; label: string }>) => Promise<boolean>
 
   // Models
   listModels: () => Promise<

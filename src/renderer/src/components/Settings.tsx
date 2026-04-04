@@ -92,6 +92,12 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
   const modelLoaded = useRef(false)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Credential pool state
+  const [credPool, setCredPool] = useState<Record<string, Array<{ key: string; label: string }>>>({})
+  const [poolProvider, setPoolProvider] = useState('')
+  const [poolNewKey, setPoolNewKey] = useState('')
+  const [poolNewLabel, setPoolNewLabel] = useState('')
+
   useEffect(() => {
     modelLoaded.current = false
     loadConfig()
@@ -130,6 +136,9 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
     setModelProvider(mc.provider)
     setModelName(mc.model)
     setModelBaseUrl(mc.baseUrl)
+    // Load credential pool
+    const pool = await window.hermesAPI.getCredentialPool()
+    setCredPool(pool)
     // Mark loaded after state is set so auto-save doesn't fire on initial load
     setTimeout(() => {
       modelLoaded.current = true
@@ -145,6 +154,23 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
 
   function handleChange(key: string, value: string): void {
     setEnv((prev) => ({ ...prev, [key]: value }))
+  }
+
+  async function handleAddPoolKey(): Promise<void> {
+    if (!poolProvider || !poolNewKey.trim()) return
+    const existing = credPool[poolProvider] || []
+    const entries = [...existing, { key: poolNewKey.trim(), label: poolNewLabel.trim() || `Key ${existing.length + 1}` }]
+    await window.hermesAPI.setCredentialPool(poolProvider, entries)
+    setCredPool((prev) => ({ ...prev, [poolProvider]: entries }))
+    setPoolNewKey('')
+    setPoolNewLabel('')
+  }
+
+  async function handleRemovePoolKey(provider: string, index: number): Promise<void> {
+    const entries = [...(credPool[provider] || [])]
+    entries.splice(index, 1)
+    await window.hermesAPI.setCredentialPool(provider, entries)
+    setCredPool((prev) => ({ ...prev, [provider]: entries }))
   }
 
   function toggleVisibility(key: string): void {
@@ -238,6 +264,63 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
             <div className="settings-field-hint">OpenAI-compatible API endpoint</div>
           </div>
         )}
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-section-title">Credential Pool</div>
+        <div className="settings-field">
+          <div className="settings-field-hint" style={{ marginBottom: 10 }}>
+            Add multiple API keys per provider for automatic rotation and load balancing. Hermes will cycle through them.
+          </div>
+          <div className="settings-pool-add">
+            <select
+              className="input"
+              value={poolProvider}
+              onChange={(e) => setPoolProvider(e.target.value)}
+              style={{ width: 140 }}
+            >
+              <option value="">Provider</option>
+              {PROVIDER_OPTIONS.filter((p) => p.value !== 'auto').map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+            <input
+              className="input"
+              type="password"
+              value={poolNewKey}
+              onChange={(e) => setPoolNewKey(e.target.value)}
+              placeholder="API key"
+              style={{ flex: 1 }}
+            />
+            <input
+              className="input"
+              type="text"
+              value={poolNewLabel}
+              onChange={(e) => setPoolNewLabel(e.target.value)}
+              placeholder="Label (optional)"
+              style={{ width: 120 }}
+            />
+            <button className="btn btn-primary btn-sm" onClick={handleAddPoolKey} disabled={!poolProvider || !poolNewKey.trim()}>
+              Add
+            </button>
+          </div>
+          {Object.entries(credPool).map(([provider, entries]) =>
+            entries.length > 0 && (
+              <div key={provider} className="settings-pool-group">
+                <div className="settings-pool-provider">{PROVIDER_OPTIONS.find((p) => p.value === provider)?.label || provider}</div>
+                {entries.map((entry, idx) => (
+                  <div key={idx} className="settings-pool-entry">
+                    <span className="settings-pool-label">{entry.label || `Key ${idx + 1}`}</span>
+                    <span className="settings-pool-key">{entry.key.slice(0, 8)}...{entry.key.slice(-4)}</span>
+                    <button className="btn-ghost" style={{ color: 'var(--error)', fontSize: 11 }} onClick={() => handleRemovePoolKey(provider, idx)}>
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </div>
       </div>
 
       {hermesHome && (

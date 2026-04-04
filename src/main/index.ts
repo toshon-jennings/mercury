@@ -28,7 +28,9 @@ import {
   setConfigValue,
   getHermesHome,
   getModelConfig,
-  setModelConfig
+  setModelConfig,
+  getCredentialPool,
+  setCredentialPool
 } from './config'
 import { listSessions, getSessionMessages, searchSessions } from './sessions'
 import { listModels, addModel, removeModel, updateModel } from './models'
@@ -140,19 +142,27 @@ function setupIPC(): void {
 
         const handle = await sendMessage(
           message,
-          (chunk) => {
-            fullResponse += chunk
-            event.sender.send('chat-chunk', chunk)
-          },
-          (sessionId) => {
-            currentChatAbort = null
-            event.sender.send('chat-done', sessionId || '')
-            resolve({ response: fullResponse, sessionId })
-          },
-          (error) => {
-            currentChatAbort = null
-            event.sender.send('chat-error', error)
-            reject(new Error(error))
+          {
+            onChunk: (chunk) => {
+              fullResponse += chunk
+              event.sender.send('chat-chunk', chunk)
+            },
+            onDone: (sessionId) => {
+              currentChatAbort = null
+              event.sender.send('chat-done', sessionId || '')
+              resolve({ response: fullResponse, sessionId })
+            },
+            onError: (error) => {
+              currentChatAbort = null
+              event.sender.send('chat-error', error)
+              reject(new Error(error))
+            },
+            onToolProgress: (tool) => {
+              event.sender.send('chat-tool-progress', tool)
+            },
+            onUsage: (usage) => {
+              event.sender.send('chat-usage', usage)
+            }
           },
           profile,
           resumeSessionId
@@ -234,6 +244,13 @@ function setupIPC(): void {
   ipcMain.handle('search-sessions', (_event, query: string, limit?: number) =>
     searchSessions(query, limit)
   )
+
+  // Credential Pool
+  ipcMain.handle('get-credential-pool', () => getCredentialPool())
+  ipcMain.handle('set-credential-pool', (_event, provider: string, entries: Array<{ key: string; label: string }>) => {
+    setCredentialPool(provider, entries)
+    return true
+  })
 
   // Models
   ipcMain.handle('list-models', () => listModels())
