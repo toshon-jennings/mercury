@@ -130,15 +130,15 @@ function setupIPC(): void {
   // Chat
   ipcMain.handle(
     'send-message',
-    (event, message: string, profile?: string, resumeSessionId?: string) => {
-      return new Promise<{ response: string; sessionId?: string }>((resolve, reject) => {
+    async (event, message: string, profile?: string, resumeSessionId?: string) => {
+      return new Promise<{ response: string; sessionId?: string }>(async (resolve, reject) => {
         if (currentChatAbort) {
           currentChatAbort()
         }
 
         let fullResponse = ''
 
-        const handle = sendMessage(
+        const handle = await sendMessage(
           message,
           (chunk) => {
             fullResponse += chunk
@@ -462,6 +462,14 @@ app.whenReady().then(() => {
   setupIPC()
   createWindow()
   setupUpdater()
+
+  // Auto-start gateway (includes API server) for fast chat
+  // Small delay to let the app window load first
+  setTimeout(() => {
+    if (!isGatewayRunning()) {
+      startGateway()
+    }
+  }, 2000)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

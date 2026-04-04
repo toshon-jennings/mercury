@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import icon from '../assets/icon.png'
-import { Trash, Send, Stop, Plus, ChevronDown } from '../assets/icons'
+import { Trash, Send, Stop, Plus, ChevronDown, Copy } from '../assets/icons'
 
 function HermesAvatar({ size = 30 }: { size?: number }): React.JSX.Element {
   return (
@@ -11,10 +14,49 @@ function HermesAvatar({ size = 30 }: { size?: number }): React.JSX.Element {
   )
 }
 
+// Code block with syntax highlighting and copy button
+function CodeBlock({ className, children }: { className?: string; children?: React.ReactNode }): React.JSX.Element {
+  const [copied, setCopied] = useState(false)
+  const code = String(children).replace(/\n$/, '')
+  const match = /language-(\w+)/.exec(className || '')
+  const language = match ? match[1] : ''
+
+  function handleCopy(): void {
+    navigator.clipboard.writeText(code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="chat-code-block">
+      <div className="chat-code-header">
+        <span className="chat-code-lang">{language || 'code'}</span>
+        <button className="chat-code-copy" onClick={handleCopy}>
+          {copied ? 'Copied!' : <Copy size={13} />}
+        </button>
+      </div>
+      <SyntaxHighlighter
+        style={oneDark}
+        language={language || 'text'}
+        PreTag="div"
+        customStyle={{
+          margin: 0,
+          borderRadius: '0 0 6px 6px',
+          fontSize: '13px',
+          padding: '12px'
+        }}
+      >
+        {code}
+      </SyntaxHighlighter>
+    </div>
+  )
+}
+
 // Shared Markdown renderer that opens links externally
 function AgentMarkdown({ children }: { children: string }): React.JSX.Element {
   return (
     <Markdown
+      remarkPlugins={[remarkGfm]}
       components={{
         a: ({ href, children }) => (
           <a
@@ -26,7 +68,14 @@ function AgentMarkdown({ children }: { children: string }): React.JSX.Element {
           >
             {children}
           </a>
-        )
+        ),
+        code: ({ className, children, ...props }) => {
+          const isInline = !className && typeof children === 'string' && !children.includes('\n')
+          if (isInline) {
+            return <code className={className} {...props}>{children}</code>
+          }
+          return <CodeBlock className={className}>{children}</CodeBlock>
+        }
       }}
     >
       {children}

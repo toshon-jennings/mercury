@@ -974,32 +974,76 @@ body {
   padding: 0;
 }
 
-.chat-bubble-agent p {
-  margin: 0 0 4px 0;
+.chat-code-block {
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 6px 0 !important;
+  border: 1px solid var(--border);
 }
 
-.chat-bubble-agent p:last-child {
-  margin-bottom: 0;
+.chat-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  background: #1e1e1e;
+  border-bottom: 1px solid var(--border);
 }
 
+.chat-code-lang {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: lowercase;
+}
+
+.chat-code-copy {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color var(--transition);
+}
+
+.chat-code-copy:hover {
+  color: var(--text-primary);
+}
+
+.chat-code-block + * { margin-top: 6px !important; }
+
+.chat-bubble-agent .chat-code-block pre,
+.chat-bubble-agent .chat-code-block div[class*="prism"] {
+  margin: 0 !important;
+  padding: 12px !important;
+  background: transparent !important;
+}
+
+/* Override Tailwind preflight spacing inside agent bubbles */
+.chat-bubble-agent p { margin: 0 0 6px !important; padding: 0 !important; }
+.chat-bubble-agent p:last-child { margin-bottom: 0 !important; }
 .chat-bubble-agent ul,
-.chat-bubble-agent ol {
-  margin: 2px 0 4px 18px;
-  padding: 0;
-  list-style: revert;
-}
-
-.chat-bubble-agent li {
-  margin-bottom: 1px;
-}
-
+.chat-bubble-agent ol { margin: 2px 0 6px 18px !important; padding: 0 !important; list-style: revert !important; }
+.chat-bubble-agent li { margin: 0 0 2px !important; padding: 0 !important; }
+.chat-bubble-agent li > p { margin: 0 !important; }
+.chat-bubble-agent li > ul,
+.chat-bubble-agent li > ol { margin: 2px 0 2px 16px !important; }
 .chat-bubble-agent h1,
 .chat-bubble-agent h2,
 .chat-bubble-agent h3,
-.chat-bubble-agent h4 {
-  margin: 8px 0 2px 0;
-  font-weight: 600;
-}
+.chat-bubble-agent h4 { margin: 8px 0 3px !important; padding: 0 !important; font-weight: 600; }
+.chat-bubble-agent h1:first-child,
+.chat-bubble-agent h2:first-child,
+.chat-bubble-agent h3:first-child { margin-top: 0 !important; }
+.chat-bubble-agent blockquote { margin: 4px 0 !important; padding: 2px 10px !important; }
+.chat-bubble-agent hr { margin: 8px 0 !important; padding: 0 !important; }
+.chat-bubble-agent table { margin: 6px 0 !important; padding: 0 !important; }
+.chat-bubble-agent pre { margin: 6px 0 !important; }
 
 .chat-bubble-agent h1 {
   font-size: 17px;
@@ -1037,18 +1081,23 @@ body {
   border-collapse: collapse;
   margin: 8px 0;
   font-size: 13px;
+  width: 100%;
 }
 
 .chat-bubble-agent th,
 .chat-bubble-agent td {
   border: 1px solid var(--border-bright);
-  padding: 4px 10px;
+  padding: 6px 10px;
   text-align: left;
 }
 
 .chat-bubble-agent th {
   font-weight: 600;
   background: var(--code-bg);
+}
+
+.chat-bubble-agent pre {
+  margin: 6px 0;
 }
 
 /* Typing indicator */

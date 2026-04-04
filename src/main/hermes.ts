@@ -2,8 +2,11 @@ import { ChildProcess, spawn } from 'child_process'
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
+import http from 'http'
 import { HERMES_HOME, HERMES_REPO, HERMES_PYTHON, HERMES_SCRIPT, getEnhancedPath } from './installer'
 import { getModelConfig, readEnv } from './config'
+
+const API_URL = 'http://127.0.0.1:8642'
 
 function stripAnsi(str: string): string {
   return str
@@ -15,16 +18,56 @@ function stripAnsi(str: string): string {
 
 interface ChatHandle {
   abort: () => void
-  sessionId?: string
 }
 
-// Patterns to filter from Hermes CLI output (box drawing chrome)
-const NOISE_PATTERNS = [
-  /^[╭╰│╮╯─┌┐└┘┤├┬┴┼]/,
-  /⚕\s*Hermes/
-]
+// ────────────────────────────────────────────────────
+//  API Server health check
+// ────────────────────────────────────────────────────
 
-export function sendMessage(
+function isApiServerReady(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const req = http.get(`${API_URL}/health`, { timeout: 1500 }, (res) => {
+      resolve(res.statusCode === 200)
+      res.resume()
+    })
+    req.on('error', () => resolve(false))
+    req.on('timeout', () => { req.destroy(); resolve(false) })
+  })
+}
+
+// ────────────────────────────────────────────────────
+//  Ensure API server is enabled in config
+// ────────────────────────────────────────────────────
+
+function ensureApiServerConfig(): void {
+  try {
+    const configPath = join(HERMES_HOME, 'config.yaml')
+    if (!existsSync(configPath)) return
+    const content = readFileSync(configPath, 'utf-8')
+    // If api_server is already configured, skip
+    if (/api_server/i.test(content)) return
+    // Append API server platform config
+    const addition = `
+# Desktop app API server (auto-configured)
+platforms:
+  api_server:
+    enabled: true
+    extra:
+      port: 8642
+      host: "127.0.0.1"
+`
+    const fs = require('fs')
+    fs.appendFileSync(configPath, addition, 'utf-8')
+  } catch {
+    /* non-fatal */
+  }
+}
+
+// ────────────────────────────────────────────────────
+//  HTTP API streaming (fast path — no process spawn)
+// ────────────────────────────────────────────────────
+
+function sendMessageViaApi(
   message: string,
   onChunk: (text: string) => void,
   onDone: (sessionId?: string) => void,
@@ -32,7 +75,145 @@ export function sendMessage(
   profile?: string,
   resumeSessionId?: string
 ): ChatHandle {
-  // Read config from the correct profile
+  const mc = getModelConfig(profile)
+  const controller = new AbortController()
+
+  const body = JSON.stringify({
+    model: mc.model || 'hermes-agent',
+    messages: [{ role: 'user', content: message }],
+    stream: true
+  })
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  }
+
+  if (resumeSessionId) {
+    headers['X-Hermes-Session-Id'] = resumeSessionId
+  }
+
+  let sessionId = resumeSessionId || ''
+  let hasContent = false
+
+  const req = http.request(
+    `${API_URL}/v1/chat/completions`,
+    {
+      method: 'POST',
+      headers,
+      signal: controller.signal
+    },
+    (res) => {
+      // Capture session ID from response headers
+      const sid = res.headers['x-hermes-session-id']
+      if (sid && typeof sid === 'string') {
+        sessionId = sid
+      }
+
+      if (res.statusCode !== 200) {
+        let body = ''
+        res.on('data', (d) => { body += d.toString() })
+        res.on('end', () => {
+          try {
+            const err = JSON.parse(body)
+            onError(err.error?.message || `API error ${res.statusCode}`)
+          } catch {
+            onError(`API server returned ${res.statusCode}`)
+          }
+        })
+        return
+      }
+
+      let buffer = ''
+
+      res.on('data', (chunk: Buffer) => {
+        buffer += chunk.toString()
+
+        // Parse SSE events
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() || '' // Keep incomplete chunk
+
+        for (const part of parts) {
+          for (const line of part.split('\n')) {
+            if (!line.startsWith('data: ')) continue
+            const data = line.slice(6)
+            if (data === '[DONE]') {
+              onDone(sessionId || undefined)
+              return
+            }
+            try {
+              const parsed = JSON.parse(data)
+              const delta = parsed.choices?.[0]?.delta
+              if (delta?.content) {
+                hasContent = true
+                onChunk(delta.content)
+              }
+            } catch {
+              /* malformed chunk — skip */
+            }
+          }
+        }
+      })
+
+      res.on('end', () => {
+        // Process any remaining buffer
+        if (buffer.trim()) {
+          for (const line of buffer.split('\n')) {
+            if (!line.startsWith('data: ')) continue
+            const data = line.slice(6)
+            if (data === '[DONE]') break
+            try {
+              const parsed = JSON.parse(data)
+              const delta = parsed.choices?.[0]?.delta
+              if (delta?.content) {
+                hasContent = true
+                onChunk(delta.content)
+              }
+            } catch { /* skip */ }
+          }
+        }
+        if (hasContent) {
+          onDone(sessionId || undefined)
+        }
+      })
+
+      res.on('error', (err) => {
+        onError(`Stream error: ${err.message}`)
+      })
+    }
+  )
+
+  req.on('error', (err) => {
+    if (err.name === 'AbortError') return // User aborted
+    onError(`API request failed: ${err.message}`)
+  })
+
+  req.write(body)
+  req.end()
+
+  return {
+    abort: () => {
+      controller.abort()
+    }
+  }
+}
+
+// ────────────────────────────────────────────────────
+//  CLI fallback (slow path — spawns process)
+// ────────────────────────────────────────────────────
+
+const NOISE_PATTERNS = [
+  /^[╭╰│╮╯─┌┐└┘┤├┬┴┼]/,
+  /⚕\s*Hermes/
+]
+
+function sendMessageViaCli(
+  message: string,
+  onChunk: (text: string) => void,
+  onDone: (sessionId?: string) => void,
+  onError: (error: string) => void,
+  profile?: string,
+  resumeSessionId?: string
+): ChatHandle {
   const mc = getModelConfig(profile)
   const profileEnv = readEnv(profile)
 
@@ -42,7 +223,6 @@ export function sendMessage(
   }
   args.push('chat', '-q', message, '-Q', '--source', 'desktop')
 
-  // Resume previous session for conversation continuity
   if (resumeSessionId) {
     args.push('--resume', resumeSessionId)
   }
@@ -59,7 +239,6 @@ export function sendMessage(
     PYTHONUNBUFFERED: '1'
   }
 
-  // Map provider → env var for API key
   const PROVIDER_KEY_MAP: Record<string, string> = {
     custom: 'OPENAI_API_KEY',
     lmstudio: '', ollama: '', vllm: '', llamacpp: ''
@@ -69,13 +248,9 @@ export function sendMessage(
   if (isCustomEndpoint && mc.baseUrl) {
     env.HERMES_INFERENCE_PROVIDER = 'custom'
     env.OPENAI_BASE_URL = mc.baseUrl.replace(/\/+$/, '')
-
-    // Resolve the correct API key — check profile .env first, then process env
     const keyEnvVar = PROVIDER_KEY_MAP[mc.provider]
     const resolvedKey = keyEnvVar ? (profileEnv[keyEnvVar] || env[keyEnvVar] || '') : 'no-key-required'
     env.OPENAI_API_KEY = resolvedKey || 'no-key-required'
-
-    // Remove cloud provider keys so auto-detection doesn't override
     delete env.OPENROUTER_API_KEY
     delete env.ANTHROPIC_API_KEY
     delete env.ANTHROPIC_TOKEN
@@ -90,23 +265,16 @@ export function sendMessage(
 
   let hasOutput = false
   let capturedSessionId = ''
-
   let outputBuffer = ''
 
   function processOutput(raw: Buffer): void {
     const text = stripAnsi(raw.toString())
     outputBuffer += text
 
-    // Check for session_id in the accumulated buffer (appears at the end)
     const sidMatch = outputBuffer.match(/session_id:\s*(\S+)/)
-    if (sidMatch) {
-      capturedSessionId = sidMatch[1]
-    }
+    if (sidMatch) capturedSessionId = sidMatch[1]
 
-    // Strip session_id line from the chunk before forwarding
     const cleaned = text.replace(/session_id:\s*\S+\n?/g, '')
-
-    // With -Q mode, minimal filtering — only strip box drawing chrome
     const lines = cleaned.split('\n')
     const result: string[] = []
     for (const line of lines) {
@@ -156,7 +324,45 @@ export function sendMessage(
   }
 }
 
-// Gateway management
+// ────────────────────────────────────────────────────
+//  Public API: auto-routes to HTTP API or CLI fallback
+// ────────────────────────────────────────────────────
+
+let apiServerAvailable: boolean | null = null // cached after first check
+
+export async function sendMessage(
+  message: string,
+  onChunk: (text: string) => void,
+  onDone: (sessionId?: string) => void,
+  onError: (error: string) => void,
+  profile?: string,
+  resumeSessionId?: string
+): Promise<ChatHandle> {
+  // Check API server availability (cache the result, re-check periodically)
+  if (apiServerAvailable === null || apiServerAvailable === false) {
+    apiServerAvailable = await isApiServerReady()
+  }
+
+  if (apiServerAvailable) {
+    return sendMessageViaApi(message, onChunk, onDone, onError, profile, resumeSessionId)
+  }
+
+  // Fallback to CLI
+  return sendMessageViaCli(message, onChunk, onDone, onError, profile, resumeSessionId)
+}
+
+// Re-check API server availability periodically
+setInterval(async () => {
+  apiServerAvailable = await isApiServerReady()
+}, 15000)
+
+// Ensure API server is configured on module load
+ensureApiServerConfig()
+
+// ────────────────────────────────────────────────────
+//  Gateway management
+// ────────────────────────────────────────────────────
+
 let gatewayProcess: ChildProcess | null = null
 
 export function startGateway(): boolean {
@@ -168,7 +374,8 @@ export function startGateway(): boolean {
       ...process.env,
       PATH: getEnhancedPath(),
       HOME: homedir(),
-      HERMES_HOME: HERMES_HOME
+      HERMES_HOME: HERMES_HOME,
+      API_SERVER_ENABLED: 'true' // Ensure API server starts with gateway
     },
     stdio: 'ignore',
     detached: true
@@ -178,18 +385,22 @@ export function startGateway(): boolean {
 
   gatewayProcess.on('close', () => {
     gatewayProcess = null
+    apiServerAvailable = false
   })
+
+  // Wait a bit then check if API server came up
+  setTimeout(async () => {
+    apiServerAvailable = await isApiServerReady()
+  }, 3000)
 
   return true
 }
 
 export function stopGateway(): void {
-  // Stop our spawned process
   if (gatewayProcess && !gatewayProcess.killed) {
     gatewayProcess.kill('SIGTERM')
     gatewayProcess = null
   }
-  // Also kill via PID file (gateway may have been started externally)
   const pidFile = join(HERMES_HOME, 'gateway.pid')
   if (existsSync(pidFile)) {
     try {
@@ -199,20 +410,23 @@ export function stopGateway(): void {
       // already dead
     }
   }
+  apiServerAvailable = false
 }
 
 export function isGatewayRunning(): boolean {
-  // Check in-memory process first
   if (gatewayProcess && !gatewayProcess.killed) return true
-  // Fall back to PID file check (gateway started externally or process ref lost)
   const pidFile = join(HERMES_HOME, 'gateway.pid')
   if (!existsSync(pidFile)) return false
   try {
     const pid = parseInt(readFileSync(pidFile, 'utf-8').trim(), 10)
     if (isNaN(pid)) return false
-    process.kill(pid, 0) // signal 0 = check if alive
+    process.kill(pid, 0)
     return true
   } catch {
     return false
   }
+}
+
+export function isApiReady(): boolean {
+  return apiServerAvailable === true
 }
