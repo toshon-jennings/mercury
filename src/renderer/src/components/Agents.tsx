@@ -172,10 +172,13 @@ function Agents({
 
       <div className="agents-grid">
         {profiles.map((p) => (
-          <button
+          <div
             key={p.name}
             className={`agents-card ${activeProfile === p.name ? "active" : ""}`}
             onClick={() => handleSelect(p.name)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSelect(p.name); }}
           >
             <div className="agents-card-header">
               <AgentAvatar name={p.name} />
@@ -251,7 +254,7 @@ function Agents({
                   </button>
                 ))}
             </div>
-          </button>
+          </div>
         ))}
       </div>
     </div>
