@@ -1,19 +1,19 @@
-import { useState, useEffect, useCallback } from 'react'
-import { ThemeProvider } from './components/ThemeProvider'
-import Welcome from './components/Welcome'
-import Install from './components/Install'
-import Setup from './components/Setup'
-import Layout from './components/Layout'
-import SplashScreen from './components/SplashScreen'
+import { useState, useEffect, useCallback } from "react";
+import { ThemeProvider } from "./components/ThemeProvider";
+import Welcome from "./components/Welcome";
+import Install from "./components/Install";
+import Setup from "./components/Setup";
+import Layout from "./components/Layout";
+import SplashScreen from "./components/SplashScreen";
 
-type Screen = 'splash' | 'welcome' | 'installing' | 'setup' | 'main'
+type Screen = "splash" | "welcome" | "installing" | "setup" | "main";
 
 function App(): React.JSX.Element {
-  const [screen, setScreen] = useState<Screen>('splash')
-  const [installError, setInstallError] = useState<string | null>(null)
-  const [nextScreen, setNextScreen] = useState<Screen | null>(null)
-  const [splashDone, setSplashDone] = useState(false)
-  const isMac = window.electron?.process?.platform === 'darwin'
+  const [screen, setScreen] = useState<Screen>("splash");
+  const [installError, setInstallError] = useState<string | null>(null);
+  const [nextScreen, setNextScreen] = useState<Screen | null>(null);
+  const [splashDone, setSplashDone] = useState(false);
+  const isMac = window.electron?.process?.platform === "darwin";
 
   // Run install check during splash
   useEffect(() => {
@@ -21,98 +21,98 @@ function App(): React.JSX.Element {
       .checkInstall()
       .then((status) => {
         if (!status.installed) {
-          setNextScreen('welcome')
+          setNextScreen("welcome");
         } else if (!status.verified) {
           setInstallError(
-            'Hermes is installed but appears to be broken. Try reinstalling to fix it.'
-          )
-          setNextScreen('welcome')
+            "Hermes is installed but appears to be broken. Try reinstalling to fix it.",
+          );
+          setNextScreen("welcome");
         } else if (!status.hasApiKey) {
-          setNextScreen('setup')
+          setNextScreen("setup");
         } else {
-          setNextScreen('main')
+          setNextScreen("main");
         }
       })
       .catch(() => {
-        setNextScreen('welcome')
-      })
-  }, [])
+        setNextScreen("welcome");
+      });
+  }, []);
 
   // Transition away from splash when both animation and install check are done
   useEffect(() => {
     if (splashDone && nextScreen) {
-      setScreen(nextScreen)
+      setScreen(nextScreen);
     }
-  }, [splashDone, nextScreen])
+  }, [splashDone, nextScreen]);
 
   const handleSplashFinished = useCallback(() => {
-    setSplashDone(true)
-  }, [])
+    setSplashDone(true);
+  }, []);
 
   function handleInstallComplete(): void {
-    setInstallError(null)
-    setScreen('setup')
+    setInstallError(null);
+    setScreen("setup");
   }
 
   function handleInstallFailed(error: string): void {
-    setInstallError(error)
-    setScreen('welcome')
+    setInstallError(error);
+    setScreen("welcome");
   }
 
   function handleRetryInstall(): void {
-    setInstallError(null)
-    setScreen('installing')
+    setInstallError(null);
+    setScreen("installing");
   }
 
   function handleRecheck(): void {
-    setInstallError(null)
-    setScreen('splash')
-    setSplashDone(false)
-    setNextScreen(null)
+    setInstallError(null);
+    setScreen("splash");
+    setSplashDone(false);
+    setNextScreen(null);
     window.hermesAPI
       .checkInstall()
       .then((status) => {
         if (!status.installed) {
-          setNextScreen('welcome')
+          setNextScreen("welcome");
         } else if (!status.verified) {
           setInstallError(
-            'Hermes is installed but appears to be broken. Try reinstalling to fix it.'
-          )
-          setNextScreen('welcome')
+            "Hermes is installed but appears to be broken. Try reinstalling to fix it.",
+          );
+          setNextScreen("welcome");
         } else if (!status.hasApiKey) {
-          setNextScreen('setup')
+          setNextScreen("setup");
         } else {
-          setNextScreen('main')
+          setNextScreen("main");
         }
       })
       .catch(() => {
-        setNextScreen('welcome')
-      })
+        setNextScreen("welcome");
+      });
   }
 
   function renderScreen(): React.JSX.Element {
     switch (screen) {
-      case 'splash':
-        return <SplashScreen onFinished={handleSplashFinished} />
-      case 'welcome':
+      case "splash":
+        return <SplashScreen onFinished={handleSplashFinished} />;
+      case "welcome":
         return (
           <Welcome
             error={installError}
             onStart={handleRetryInstall}
             onRecheck={handleRecheck}
           />
-        )
-      case 'installing':
+        );
+      case "installing":
         return (
           <Install
             onComplete={handleInstallComplete}
             onFailed={handleInstallFailed}
           />
-        )
-      case 'setup':
-        return <Setup onComplete={() => setScreen('main')} />
-      case 'main':
-        return <Layout />
+        );
+      case "setup":
+        return <Setup onComplete={() => setScreen("main")} />;
+      case "main":
+        return <Layout />;
     }
   }
 
@@ -123,7 +123,7 @@ function App(): React.JSX.Element {
         <div className="app-content">{renderScreen()}</div>
       </div>
     </ThemeProvider>
-  )
+  );
 }
 
-export default App
+export default App;

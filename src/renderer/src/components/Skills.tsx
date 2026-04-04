@@ -1,124 +1,128 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, X, Download, Trash, Refresh } from '../assets/icons'
-import { AgentMarkdown } from './Chat'
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Search, X, Download, Trash, Refresh } from "../assets/icons";
+import { AgentMarkdown } from "./Chat";
 
 interface InstalledSkill {
-  name: string
-  category: string
-  description: string
-  path: string
+  name: string;
+  category: string;
+  description: string;
+  path: string;
 }
 
 interface BundledSkill {
-  name: string
-  description: string
-  category: string
-  source: string
-  installed: boolean
+  name: string;
+  description: string;
+  category: string;
+  source: string;
+  installed: boolean;
 }
 
 interface SkillsProps {
-  profile?: string
+  profile?: string;
 }
 
-type Tab = 'installed' | 'browse'
+type Tab = "installed" | "browse";
 
 function Skills({ profile }: SkillsProps): React.JSX.Element {
-  const [tab, setTab] = useState<Tab>('installed')
-  const [installedSkills, setInstalledSkills] = useState<InstalledSkill[]>([])
-  const [bundledSkills, setBundledSkills] = useState<BundledSkill[]>([])
-  const [search, setSearch] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [detailSkill, setDetailSkill] = useState<InstalledSkill | null>(null)
-  const [detailContent, setDetailContent] = useState('')
-  const [actionInProgress, setActionInProgress] = useState<string | null>(null)
-  const [error, setError] = useState('')
-  const searchRef = useRef<HTMLInputElement>(null)
+  const [tab, setTab] = useState<Tab>("installed");
+  const [installedSkills, setInstalledSkills] = useState<InstalledSkill[]>([]);
+  const [bundledSkills, setBundledSkills] = useState<BundledSkill[]>([]);
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [detailSkill, setDetailSkill] = useState<InstalledSkill | null>(null);
+  const [detailContent, setDetailContent] = useState("");
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
 
   async function loadInstalled(): Promise<void> {
-    const list = await window.hermesAPI.listInstalledSkills(profile)
-    setInstalledSkills(list)
+    const list = await window.hermesAPI.listInstalledSkills(profile);
+    setInstalledSkills(list);
   }
 
   async function loadBundled(): Promise<void> {
-    const list = await window.hermesAPI.listBundledSkills()
-    setBundledSkills(list)
+    const list = await window.hermesAPI.listBundledSkills();
+    setBundledSkills(list);
   }
 
   const loadAll = useCallback(async (): Promise<void> => {
-    setLoading(true)
-    await Promise.all([loadInstalled(), loadBundled()])
-    setLoading(false)
-  }, [profile])
+    setLoading(true);
+    await Promise.all([loadInstalled(), loadBundled()]);
+    setLoading(false);
+  }, [profile]);
 
   useEffect(() => {
-    loadAll()
-  }, [loadAll])
+    loadAll();
+  }, [loadAll]);
 
   async function handleViewDetail(skill: InstalledSkill): Promise<void> {
-    setDetailSkill(skill)
-    const content = await window.hermesAPI.getSkillContent(skill.path)
-    setDetailContent(content)
+    setDetailSkill(skill);
+    const content = await window.hermesAPI.getSkillContent(skill.path);
+    setDetailContent(content);
   }
 
   async function handleInstall(name: string): Promise<void> {
-    setActionInProgress(name)
-    setError('')
-    const result = await window.hermesAPI.installSkill(name, profile)
-    setActionInProgress(null)
+    setActionInProgress(name);
+    setError("");
+    const result = await window.hermesAPI.installSkill(name, profile);
+    setActionInProgress(null);
     if (result.success) {
-      await loadInstalled()
+      await loadInstalled();
     } else {
-      setError(result.error || 'Failed to install skill')
+      setError(result.error || "Failed to install skill");
     }
   }
 
   async function handleUninstall(name: string): Promise<void> {
-    setActionInProgress(name)
-    setError('')
-    const result = await window.hermesAPI.uninstallSkill(name, profile)
-    setActionInProgress(null)
+    setActionInProgress(name);
+    setError("");
+    const result = await window.hermesAPI.uninstallSkill(name, profile);
+    setActionInProgress(null);
     if (result.success) {
-      setDetailSkill(null)
-      await loadInstalled()
+      setDetailSkill(null);
+      await loadInstalled();
     } else {
-      setError(result.error || 'Failed to uninstall skill')
+      setError(result.error || "Failed to uninstall skill");
     }
   }
 
-  const installedNames = new Set(installedSkills.map((s) => s.name.toLowerCase()))
+  const installedNames = new Set(
+    installedSkills.map((s) => s.name.toLowerCase()),
+  );
 
   // Filter logic
   const filteredInstalled = installedSkills.filter((s) => {
     if (search) {
-      const q = search.toLowerCase()
+      const q = search.toLowerCase();
       return (
         s.name.toLowerCase().includes(q) ||
         s.description.toLowerCase().includes(q) ||
         s.category.toLowerCase().includes(q)
-      )
+      );
     }
-    return true
-  })
+    return true;
+  });
 
   const filteredBundled = bundledSkills.filter((s) => {
-    let matches = true
+    let matches = true;
     if (search) {
-      const q = search.toLowerCase()
+      const q = search.toLowerCase();
       matches =
         s.name.toLowerCase().includes(q) ||
         s.description.toLowerCase().includes(q) ||
-        s.category.toLowerCase().includes(q)
+        s.category.toLowerCase().includes(q);
     }
     if (categoryFilter) {
-      matches = matches && s.category === categoryFilter
+      matches = matches && s.category === categoryFilter;
     }
-    return matches
-  })
+    return matches;
+  });
 
   // Get unique categories for filter pills
-  const categories = Array.from(new Set(bundledSkills.map((s) => s.category))).sort()
+  const categories = Array.from(
+    new Set(bundledSkills.map((s) => s.category)),
+  ).sort();
 
   if (loading) {
     return (
@@ -127,19 +131,24 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
           <div className="loading-spinner" />
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="skills-container">
       {/* Detail Panel */}
       {detailSkill && (
-        <div className="skills-detail-overlay" onClick={() => setDetailSkill(null)}>
+        <div
+          className="skills-detail-overlay"
+          onClick={() => setDetailSkill(null)}
+        >
           <div className="skills-detail" onClick={(e) => e.stopPropagation()}>
             <div className="skills-detail-header">
               <div>
                 <div className="skills-detail-name">{detailSkill.name}</div>
-                <div className="skills-detail-category">{detailSkill.category}</div>
+                <div className="skills-detail-category">
+                  {detailSkill.category}
+                </div>
               </div>
               <div className="skills-detail-actions">
                 <button
@@ -148,7 +157,7 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
                   disabled={actionInProgress === detailSkill.name}
                 >
                   {actionInProgress === detailSkill.name ? (
-                    'Removing...'
+                    "Removing..."
                   ) : (
                     <>
                       <Trash size={13} />
@@ -156,7 +165,10 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
                     </>
                   )}
                 </button>
-                <button className="btn-ghost" onClick={() => setDetailSkill(null)}>
+                <button
+                  className="btn-ghost"
+                  onClick={() => setDetailSkill(null)}
+                >
                   <X size={18} />
                 </button>
               </div>
@@ -171,7 +183,9 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
       <div className="skills-header">
         <div>
           <h2 className="skills-title">Skills</h2>
-          <p className="skills-subtitle">Extend your agent with reusable skills and workflows</p>
+          <p className="skills-subtitle">
+            Extend your agent with reusable skills and workflows
+          </p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={loadAll}>
           <Refresh size={14} />
@@ -182,7 +196,7 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
       {error && (
         <div className="skills-error">
           {error}
-          <button className="btn-ghost" onClick={() => setError('')}>
+          <button className="btn-ghost" onClick={() => setError("")}>
             <X size={14} />
           </button>
         </div>
@@ -191,14 +205,14 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
       {/* Tabs */}
       <div className="skills-tabs">
         <button
-          className={`skills-tab ${tab === 'installed' ? 'active' : ''}`}
-          onClick={() => setTab('installed')}
+          className={`skills-tab ${tab === "installed" ? "active" : ""}`}
+          onClick={() => setTab("installed")}
         >
           Installed ({installedSkills.length})
         </button>
         <button
-          className={`skills-tab ${tab === 'browse' ? 'active' : ''}`}
-          onClick={() => setTab('browse')}
+          className={`skills-tab ${tab === "browse" ? "active" : ""}`}
+          onClick={() => setTab("browse")}
         >
           Browse ({bundledSkills.length})
         </button>
@@ -211,7 +225,11 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
           ref={searchRef}
           className="skills-search-input"
           type="text"
-          placeholder={tab === 'installed' ? 'Filter installed skills...' : 'Search skills...'}
+          placeholder={
+            tab === "installed"
+              ? "Filter installed skills..."
+              : "Search skills..."
+          }
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -219,8 +237,8 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
           <button
             className="btn-ghost skills-search-clear"
             onClick={() => {
-              setSearch('')
-              searchRef.current?.focus()
+              setSearch("");
+              searchRef.current?.focus();
             }}
           >
             <X size={14} />
@@ -229,10 +247,10 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
       </div>
 
       {/* Category filter pills (browse tab only) */}
-      {tab === 'browse' && categories.length > 0 && (
+      {tab === "browse" && categories.length > 0 && (
         <div className="skills-category-pills">
           <button
-            className={`skills-pill ${categoryFilter === null ? 'active' : ''}`}
+            className={`skills-pill ${categoryFilter === null ? "active" : ""}`}
             onClick={() => setCategoryFilter(null)}
           >
             All
@@ -240,8 +258,10 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
           {categories.map((cat) => (
             <button
               key={cat}
-              className={`skills-pill ${categoryFilter === cat ? 'active' : ''}`}
-              onClick={() => setCategoryFilter(categoryFilter === cat ? null : cat)}
+              className={`skills-pill ${categoryFilter === cat ? "active" : ""}`}
+              onClick={() =>
+                setCategoryFilter(categoryFilter === cat ? null : cat)
+              }
             >
               {cat}
             </button>
@@ -250,16 +270,16 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
       )}
 
       {/* Grid */}
-      {tab === 'installed' ? (
+      {tab === "installed" ? (
         filteredInstalled.length === 0 ? (
           <div className="skills-empty">
             <p className="skills-empty-text">
-              {search ? 'No matching skills found' : 'No skills installed yet'}
+              {search ? "No matching skills found" : "No skills installed yet"}
             </p>
             <p className="skills-empty-hint">
               {search
-                ? 'Try a different search term'
-                : 'Browse available skills and install them to extend your agent'}
+                ? "Try a different search term"
+                : "Browse available skills and install them to extend your agent"}
             </p>
           </div>
         ) : (
@@ -273,7 +293,9 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
                 <div className="skills-card-category">{skill.category}</div>
                 <div className="skills-card-name">{skill.name}</div>
                 {skill.description && (
-                  <div className="skills-card-description">{skill.description}</div>
+                  <div className="skills-card-description">
+                    {skill.description}
+                  </div>
                 )}
               </button>
             ))}
@@ -282,34 +304,43 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
       ) : filteredBundled.length === 0 ? (
         <div className="skills-empty">
           <p className="skills-empty-text">No skills found</p>
-          <p className="skills-empty-hint">Try a different search term or category filter</p>
+          <p className="skills-empty-hint">
+            Try a different search term or category filter
+          </p>
         </div>
       ) : (
         <div className="skills-grid">
           {filteredBundled.map((skill) => {
-            const isInstalled = installedNames.has(skill.name.toLowerCase())
-            const isActioning = actionInProgress === skill.name
+            const isInstalled = installedNames.has(skill.name.toLowerCase());
+            const isActioning = actionInProgress === skill.name;
             return (
-              <div key={`${skill.category}/${skill.name}`} className="skills-card">
+              <div
+                key={`${skill.category}/${skill.name}`}
+                className="skills-card"
+              >
                 <div className="skills-card-category">{skill.category}</div>
                 <div className="skills-card-name">{skill.name}</div>
                 {skill.description && (
-                  <div className="skills-card-description">{skill.description}</div>
+                  <div className="skills-card-description">
+                    {skill.description}
+                  </div>
                 )}
                 <div className="skills-card-footer">
                   {isInstalled ? (
-                    <span className="skills-card-installed-badge">Installed</span>
+                    <span className="skills-card-installed-badge">
+                      Installed
+                    </span>
                   ) : (
                     <button
                       className="btn btn-primary btn-sm skills-card-install-btn"
                       onClick={(e) => {
-                        e.stopPropagation()
-                        handleInstall(skill.name)
+                        e.stopPropagation();
+                        handleInstall(skill.name);
                       }}
                       disabled={isActioning}
                     >
                       {isActioning ? (
-                        'Installing...'
+                        "Installing..."
                       ) : (
                         <>
                           <Download size={13} />
@@ -320,12 +351,12 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
                   )}
                 </div>
               </div>
-            )
+            );
           })}
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export default Skills
+export default Skills;

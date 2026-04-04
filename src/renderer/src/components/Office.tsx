@@ -1,206 +1,214 @@
-import { useState, useEffect, useRef } from 'react'
-import { Refresh, ExternalLink, Settings } from '../assets/icons'
+import { useState, useEffect, useRef } from "react";
+import { Refresh, ExternalLink, Settings } from "../assets/icons";
 
-type OfficeState = 'checking' | 'not-installed' | 'installing' | 'ready' | 'error'
+type OfficeState =
+  | "checking"
+  | "not-installed"
+  | "installing"
+  | "ready"
+  | "error";
 
 interface SetupProgress {
-  step: number
-  totalSteps: number
-  title: string
-  detail: string
-  log: string
+  step: number;
+  totalSteps: number;
+  title: string;
+  detail: string;
+  log: string;
 }
 
 function Office(): React.JSX.Element {
-  const [state, setState] = useState<OfficeState>('checking')
-  const [running, setRunning] = useState(false)
-  const [starting, setStarting] = useState(false)
-  const [port, setPort] = useState(3000)
-  const [portInput, setPortInput] = useState('3000')
-  const [portInUse, setPortInUse] = useState(false)
-  const [wsUrlInput, setWsUrlInput] = useState('ws://localhost:18789')
-  const [error, setError] = useState('')
-  const [showLogs, setShowLogs] = useState(false)
-  const [logs, setLogs] = useState('')
-  const [showSettings, setShowSettings] = useState(false)
+  const [state, setState] = useState<OfficeState>("checking");
+  const [running, setRunning] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [port, setPort] = useState(3000);
+  const [portInput, setPortInput] = useState("3000");
+  const [portInUse, setPortInUse] = useState(false);
+  const [wsUrlInput, setWsUrlInput] = useState("ws://localhost:18789");
+  const [error, setError] = useState("");
+  const [showLogs, setShowLogs] = useState(false);
+  const [logs, setLogs] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
   const [progress, setProgress] = useState<SetupProgress>({
     step: 0,
     totalSteps: 2,
-    title: 'Preparing...',
-    detail: '',
-    log: ''
-  })
-  const [webviewReady, setWebviewReady] = useState(false)
-  const [webviewError, setWebviewError] = useState('')
-  const logRef = useRef<HTMLDivElement>(null)
-  const webviewRef = useRef<HTMLWebViewElement>(null)
+    title: "Preparing...",
+    detail: "",
+    log: "",
+  });
+  const [webviewReady, setWebviewReady] = useState(false);
+  const [webviewError, setWebviewError] = useState("");
+  const logRef = useRef<HTMLDivElement>(null);
+  const webviewRef = useRef<HTMLWebViewElement>(null);
 
   useEffect(() => {
-    checkStatus()
-  }, [])
+    checkStatus();
+  }, []);
 
   // Poll status when in ready state
   useEffect(() => {
-    if (state !== 'ready') return
+    if (state !== "ready") return;
     const interval = setInterval(async () => {
-      const status = await window.hermesAPI.claw3dStatus()
-      setRunning(status.running)
-      setPort(status.port)
-      setPortInUse(status.portInUse)
+      const status = await window.hermesAPI.claw3dStatus();
+      setRunning(status.running);
+      setPort(status.port);
+      setPortInUse(status.portInUse);
       if (status.error && !error) {
-        setError(status.error)
+        setError(status.error);
       }
       // If was starting and now both are up, clear starting state
       if (starting && status.running) {
-        setStarting(false)
+        setStarting(false);
       }
       // If processes died unexpectedly
       if (!starting && !status.running && running) {
-        setRunning(false)
-        if (status.error) setError(status.error)
+        setRunning(false);
+        if (status.error) setError(status.error);
       }
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [state, starting, running, error])
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [state, starting, running, error]);
 
   // Auto-scroll log
   useEffect(() => {
     if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight
+      logRef.current.scrollTop = logRef.current.scrollHeight;
     }
-  }, [progress.log, logs])
+  }, [progress.log, logs]);
 
   // Webview load/error handling
   useEffect(() => {
     const wv = webviewRef.current as unknown as {
-      addEventListener: (e: string, fn: (evt?: unknown) => void) => void
-      removeEventListener: (e: string, fn: (evt?: unknown) => void) => void
-      executeJavaScript?: (code: string) => Promise<unknown>
-    }
-    if (!wv) return
+      addEventListener: (e: string, fn: (evt?: unknown) => void) => void;
+      removeEventListener: (e: string, fn: (evt?: unknown) => void) => void;
+      executeJavaScript?: (code: string) => Promise<unknown>;
+    };
+    if (!wv) return;
     const onLoad = (): void => {
-      setWebviewReady(true)
-      setWebviewError('')
+      setWebviewReady(true);
+      setWebviewError("");
       if (wv.executeJavaScript) {
         wv.executeJavaScript(
-          `try { localStorage.setItem("claw3d:onboarding:completed", "true") } catch(e) {}`
-        ).catch(() => {})
+          `try { localStorage.setItem("claw3d:onboarding:completed", "true") } catch(e) {}`,
+        ).catch(() => {});
       }
-    }
+    };
     const onFail = (evt: unknown): void => {
-      setWebviewReady(false)
-      const e = evt as { errorDescription?: string; errorCode?: number }
-      if (e?.errorCode === -3) return // Aborted — ignore (happens on reload)
+      setWebviewReady(false);
+      const e = evt as { errorDescription?: string; errorCode?: number };
+      if (e?.errorCode === -3) return; // Aborted — ignore (happens on reload)
       setWebviewError(
-        e?.errorDescription || 'Failed to load Claw3D. The dev server may still be starting up.'
-      )
-    }
-    wv.addEventListener('did-finish-load', onLoad)
-    wv.addEventListener('did-fail-load', onFail)
+        e?.errorDescription ||
+          "Failed to load Claw3D. The dev server may still be starting up.",
+      );
+    };
+    wv.addEventListener("did-finish-load", onLoad);
+    wv.addEventListener("did-fail-load", onFail);
     return () => {
-      wv.removeEventListener('did-finish-load', onLoad)
-      wv.removeEventListener('did-fail-load', onFail)
-    }
-  }, [running, port])
+      wv.removeEventListener("did-finish-load", onLoad);
+      wv.removeEventListener("did-fail-load", onFail);
+    };
+  }, [running, port]);
 
   async function checkStatus(): Promise<void> {
-    setState('checking')
-    const status = await window.hermesAPI.claw3dStatus()
-    setRunning(status.running)
-    setPort(status.port)
-    setPortInput(String(status.port))
-    setPortInUse(status.portInUse)
-    setWsUrlInput(status.wsUrl || 'ws://localhost:18789')
-    if (status.error) setError(status.error)
+    setState("checking");
+    const status = await window.hermesAPI.claw3dStatus();
+    setRunning(status.running);
+    setPort(status.port);
+    setPortInput(String(status.port));
+    setPortInUse(status.portInUse);
+    setWsUrlInput(status.wsUrl || "ws://localhost:18789");
+    if (status.error) setError(status.error);
     if (status.installed) {
-      setState('ready')
+      setState("ready");
     } else {
-      setState('not-installed')
+      setState("not-installed");
     }
   }
 
   async function handleInstall(): Promise<void> {
-    setState('installing')
-    setError('')
+    setState("installing");
+    setError("");
 
     const cleanup = window.hermesAPI.onClaw3dSetupProgress((p) => {
-      setProgress(p)
-    })
+      setProgress(p);
+    });
 
     try {
-      const result = await window.hermesAPI.claw3dSetup()
-      cleanup()
+      const result = await window.hermesAPI.claw3dSetup();
+      cleanup();
       if (result.success) {
-        setState('ready')
+        setState("ready");
       } else {
-        setError(result.error || 'Setup failed')
-        setState('error')
+        setError(result.error || "Setup failed");
+        setState("error");
       }
     } catch (err) {
-      cleanup()
-      setError((err as Error).message || 'Setup failed')
-      setState('error')
+      cleanup();
+      setError((err as Error).message || "Setup failed");
+      setState("error");
     }
   }
 
   async function handleStartStop(): Promise<void> {
     if (running) {
-      await window.hermesAPI.claw3dStopAll()
-      setRunning(false)
-      setWebviewReady(false)
-      setWebviewError('')
-      setError('')
+      await window.hermesAPI.claw3dStopAll();
+      setRunning(false);
+      setWebviewReady(false);
+      setWebviewError("");
+      setError("");
     } else {
-      setError('')
-      setWebviewError('')
-      setStarting(true)
-      const result = await window.hermesAPI.claw3dStartAll()
+      setError("");
+      setWebviewError("");
+      setStarting(true);
+      const result = await window.hermesAPI.claw3dStartAll();
       if (!result.success) {
-        setError(result.error || 'Failed to start Claw3D')
-        setStarting(false)
+        setError(result.error || "Failed to start Claw3D");
+        setStarting(false);
       } else {
         // Give processes a moment to actually start, polling will confirm
         setTimeout(() => {
-          setRunning(true)
-        }, 2000)
+          setRunning(true);
+        }, 2000);
       }
     }
   }
 
   async function handlePortSave(): Promise<void> {
-    const newPort = parseInt(portInput, 10)
-    if (isNaN(newPort) || newPort < 1024 || newPort > 65535) return
-    await window.hermesAPI.claw3dSetPort(newPort)
-    setPort(newPort)
-    const status = await window.hermesAPI.claw3dStatus()
-    setPortInUse(status.portInUse)
+    const newPort = parseInt(portInput, 10);
+    if (isNaN(newPort) || newPort < 1024 || newPort > 65535) return;
+    await window.hermesAPI.claw3dSetPort(newPort);
+    setPort(newPort);
+    const status = await window.hermesAPI.claw3dStatus();
+    setPortInUse(status.portInUse);
   }
 
   async function handleWsUrlSave(): Promise<void> {
-    const trimmed = wsUrlInput.trim()
-    if (!trimmed) return
-    await window.hermesAPI.claw3dSetWsUrl(trimmed)
+    const trimmed = wsUrlInput.trim();
+    if (!trimmed) return;
+    await window.hermesAPI.claw3dSetWsUrl(trimmed);
   }
 
   async function loadLogs(): Promise<void> {
-    const l = await window.hermesAPI.claw3dGetLogs()
-    setLogs(l)
-    setShowLogs(true)
+    const l = await window.hermesAPI.claw3dGetLogs();
+    setLogs(l);
+    setShowLogs(true);
   }
 
   function refreshWebview(): void {
-    setWebviewError('')
-    const wv = webviewRef.current as unknown as { reload?: () => void }
-    if (wv?.reload) wv.reload()
+    setWebviewError("");
+    const wv = webviewRef.current as unknown as { reload?: () => void };
+    if (wv?.reload) wv.reload();
   }
 
   const percent =
-    progress.totalSteps > 0 ? Math.round((progress.step / progress.totalSteps) * 100) : 0
+    progress.totalSteps > 0
+      ? Math.round((progress.step / progress.totalSteps) * 100)
+      : 0;
 
-  const claw3dUrl = `http://localhost:${port}`
+  const claw3dUrl = `http://localhost:${port}`;
 
   // --- Checking ---
-  if (state === 'checking') {
+  if (state === "checking") {
     return (
       <div className="settings-container">
         <h1 className="settings-header">Office</h1>
@@ -209,11 +217,11 @@ function Office(): React.JSX.Element {
           <p className="office-muted">Checking Claw3D status...</p>
         </div>
       </div>
-    )
+    );
   }
 
   // --- Not installed ---
-  if (state === 'not-installed' || state === 'error') {
+  if (state === "not-installed" || state === "error") {
     return (
       <div className="settings-container">
         <h1 className="settings-header">Office</h1>
@@ -221,12 +229,13 @@ function Office(): React.JSX.Element {
           <div className="office-setup-card">
             <h2 className="office-setup-title">Set Up Claw3D</h2>
             <p className="office-setup-desc">
-              Claw3D is a 3D visualization environment for your Hermes agents. It lets you see your
-              agents working in an interactive office space.
+              Claw3D is a 3D visualization environment for your Hermes agents.
+              It lets you see your agents working in an interactive office
+              space.
             </p>
             <p className="office-setup-desc">
-              Click below to automatically download and set up Claw3D. This will clone the
-              repository and install all dependencies.
+              Click below to automatically download and set up Claw3D. This will
+              clone the repository and install all dependencies.
             </p>
             {error && <div className="office-error">{error}</div>}
             <div className="office-setup-actions">
@@ -236,7 +245,9 @@ function Office(): React.JSX.Element {
               <button
                 className="btn btn-secondary"
                 onClick={() =>
-                  window.hermesAPI.openExternal('https://github.com/iamlukethedev/Claw3D')
+                  window.hermesAPI.openExternal(
+                    "https://github.com/iamlukethedev/Claw3D",
+                  )
                 }
               >
                 <ExternalLink size={14} />
@@ -246,11 +257,11 @@ function Office(): React.JSX.Element {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   // --- Installing ---
-  if (state === 'installing') {
+  if (state === "installing") {
     return (
       <div className="settings-container">
         <h1 className="settings-header">Office</h1>
@@ -258,7 +269,10 @@ function Office(): React.JSX.Element {
           <h2 className="office-install-title">Setting Up Claw3D</h2>
           <div className="install-progress-container">
             <div className="install-progress-bar">
-              <div className="install-progress-fill" style={{ width: `${percent}%` }} />
+              <div
+                className="install-progress-fill"
+                style={{ width: `${percent}%` }}
+              />
             </div>
             <div className="install-percent">{percent}%</div>
           </div>
@@ -269,11 +283,11 @@ function Office(): React.JSX.Element {
             <div className="install-step-detail">{progress.detail}</div>
           </div>
           <div className="install-log" ref={logRef}>
-            {progress.log || 'Waiting to start...'}
+            {progress.log || "Waiting to start..."}
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   // --- Ready state ---
@@ -282,22 +296,28 @@ function Office(): React.JSX.Element {
       <div className="office-toolbar">
         <div className="office-toolbar-left">
           <h1 className="office-toolbar-title">Office</h1>
-          <span className={`office-status-dot ${running ? 'running' : 'stopped'}`} />
+          <span
+            className={`office-status-dot ${running ? "running" : "stopped"}`}
+          />
           <span className="office-status-label">
-            {starting ? 'Starting...' : running ? 'Running' : 'Stopped'}
+            {starting ? "Starting..." : running ? "Running" : "Stopped"}
           </span>
         </div>
         <div className="office-toolbar-right">
           <button
-            className={`btn btn-sm ${running ? 'btn-secondary' : 'btn-primary'}`}
+            className={`btn btn-sm ${running ? "btn-secondary" : "btn-primary"}`}
             onClick={handleStartStop}
             disabled={starting || (portInUse && !running)}
           >
-            {starting ? 'Starting...' : running ? 'Stop' : 'Start'}
+            {starting ? "Starting..." : running ? "Stop" : "Start"}
           </button>
           {running && (
             <>
-              <button className="btn-ghost office-toolbar-btn" onClick={refreshWebview} title="Refresh">
+              <button
+                className="btn-ghost office-toolbar-btn"
+                onClick={refreshWebview}
+                title="Refresh"
+              >
                 <Refresh size={16} />
               </button>
               <button
@@ -331,7 +351,9 @@ function Office(): React.JSX.Element {
               value={portInput}
               onChange={(e) => setPortInput(e.target.value)}
               onBlur={handlePortSave}
-              onKeyDown={(e) => { if (e.key === 'Enter') handlePortSave() }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handlePortSave();
+              }}
             />
           </div>
           <div className="office-setting">
@@ -342,7 +364,9 @@ function Office(): React.JSX.Element {
               value={wsUrlInput}
               onChange={(e) => setWsUrlInput(e.target.value)}
               onBlur={handleWsUrlSave}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleWsUrlSave() }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleWsUrlSave();
+              }}
               placeholder="ws://localhost:18789"
             />
           </div>
@@ -354,7 +378,8 @@ function Office(): React.JSX.Element {
 
       {portInUse && !running && (
         <div className="office-warning-bar">
-          Port {port} is already in use. Change the port in settings or stop the other process.
+          Port {port} is already in use. Change the port in settings or stop the
+          other process.
         </div>
       )}
 
@@ -362,8 +387,15 @@ function Office(): React.JSX.Element {
         <div className="office-error-bar">
           <div className="office-error-text">{error}</div>
           <div className="office-error-actions">
-            <button className="btn btn-secondary btn-sm" onClick={loadLogs}>View Logs</button>
-            <button className="btn btn-secondary btn-sm" onClick={() => setError('')}>Dismiss</button>
+            <button className="btn btn-secondary btn-sm" onClick={loadLogs}>
+              View Logs
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setError("")}
+            >
+              Dismiss
+            </button>
           </div>
         </div>
       )}
@@ -372,10 +404,12 @@ function Office(): React.JSX.Element {
         <div className="office-logs-panel">
           <div className="office-logs-header">
             <span>Process Logs</span>
-            <button className="btn-ghost" onClick={() => setShowLogs(false)}>Close</button>
+            <button className="btn-ghost" onClick={() => setShowLogs(false)}>
+              Close
+            </button>
           </div>
           <div className="office-logs-content" ref={logRef}>
-            {logs || 'No logs yet. Start the services to see output.'}
+            {logs || "No logs yet. Start the services to see output."}
           </div>
         </div>
       )}
@@ -387,13 +421,21 @@ function Office(): React.JSX.Element {
               <div className="office-loading-overlay">
                 {webviewError ? (
                   <div className="office-webview-error">
-                    <p className="office-webview-error-title">Could not load Claw3D</p>
+                    <p className="office-webview-error-title">
+                      Could not load Claw3D
+                    </p>
                     <p className="office-muted">{webviewError}</p>
                     <div className="office-webview-error-actions">
-                      <button className="btn btn-primary btn-sm" onClick={refreshWebview}>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={refreshWebview}
+                      >
                         Retry
                       </button>
-                      <button className="btn btn-secondary btn-sm" onClick={loadLogs}>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={loadLogs}
+                      >
                         View Logs
                       </button>
                     </div>
@@ -402,7 +444,9 @@ function Office(): React.JSX.Element {
                   <>
                     <div className="office-spinner" />
                     <p className="office-muted">
-                      {starting ? 'Starting Claw3D services...' : 'Loading Claw3D...'}
+                      {starting
+                        ? "Starting Claw3D services..."
+                        : "Loading Claw3D..."}
                     </p>
                   </>
                 )}
@@ -411,7 +455,7 @@ function Office(): React.JSX.Element {
             <webview
               ref={webviewRef as React.RefObject<HTMLWebViewElement>}
               src={claw3dUrl}
-              style={{ width: '100%', height: '100%', border: 'none' }}
+              style={{ width: "100%", height: "100%", border: "none" }}
             />
           </>
         ) : !showLogs ? (
@@ -419,13 +463,13 @@ function Office(): React.JSX.Element {
             <p className="office-muted">
               {portInUse && !running
                 ? `Port ${port} is in use. Change it in settings to start.`
-                : 'Click Start to launch Claw3D'}
+                : "Click Start to launch Claw3D"}
             </p>
           </div>
         ) : null}
       </div>
     </div>
-  )
+  );
 }
 
-export default Office
+export default Office;

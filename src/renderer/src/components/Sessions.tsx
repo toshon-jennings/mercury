@@ -1,117 +1,119 @@
-import { useEffect, useState, useRef } from 'react'
-import { Plus, Search, X } from '../assets/icons'
+import { useEffect, useState, useRef } from "react";
+import { Plus, Search, X } from "../assets/icons";
 
 interface SessionSummary {
-  id: string
-  source: string
-  startedAt: number
-  endedAt: number | null
-  messageCount: number
-  model: string
-  title: string | null
-  preview: string
+  id: string;
+  source: string;
+  startedAt: number;
+  endedAt: number | null;
+  messageCount: number;
+  model: string;
+  title: string | null;
+  preview: string;
 }
 
 interface SearchResult {
-  sessionId: string
-  title: string | null
-  startedAt: number
-  source: string
-  messageCount: number
-  model: string
-  snippet: string
+  sessionId: string;
+  title: string | null;
+  startedAt: number;
+  source: string;
+  messageCount: number;
+  model: string;
+  snippet: string;
 }
 
 interface SessionsProps {
-  onResumeSession: (sessionId: string) => void
-  onNewChat: () => void
-  currentSessionId: string | null
+  onResumeSession: (sessionId: string) => void;
+  onNewChat: () => void;
+  currentSessionId: string | null;
 }
 
 function formatDate(ts: number): string {
-  const d = new Date(ts * 1000)
-  const now = new Date()
+  const d = new Date(ts * 1000);
+  const now = new Date();
   const isToday =
     d.getDate() === now.getDate() &&
     d.getMonth() === now.getMonth() &&
-    d.getFullYear() === now.getFullYear()
+    d.getFullYear() === now.getFullYear();
 
-  const yesterday = new Date(now)
-  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
   const isYesterday =
     d.getDate() === yesterday.getDate() &&
     d.getMonth() === yesterday.getMonth() &&
-    d.getFullYear() === yesterday.getFullYear()
+    d.getFullYear() === yesterday.getFullYear();
 
-  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-  if (isToday) return time
-  if (isYesterday) return `Yesterday ${time}`
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ` ${time}`
+  if (isToday) return time;
+  if (isYesterday) return `Yesterday ${time}`;
+  return (
+    d.toLocaleDateString([], { month: "short", day: "numeric" }) + ` ${time}`
+  );
 }
 
 function highlightSnippet(snippet: string): React.JSX.Element {
   // Replace <<...>> markers from FTS5 snippet with highlighted spans
-  const parts = snippet.split(/(<<.*?>>)/g)
+  const parts = snippet.split(/(<<.*?>>)/g);
   return (
     <span>
       {parts.map((part, i) => {
-        if (part.startsWith('<<') && part.endsWith('>>')) {
-          return <mark key={i}>{part.slice(2, -2)}</mark>
+        if (part.startsWith("<<") && part.endsWith(">>")) {
+          return <mark key={i}>{part.slice(2, -2)}</mark>;
         }
-        return <span key={i}>{part}</span>
+        return <span key={i}>{part}</span>;
       })}
     </span>
-  )
+  );
 }
 
 function Sessions({
   onResumeSession,
   onNewChat,
-  currentSessionId
+  currentSessionId,
 }: SessionsProps): React.JSX.Element {
-  const [sessions, setSessions] = useState<SessionSummary[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const searchRef = useRef<HTMLInputElement>(null)
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    loadSessions()
-  }, [])
+    loadSessions();
+  }, []);
 
   // Debounced search
   useEffect(() => {
-    if (searchTimer.current) clearTimeout(searchTimer.current)
+    if (searchTimer.current) clearTimeout(searchTimer.current);
 
     if (!searchQuery.trim()) {
-      setSearchResults([])
-      setIsSearching(false)
-      return
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
     }
 
-    setIsSearching(true)
+    setIsSearching(true);
     searchTimer.current = setTimeout(async () => {
-      const results = await window.hermesAPI.searchSessions(searchQuery)
-      setSearchResults(results)
-      setIsSearching(false)
-    }, 300)
+      const results = await window.hermesAPI.searchSessions(searchQuery);
+      setSearchResults(results);
+      setIsSearching(false);
+    }, 300);
 
     return () => {
-      if (searchTimer.current) clearTimeout(searchTimer.current)
-    }
-  }, [searchQuery])
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [searchQuery]);
 
   async function loadSessions(): Promise<void> {
-    setLoading(true)
-    const list = await window.hermesAPI.listSessions(50)
-    setSessions(list)
-    setLoading(false)
+    setLoading(true);
+    const list = await window.hermesAPI.listSessions(50);
+    setSessions(list);
+    setLoading(false);
   }
 
-  const isShowingSearch = searchQuery.trim().length > 0
+  const isShowingSearch = searchQuery.trim().length > 0;
 
   return (
     <div className="sessions-container">
@@ -138,8 +140,8 @@ function Sessions({
           <button
             className="btn-ghost sessions-search-clear"
             onClick={() => {
-              setSearchQuery('')
-              searchRef.current?.focus()
+              setSearchQuery("");
+              searchRef.current?.focus();
             }}
           >
             <X size={14} />
@@ -167,14 +169,16 @@ function Sessions({
             {searchResults.map((r) => (
               <button
                 key={r.sessionId}
-                className={`sessions-item ${currentSessionId === r.sessionId ? 'active' : ''}`}
+                className={`sessions-item ${currentSessionId === r.sessionId ? "active" : ""}`}
                 onClick={() => onResumeSession(r.sessionId)}
               >
                 <div className="sessions-item-top">
                   <span className="sessions-item-preview">
                     {r.title || `Session ${r.sessionId.slice(-6)}`}
                   </span>
-                  <span className="sessions-item-time">{formatDate(r.startedAt)}</span>
+                  <span className="sessions-item-time">
+                    {formatDate(r.startedAt)}
+                  </span>
                 </div>
                 {r.snippet && (
                   <div className="sessions-result-snippet">
@@ -185,12 +189,14 @@ function Sessions({
                   <span className="sessions-item-source">{r.source}</span>
                   <span className="sessions-item-dot" />
                   <span>
-                    {r.messageCount} msg{r.messageCount !== 1 ? 's' : ''}
+                    {r.messageCount} msg{r.messageCount !== 1 ? "s" : ""}
                   </span>
                   {r.model && (
                     <>
                       <span className="sessions-item-dot" />
-                      <span className="sessions-item-model">{r.model.split('/').pop()}</span>
+                      <span className="sessions-item-model">
+                        {r.model.split("/").pop()}
+                      </span>
                     </>
                   )}
                 </div>
@@ -201,32 +207,38 @@ function Sessions({
       ) : sessions.length === 0 ? (
         <div className="sessions-empty">
           <p className="sessions-empty-text">No sessions yet</p>
-          <p className="sessions-empty-hint">Start a chat to create your first session</p>
+          <p className="sessions-empty-hint">
+            Start a chat to create your first session
+          </p>
         </div>
       ) : (
         <div className="sessions-list">
           {sessions.map((s) => (
             <button
               key={s.id}
-              className={`sessions-item ${currentSessionId === s.id ? 'active' : ''}`}
+              className={`sessions-item ${currentSessionId === s.id ? "active" : ""}`}
               onClick={() => onResumeSession(s.id)}
             >
               <div className="sessions-item-top">
                 <span className="sessions-item-preview">
-                  {s.title || s.preview || 'Empty session'}
+                  {s.title || s.preview || "Empty session"}
                 </span>
-                <span className="sessions-item-time">{formatDate(s.startedAt)}</span>
+                <span className="sessions-item-time">
+                  {formatDate(s.startedAt)}
+                </span>
               </div>
               <div className="sessions-item-meta">
                 <span className="sessions-item-source">{s.source}</span>
                 <span className="sessions-item-dot" />
                 <span>
-                  {s.messageCount} msg{s.messageCount !== 1 ? 's' : ''}
+                  {s.messageCount} msg{s.messageCount !== 1 ? "s" : ""}
                 </span>
                 {s.model && (
                   <>
                     <span className="sessions-item-dot" />
-                    <span className="sessions-item-model">{s.model.split('/').pop()}</span>
+                    <span className="sessions-item-model">
+                      {s.model.split("/").pop()}
+                    </span>
                   </>
                 )}
               </div>
@@ -235,7 +247,7 @@ function Sessions({
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export default Sessions
+export default Sessions;

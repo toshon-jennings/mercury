@@ -1,100 +1,108 @@
-import { useState, useEffect } from 'react'
-import { Plus, Trash, ChatBubble } from '../assets/icons'
-import icon from '../assets/icon.png'
+import { useState, useEffect } from "react";
+import { Plus, Trash, ChatBubble } from "../assets/icons";
+import icon from "../assets/icon.png";
 
 interface ProfileInfo {
-  name: string
-  path: string
-  isDefault: boolean
-  isActive: boolean
-  model: string
-  provider: string
-  hasEnv: boolean
-  hasSoul: boolean
-  skillCount: number
-  gatewayRunning: boolean
+  name: string;
+  path: string;
+  isDefault: boolean;
+  isActive: boolean;
+  model: string;
+  provider: string;
+  hasEnv: boolean;
+  hasSoul: boolean;
+  skillCount: number;
+  gatewayRunning: boolean;
 }
 
 interface AgentsProps {
-  activeProfile: string
-  onSelectProfile: (name: string) => void
-  onChatWith: (name: string) => void
+  activeProfile: string;
+  onSelectProfile: (name: string) => void;
+  onChatWith: (name: string) => void;
 }
 
 function AgentAvatar({ name }: { name: string }): React.JSX.Element {
-  if (name === 'default') {
+  if (name === "default") {
     return (
       <div className="agents-card-avatar agents-card-avatar-icon">
         <img src={icon} width={22} height={22} alt="" />
       </div>
-    )
+    );
   }
-  return <div className="agents-card-avatar">{name.charAt(0).toUpperCase()}</div>
+  return (
+    <div className="agents-card-avatar">{name.charAt(0).toUpperCase()}</div>
+  );
 }
 
-function Agents({ activeProfile, onSelectProfile, onChatWith }: AgentsProps): React.JSX.Element {
-  const [profiles, setProfiles] = useState<ProfileInfo[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showCreate, setShowCreate] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [cloneConfig, setCloneConfig] = useState(true)
-  const [creating, setCreating] = useState(false)
-  const [error, setError] = useState('')
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+function Agents({
+  activeProfile,
+  onSelectProfile,
+  onChatWith,
+}: AgentsProps): React.JSX.Element {
+  const [profiles, setProfiles] = useState<ProfileInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [cloneConfig, setCloneConfig] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   async function loadProfiles(): Promise<void> {
-    const list = await window.hermesAPI.listProfiles()
-    setProfiles(list)
-    setLoading(false)
+    const list = await window.hermesAPI.listProfiles();
+    setProfiles(list);
+    setLoading(false);
   }
 
   useEffect(() => {
-    loadProfiles()
-  }, [])
+    loadProfiles();
+  }, []);
 
   async function handleCreate(): Promise<void> {
-    const name = newName.trim().toLowerCase()
-    if (!name) return
-    setCreating(true)
-    setError('')
-    const result = await window.hermesAPI.createProfile(name, cloneConfig)
-    setCreating(false)
+    const name = newName.trim().toLowerCase();
+    if (!name) return;
+    setCreating(true);
+    setError("");
+    const result = await window.hermesAPI.createProfile(name, cloneConfig);
+    setCreating(false);
     if (result.success) {
-      setShowCreate(false)
-      setNewName('')
-      loadProfiles()
+      setShowCreate(false);
+      setNewName("");
+      loadProfiles();
     } else {
-      setError(result.error || 'Failed to create profile')
+      setError(result.error || "Failed to create profile");
     }
   }
 
   async function handleDelete(name: string): Promise<void> {
-    const result = await window.hermesAPI.deleteProfile(name)
+    const result = await window.hermesAPI.deleteProfile(name);
     if (result.success) {
-      if (activeProfile === name) onSelectProfile('default')
-      loadProfiles()
+      if (activeProfile === name) onSelectProfile("default");
+      loadProfiles();
     }
-    setConfirmDelete(null)
+    setConfirmDelete(null);
   }
 
   async function handleSelect(name: string): Promise<void> {
-    await window.hermesAPI.setActiveProfile(name)
-    onSelectProfile(name)
-    loadProfiles()
+    await window.hermesAPI.setActiveProfile(name);
+    onSelectProfile(name);
+    loadProfiles();
   }
 
   function providerLabel(provider: string): string {
-    if (!provider || provider === 'auto') return 'Auto'
-    if (provider === 'custom') return 'Local'
-    return provider.charAt(0).toUpperCase() + provider.slice(1)
+    if (!provider || provider === "auto") return "Auto";
+    if (provider === "custom") return "Local";
+    return provider.charAt(0).toUpperCase() + provider.slice(1);
   }
 
   if (loading) {
     return (
       <div className="agents-container">
-        <div className="agents-loading"><div className="loading-spinner" /></div>
+        <div className="agents-loading">
+          <div className="loading-spinner" />
+        </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -103,10 +111,14 @@ function Agents({ activeProfile, onSelectProfile, onChatWith }: AgentsProps): Re
         <div>
           <h2 className="agents-title">Profiles</h2>
           <p className="agents-subtitle">
-            Each profile is an isolated Hermes workspace with its own config, memory, and skills
+            Each profile is an isolated Hermes workspace with its own config,
+            memory, and skills
           </p>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={() => setShowCreate(true)}
+        >
           <Plus size={14} />
           New Agent
         </button>
@@ -119,23 +131,39 @@ function Agents({ activeProfile, onSelectProfile, onChatWith }: AgentsProps): Re
             placeholder="Agent name (e.g. coder)"
             value={newName}
             onChange={(e) => {
-              const v = e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '')
-              setNewName(v)
-              setError('')
+              const v = e.target.value
+                .toLowerCase()
+                .replace(/[^a-z0-9_-]/g, "");
+              setNewName(v);
+              setError("");
             }}
-            onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
             autoFocus
           />
           <label className="agents-create-clone">
-            <input type="checkbox" checked={cloneConfig} onChange={(e) => setCloneConfig(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={cloneConfig}
+              onChange={(e) => setCloneConfig(e.target.checked)}
+            />
             <span>Clone config &amp; API keys from default</span>
           </label>
           {error && <div className="agents-create-error">{error}</div>}
           <div className="agents-create-actions">
-            <button className="btn btn-primary btn-sm" onClick={handleCreate} disabled={creating || !newName.trim()}>
-              {creating ? 'Creating...' : 'Create'}
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleCreate}
+              disabled={creating || !newName.trim()}
+            >
+              {creating ? "Creating..." : "Create"}
             </button>
-            <button className="btn btn-secondary btn-sm" onClick={() => { setShowCreate(false); setError('') }}>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                setShowCreate(false);
+                setError("");
+              }}
+            >
               Cancel
             </button>
           </div>
@@ -146,50 +174,88 @@ function Agents({ activeProfile, onSelectProfile, onChatWith }: AgentsProps): Re
         {profiles.map((p) => (
           <button
             key={p.name}
-            className={`agents-card ${activeProfile === p.name ? 'active' : ''}`}
+            className={`agents-card ${activeProfile === p.name ? "active" : ""}`}
             onClick={() => handleSelect(p.name)}
           >
             <div className="agents-card-header">
               <AgentAvatar name={p.name} />
               <div className="agents-card-info">
                 <div className="agents-card-name">{p.name}</div>
-                <div className="agents-card-provider">{providerLabel(p.provider)}</div>
+                <div className="agents-card-provider">
+                  {providerLabel(p.provider)}
+                </div>
               </div>
-              {activeProfile === p.name && <span className="agents-card-active-badge">Active</span>}
+              {activeProfile === p.name && (
+                <span className="agents-card-active-badge">Active</span>
+              )}
             </div>
-            <div className="agents-card-model">{p.model ? p.model.split('/').pop() : 'No model set'}</div>
+            <div className="agents-card-model">
+              {p.model ? p.model.split("/").pop() : "No model set"}
+            </div>
             <div className="agents-card-stats">
               <span>{p.skillCount} skills</span>
               <span className="agents-card-dot" />
-              {p.gatewayRunning ? <span className="agents-card-gateway-on">Gateway running</span> : <span>Gateway off</span>}
+              {p.gatewayRunning ? (
+                <span className="agents-card-gateway-on">Gateway running</span>
+              ) : (
+                <span>Gateway off</span>
+              )}
             </div>
             <div className="agents-card-footer">
               <button
                 className="btn btn-primary btn-sm"
-                onClick={(e) => { e.stopPropagation(); onChatWith(p.name) }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChatWith(p.name);
+                }}
               >
                 <ChatBubble size={13} />
                 Chat
               </button>
-              {!p.isDefault && (
-                confirmDelete === p.name ? (
-                  <div className="agents-card-confirm-delete" onClick={(e) => e.stopPropagation()}>
+              {!p.isDefault &&
+                (confirmDelete === p.name ? (
+                  <div
+                    className="agents-card-confirm-delete"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <span>Delete?</span>
-                    <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); handleDelete(p.name) }}>Yes</button>
-                    <button className="btn btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); setConfirmDelete(null) }}>No</button>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(p.name);
+                      }}
+                    >
+                      Yes
+                    </button>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmDelete(null);
+                      }}
+                    >
+                      No
+                    </button>
                   </div>
                 ) : (
-                  <button className="agents-card-delete" onClick={(e) => { e.stopPropagation(); setConfirmDelete(p.name) }} title="Delete agent">
+                  <button
+                    className="agents-card-delete"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmDelete(p.name);
+                    }}
+                    title="Delete agent"
+                  >
                     <Trash size={14} />
                   </button>
-                )
-              )}
+                ))}
             </div>
           </button>
         ))}
       </div>
     </div>
-  )
+  );
 }
 
-export default Agents
+export default Agents;

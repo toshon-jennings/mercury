@@ -1,134 +1,144 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Plus, Trash, Search, X } from '../assets/icons'
+import { useState, useEffect, useCallback } from "react";
+import { Plus, Trash, Search, X } from "../assets/icons";
 
 interface SavedModel {
-  id: string
-  name: string
-  provider: string
-  model: string
-  baseUrl: string
-  createdAt: number
+  id: string;
+  name: string;
+  provider: string;
+  model: string;
+  baseUrl: string;
+  createdAt: number;
 }
 
 const PROVIDERS = [
-  { value: 'openrouter', label: 'OpenRouter' },
-  { value: 'anthropic', label: 'Anthropic' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'groq', label: 'Groq' },
-  { value: 'custom', label: 'Custom / Local' }
-]
+  { value: "openrouter", label: "OpenRouter" },
+  { value: "anthropic", label: "Anthropic" },
+  { value: "openai", label: "OpenAI" },
+  { value: "groq", label: "Groq" },
+  { value: "custom", label: "Custom / Local" },
+];
 
 function providerLabel(value: string): string {
-  return PROVIDERS.find((p) => p.value === value)?.label || value
+  return PROVIDERS.find((p) => p.value === value)?.label || value;
 }
 
 function Models(): React.JSX.Element {
-  const [models, setModels] = useState<SavedModel[]>([])
-  const [search, setSearch] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [models, setModels] = useState<SavedModel[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   // Modal state
-  const [showModal, setShowModal] = useState(false)
-  const [editingModel, setEditingModel] = useState<SavedModel | null>(null)
-  const [formName, setFormName] = useState('')
-  const [formProvider, setFormProvider] = useState('openrouter')
-  const [formModel, setFormModel] = useState('')
-  const [formBaseUrl, setFormBaseUrl] = useState('')
-  const [formError, setFormError] = useState('')
+  const [showModal, setShowModal] = useState(false);
+  const [editingModel, setEditingModel] = useState<SavedModel | null>(null);
+  const [formName, setFormName] = useState("");
+  const [formProvider, setFormProvider] = useState("openrouter");
+  const [formModel, setFormModel] = useState("");
+  const [formBaseUrl, setFormBaseUrl] = useState("");
+  const [formError, setFormError] = useState("");
 
   const loadModels = useCallback(async () => {
-    const list = await window.hermesAPI.listModels()
-    setModels(list)
-    setLoading(false)
-  }, [])
+    const list = await window.hermesAPI.listModels();
+    setModels(list);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    loadModels()
-  }, [loadModels])
+    loadModels();
+  }, [loadModels]);
 
   function openAddModal(): void {
-    setEditingModel(null)
-    setFormName('')
-    setFormProvider('openrouter')
-    setFormModel('')
-    setFormBaseUrl('')
-    setFormError('')
-    setShowModal(true)
+    setEditingModel(null);
+    setFormName("");
+    setFormProvider("openrouter");
+    setFormModel("");
+    setFormBaseUrl("");
+    setFormError("");
+    setShowModal(true);
   }
 
   function openEditModal(m: SavedModel): void {
-    setEditingModel(m)
-    setFormName(m.name)
-    setFormProvider(m.provider)
-    setFormModel(m.model)
-    setFormBaseUrl(m.baseUrl)
-    setFormError('')
-    setShowModal(true)
+    setEditingModel(m);
+    setFormName(m.name);
+    setFormProvider(m.provider);
+    setFormModel(m.model);
+    setFormBaseUrl(m.baseUrl);
+    setFormError("");
+    setShowModal(true);
   }
 
   function closeModal(): void {
-    setShowModal(false)
-    setEditingModel(null)
-    setFormError('')
+    setShowModal(false);
+    setEditingModel(null);
+    setFormError("");
   }
 
   async function handleSave(): Promise<void> {
-    const name = formName.trim()
-    const model = formModel.trim()
+    const name = formName.trim();
+    const model = formModel.trim();
     if (!name || !model) {
-      setFormError('Name and Model ID are required')
-      return
+      setFormError("Name and Model ID are required");
+      return;
     }
-    setFormError('')
+    setFormError("");
 
     if (editingModel) {
       await window.hermesAPI.updateModel(editingModel.id, {
         name,
         provider: formProvider,
         model,
-        baseUrl: formBaseUrl.trim()
-      })
+        baseUrl: formBaseUrl.trim(),
+      });
     } else {
-      await window.hermesAPI.addModel(name, formProvider, model, formBaseUrl.trim())
+      await window.hermesAPI.addModel(
+        name,
+        formProvider,
+        model,
+        formBaseUrl.trim(),
+      );
     }
 
-    closeModal()
-    await loadModels()
+    closeModal();
+    await loadModels();
   }
 
   async function handleDelete(id: string): Promise<void> {
-    await window.hermesAPI.removeModel(id)
-    setConfirmDelete(null)
-    await loadModels()
+    await window.hermesAPI.removeModel(id);
+    setConfirmDelete(null);
+    await loadModels();
   }
 
   const filtered = models.filter((m) => {
-    if (!search) return true
-    const q = search.toLowerCase()
+    if (!search) return true;
+    const q = search.toLowerCase();
     return (
       m.name.toLowerCase().includes(q) ||
       m.model.toLowerCase().includes(q) ||
       m.provider.toLowerCase().includes(q)
-    )
-  })
+    );
+  });
 
   if (loading) {
     return (
       <div className="settings-container">
         <h1 className="settings-header">Models</h1>
-        <div className="models-loading"><div className="loading-spinner" /></div>
+        <div className="models-loading">
+          <div className="loading-spinner" />
+        </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="settings-container">
       <div className="models-header">
         <div>
-          <h1 className="settings-header" style={{ marginBottom: 4 }}>Models</h1>
+          <h1 className="settings-header" style={{ marginBottom: 4 }}>
+            Models
+          </h1>
           <p className="models-subtitle">
-            Manage your model library. These models appear in the chat model picker.
+            Manage your model library. These models appear in the chat model
+            picker.
           </p>
         </div>
         <button className="btn btn-primary btn-sm" onClick={openAddModal}>
@@ -156,7 +166,8 @@ function Models(): React.JSX.Element {
             <>
               <p className="models-empty-text">No models yet</p>
               <p className="models-empty-hint">
-                Add models here to use them in the chat model picker. Models are also auto-added when you configure one in Settings.
+                Add models here to use them in the chat model picker. Models are
+                also auto-added when you configure one in Settings.
               </p>
             </>
           ) : (
@@ -166,24 +177,47 @@ function Models(): React.JSX.Element {
       ) : (
         <div className="models-grid">
           {filtered.map((m) => (
-            <div key={m.id} className="models-card" onClick={() => openEditModal(m)}>
+            <div
+              key={m.id}
+              className="models-card"
+              onClick={() => openEditModal(m)}
+            >
               <div className="models-card-header">
                 <div className="models-card-name">{m.name}</div>
-                <span className="models-card-provider">{providerLabel(m.provider)}</span>
+                <span className="models-card-provider">
+                  {providerLabel(m.provider)}
+                </span>
               </div>
               <div className="models-card-model">{m.model}</div>
               {m.baseUrl && <div className="models-card-url">{m.baseUrl}</div>}
               <div className="models-card-footer">
                 {confirmDelete === m.id ? (
-                  <div className="models-card-confirm" onClick={(e) => e.stopPropagation()}>
+                  <div
+                    className="models-card-confirm"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <span>Delete?</span>
-                    <button className="btn btn-sm" style={{ color: 'var(--error)' }} onClick={() => handleDelete(m.id)}>Yes</button>
-                    <button className="btn btn-sm" onClick={() => setConfirmDelete(null)}>No</button>
+                    <button
+                      className="btn btn-sm"
+                      style={{ color: "var(--error)" }}
+                      onClick={() => handleDelete(m.id)}
+                    >
+                      Yes
+                    </button>
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => setConfirmDelete(null)}
+                    >
+                      No
+                    </button>
                   </div>
                 ) : (
                   <button
                     className="btn-ghost models-card-delete"
-                    onClick={(e) => { e.stopPropagation(); setConfirmDelete(m.id) }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmDelete(m.id);
+                    }}
                     title="Delete model"
                   >
                     <Trash size={14} />
@@ -200,7 +234,7 @@ function Models(): React.JSX.Element {
           <div className="models-modal" onClick={(e) => e.stopPropagation()}>
             <div className="models-modal-header">
               <h2 className="models-modal-title">
-                {editingModel ? 'Edit Model' : 'Add Model'}
+                {editingModel ? "Edit Model" : "Add Model"}
               </h2>
               <button className="btn-ghost" onClick={closeModal}>
                 <X size={18} />
@@ -228,7 +262,9 @@ function Models(): React.JSX.Element {
                   onChange={(e) => setFormProvider(e.target.value)}
                 >
                   {PROVIDERS.map((p) => (
-                    <option key={p.value} value={p.value}>{p.label}</option>
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -245,7 +281,9 @@ function Models(): React.JSX.Element {
               </div>
 
               <div className="models-modal-field">
-                <label className="models-modal-label">Base URL (optional)</label>
+                <label className="models-modal-label">
+                  Base URL (optional)
+                </label>
                 <input
                   className="input"
                   type="text"
@@ -253,23 +291,27 @@ function Models(): React.JSX.Element {
                   onChange={(e) => setFormBaseUrl(e.target.value)}
                   placeholder="http://localhost:1234/v1"
                 />
-                <span className="models-modal-hint">Only needed for custom/local providers</span>
+                <span className="models-modal-hint">
+                  Only needed for custom/local providers
+                </span>
               </div>
 
               {formError && <div className="models-error">{formError}</div>}
             </div>
 
             <div className="models-modal-footer">
-              <button className="btn btn-secondary btn-sm" onClick={closeModal}>Cancel</button>
+              <button className="btn btn-secondary btn-sm" onClick={closeModal}>
+                Cancel
+              </button>
               <button className="btn btn-primary btn-sm" onClick={handleSave}>
-                {editingModel ? 'Update' : 'Add Model'}
+                {editingModel ? "Update" : "Add Model"}
               </button>
             </div>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }
 
-export default Models
+export default Models;

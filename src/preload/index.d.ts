@@ -1,208 +1,287 @@
-import { ElectronAPI } from '@electron-toolkit/preload'
+import { ElectronAPI } from "@electron-toolkit/preload";
 
 interface InstallStatus {
-  installed: boolean
-  configured: boolean
-  hasApiKey: boolean
-  verified: boolean
+  installed: boolean;
+  configured: boolean;
+  hasApiKey: boolean;
+  verified: boolean;
 }
 
 interface InstallProgress {
-  step: number
-  totalSteps: number
-  title: string
-  detail: string
-  log: string
+  step: number;
+  totalSteps: number;
+  title: string;
+  detail: string;
+  log: string;
 }
 
 interface HermesAPI {
   // Installation
-  checkInstall: () => Promise<InstallStatus>
-  startInstall: () => Promise<{ success: boolean; error?: string }>
-  onInstallProgress: (callback: (progress: InstallProgress) => void) => () => void
+  checkInstall: () => Promise<InstallStatus>;
+  startInstall: () => Promise<{ success: boolean; error?: string }>;
+  onInstallProgress: (
+    callback: (progress: InstallProgress) => void,
+  ) => () => void;
 
   // Configuration (profile-aware)
-  getEnv: (profile?: string) => Promise<Record<string, string>>
-  setEnv: (key: string, value: string, profile?: string) => Promise<boolean>
-  getConfig: (key: string, profile?: string) => Promise<string | null>
-  setConfig: (key: string, value: string, profile?: string) => Promise<boolean>
-  getHermesHome: (profile?: string) => Promise<string>
-  getModelConfig: (profile?: string) => Promise<{ provider: string; model: string; baseUrl: string }>
-  setModelConfig: (provider: string, model: string, baseUrl: string, profile?: string) => Promise<boolean>
+  getEnv: (profile?: string) => Promise<Record<string, string>>;
+  setEnv: (key: string, value: string, profile?: string) => Promise<boolean>;
+  getConfig: (key: string, profile?: string) => Promise<string | null>;
+  setConfig: (key: string, value: string, profile?: string) => Promise<boolean>;
+  getHermesHome: (profile?: string) => Promise<string>;
+  getModelConfig: (
+    profile?: string,
+  ) => Promise<{ provider: string; model: string; baseUrl: string }>;
+  setModelConfig: (
+    provider: string,
+    model: string,
+    baseUrl: string,
+    profile?: string,
+  ) => Promise<boolean>;
 
   // Chat
   sendMessage: (
     message: string,
     profile?: string,
-    resumeSessionId?: string
-  ) => Promise<{ response: string; sessionId?: string }>
-  abortChat: () => Promise<void>
-  onChatChunk: (callback: (chunk: string) => void) => () => void
-  onChatDone: (callback: (sessionId?: string) => void) => () => void
-  onChatToolProgress: (callback: (tool: string) => void) => () => void
+    resumeSessionId?: string,
+  ) => Promise<{ response: string; sessionId?: string }>;
+  abortChat: () => Promise<void>;
+  onChatChunk: (callback: (chunk: string) => void) => () => void;
+  onChatDone: (callback: (sessionId?: string) => void) => () => void;
+  onChatToolProgress: (callback: (tool: string) => void) => () => void;
   onChatUsage: (
-    callback: (usage: { promptTokens: number; completionTokens: number; totalTokens: number }) => void
-  ) => () => void
-  onChatError: (callback: (error: string) => void) => () => void
+    callback: (usage: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+    }) => void,
+  ) => () => void;
+  onChatError: (callback: (error: string) => void) => () => void;
 
   // Gateway
-  startGateway: () => Promise<boolean>
-  stopGateway: () => Promise<boolean>
-  gatewayStatus: () => Promise<boolean>
+  startGateway: () => Promise<boolean>;
+  stopGateway: () => Promise<boolean>;
+  gatewayStatus: () => Promise<boolean>;
 
   // Sessions
   listSessions: (
     limit?: number,
-    offset?: number
+    offset?: number,
   ) => Promise<
     Array<{
-      id: string
-      source: string
-      startedAt: number
-      endedAt: number | null
-      messageCount: number
-      model: string
-      title: string | null
-      preview: string
+      id: string;
+      source: string;
+      startedAt: number;
+      endedAt: number | null;
+      messageCount: number;
+      model: string;
+      title: string | null;
+      preview: string;
     }>
-  >
-  getSessionMessages: (
-    sessionId: string
-  ) => Promise<Array<{ id: number; role: 'user' | 'assistant'; content: string; timestamp: number }>>
+  >;
+  getSessionMessages: (sessionId: string) => Promise<
+    Array<{
+      id: number;
+      role: "user" | "assistant";
+      content: string;
+      timestamp: number;
+    }>
+  >;
 
   // Profiles
   listProfiles: () => Promise<
     Array<{
-      name: string
-      path: string
-      isDefault: boolean
-      isActive: boolean
-      model: string
-      provider: string
-      hasEnv: boolean
-      hasSoul: boolean
-      skillCount: number
-      gatewayRunning: boolean
+      name: string;
+      path: string;
+      isDefault: boolean;
+      isActive: boolean;
+      model: string;
+      provider: string;
+      hasEnv: boolean;
+      hasSoul: boolean;
+      skillCount: number;
+      gatewayRunning: boolean;
     }>
-  >
-  createProfile: (name: string, clone: boolean) => Promise<{ success: boolean; error?: string }>
-  deleteProfile: (name: string) => Promise<{ success: boolean; error?: string }>
-  setActiveProfile: (name: string) => Promise<boolean>
+  >;
+  createProfile: (
+    name: string,
+    clone: boolean,
+  ) => Promise<{ success: boolean; error?: string }>;
+  deleteProfile: (
+    name: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  setActiveProfile: (name: string) => Promise<boolean>;
 
   // Memory
   readMemory: (profile?: string) => Promise<{
-    memory: { content: string; exists: boolean; lastModified: number | null }
-    user: { content: string; exists: boolean; lastModified: number | null }
-    stats: { totalSessions: number; totalMessages: number }
-  }>
+    memory: { content: string; exists: boolean; lastModified: number | null };
+    user: { content: string; exists: boolean; lastModified: number | null };
+    stats: { totalSessions: number; totalMessages: number };
+  }>;
 
-  addMemoryEntry: (content: string, profile?: string) => Promise<{ success: boolean; error?: string }>
-  updateMemoryEntry: (index: number, content: string, profile?: string) => Promise<{ success: boolean; error?: string }>
-  removeMemoryEntry: (index: number, profile?: string) => Promise<boolean>
-  writeUserProfile: (content: string, profile?: string) => Promise<{ success: boolean; error?: string }>
+  addMemoryEntry: (
+    content: string,
+    profile?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  updateMemoryEntry: (
+    index: number,
+    content: string,
+    profile?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  removeMemoryEntry: (index: number, profile?: string) => Promise<boolean>;
+  writeUserProfile: (
+    content: string,
+    profile?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
 
   // Soul
-  readSoul: (profile?: string) => Promise<string>
-  writeSoul: (content: string, profile?: string) => Promise<boolean>
-  resetSoul: (profile?: string) => Promise<string>
+  readSoul: (profile?: string) => Promise<string>;
+  writeSoul: (content: string, profile?: string) => Promise<boolean>;
+  resetSoul: (profile?: string) => Promise<string>;
 
   // Tools
-  getToolsets: (profile?: string) => Promise<
+  getToolsets: (
+    profile?: string,
+  ) => Promise<
     Array<{ key: string; label: string; description: string; enabled: boolean }>
-  >
-  setToolsetEnabled: (key: string, enabled: boolean, profile?: string) => Promise<boolean>
+  >;
+  setToolsetEnabled: (
+    key: string,
+    enabled: boolean,
+    profile?: string,
+  ) => Promise<boolean>;
 
   // Skills
-  listInstalledSkills: (profile?: string) => Promise<
+  listInstalledSkills: (
+    profile?: string,
+  ) => Promise<
     Array<{ name: string; category: string; description: string; path: string }>
-  >
+  >;
   listBundledSkills: () => Promise<
-    Array<{ name: string; description: string; category: string; source: string; installed: boolean }>
-  >
-  getSkillContent: (skillPath: string) => Promise<string>
-  installSkill: (identifier: string, profile?: string) => Promise<{ success: boolean; error?: string }>
-  uninstallSkill: (name: string, profile?: string) => Promise<{ success: boolean; error?: string }>
+    Array<{
+      name: string;
+      description: string;
+      category: string;
+      source: string;
+      installed: boolean;
+    }>
+  >;
+  getSkillContent: (skillPath: string) => Promise<string>;
+  installSkill: (
+    identifier: string,
+    profile?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  uninstallSkill: (
+    name: string,
+    profile?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
 
   // Session search
-  searchSessions: (query: string, limit?: number) => Promise<
+  searchSessions: (
+    query: string,
+    limit?: number,
+  ) => Promise<
     Array<{
-      sessionId: string
-      title: string | null
-      startedAt: number
-      source: string
-      messageCount: number
-      model: string
-      snippet: string
+      sessionId: string;
+      title: string | null;
+      startedAt: number;
+      source: string;
+      messageCount: number;
+      model: string;
+      snippet: string;
     }>
-  >
+  >;
 
   // Credential Pool
-  getCredentialPool: () => Promise<Record<string, Array<{ key: string; label: string }>>>
-  setCredentialPool: (provider: string, entries: Array<{ key: string; label: string }>) => Promise<boolean>
+  getCredentialPool: () => Promise<
+    Record<string, Array<{ key: string; label: string }>>
+  >;
+  setCredentialPool: (
+    provider: string,
+    entries: Array<{ key: string; label: string }>,
+  ) => Promise<boolean>;
 
   // Models
   listModels: () => Promise<
-    Array<{ id: string; name: string; provider: string; model: string; baseUrl: string; createdAt: number }>
-  >
+    Array<{
+      id: string;
+      name: string;
+      provider: string;
+      model: string;
+      baseUrl: string;
+      createdAt: number;
+    }>
+  >;
   addModel: (
     name: string,
     provider: string,
     model: string,
-    baseUrl: string
-  ) => Promise<{ id: string; name: string; provider: string; model: string; baseUrl: string; createdAt: number }>
-  removeModel: (id: string) => Promise<boolean>
-  updateModel: (id: string, fields: Record<string, string>) => Promise<boolean>
+    baseUrl: string,
+  ) => Promise<{
+    id: string;
+    name: string;
+    provider: string;
+    model: string;
+    baseUrl: string;
+    createdAt: number;
+  }>;
+  removeModel: (id: string) => Promise<boolean>;
+  updateModel: (id: string, fields: Record<string, string>) => Promise<boolean>;
 
   // Claw3D
   claw3dStatus: () => Promise<{
-    cloned: boolean
-    installed: boolean
-    devServerRunning: boolean
-    adapterRunning: boolean
-    port: number
-    portInUse: boolean
-    wsUrl: string
-    running: boolean
-    error: string
-  }>
-  claw3dSetup: () => Promise<{ success: boolean; error?: string }>
+    cloned: boolean;
+    installed: boolean;
+    devServerRunning: boolean;
+    adapterRunning: boolean;
+    port: number;
+    portInUse: boolean;
+    wsUrl: string;
+    running: boolean;
+    error: string;
+  }>;
+  claw3dSetup: () => Promise<{ success: boolean; error?: string }>;
   onClaw3dSetupProgress: (
     callback: (progress: {
-      step: number
-      totalSteps: number
-      title: string
-      detail: string
-      log: string
-    }) => void
-  ) => () => void
-  claw3dGetPort: () => Promise<number>
-  claw3dSetPort: (port: number) => Promise<boolean>
-  claw3dGetWsUrl: () => Promise<string>
-  claw3dSetWsUrl: (url: string) => Promise<boolean>
-  claw3dStartAll: () => Promise<{ success: boolean; error?: string }>
-  claw3dStopAll: () => Promise<boolean>
-  claw3dGetLogs: () => Promise<string>
-  claw3dStartDev: () => Promise<boolean>
-  claw3dStopDev: () => Promise<boolean>
-  claw3dStartAdapter: () => Promise<boolean>
-  claw3dStopAdapter: () => Promise<boolean>
+      step: number;
+      totalSteps: number;
+      title: string;
+      detail: string;
+      log: string;
+    }) => void,
+  ) => () => void;
+  claw3dGetPort: () => Promise<number>;
+  claw3dSetPort: (port: number) => Promise<boolean>;
+  claw3dGetWsUrl: () => Promise<string>;
+  claw3dSetWsUrl: (url: string) => Promise<boolean>;
+  claw3dStartAll: () => Promise<{ success: boolean; error?: string }>;
+  claw3dStopAll: () => Promise<boolean>;
+  claw3dGetLogs: () => Promise<string>;
+  claw3dStartDev: () => Promise<boolean>;
+  claw3dStopDev: () => Promise<boolean>;
+  claw3dStartAdapter: () => Promise<boolean>;
+  claw3dStopAdapter: () => Promise<boolean>;
 
   // Updates
-  checkForUpdates: () => Promise<string | null>
-  downloadUpdate: () => Promise<boolean>
-  installUpdate: () => Promise<void>
-  getAppVersion: () => Promise<string>
-  onUpdateAvailable: (callback: (info: { version: string; releaseNotes: string }) => void) => () => void
-  onUpdateDownloadProgress: (callback: (info: { percent: number }) => void) => () => void
-  onUpdateDownloaded: (callback: () => void) => () => void
+  checkForUpdates: () => Promise<string | null>;
+  downloadUpdate: () => Promise<boolean>;
+  installUpdate: () => Promise<void>;
+  getAppVersion: () => Promise<string>;
+  onUpdateAvailable: (
+    callback: (info: { version: string; releaseNotes: string }) => void,
+  ) => () => void;
+  onUpdateDownloadProgress: (
+    callback: (info: { percent: number }) => void,
+  ) => () => void;
+  onUpdateDownloaded: (callback: () => void) => () => void;
 
   // Shell
-  openExternal: (url: string) => Promise<void>
+  openExternal: (url: string) => Promise<void>;
 }
 
 declare global {
   interface Window {
-    electron: ElectronAPI
-    hermesAPI: HermesAPI
+    electron: ElectronAPI;
+    hermesAPI: HermesAPI;
   }
 }
