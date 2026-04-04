@@ -15,7 +15,7 @@ const ThemeContext = createContext<ThemeContextValue>({
   setTheme: () => {},
 });
 
-const STORAGE_KEY = "hermes-theme";
+import { THEME_STORAGE_KEY as STORAGE_KEY } from "../constants";
 
 function getSystemTheme(): ResolvedTheme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches

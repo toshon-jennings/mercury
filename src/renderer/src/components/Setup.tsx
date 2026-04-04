@@ -1,63 +1,6 @@
 import { useState } from "react";
 import { ArrowRight, ExternalLink } from "../assets/icons";
-
-const PROVIDERS = [
-  {
-    id: "openrouter",
-    name: "OpenRouter",
-    desc: "200+ models",
-    tag: "Recommended",
-    envKey: "OPENROUTER_API_KEY",
-    url: "https://openrouter.ai/keys",
-    placeholder: "sk-or-v1-...",
-    configProvider: "openrouter",
-    baseUrl: "https://openrouter.ai/api/v1",
-    needsKey: true,
-  },
-  {
-    id: "anthropic",
-    name: "Anthropic",
-    desc: "Claude models",
-    tag: "",
-    envKey: "ANTHROPIC_API_KEY",
-    url: "https://console.anthropic.com/settings/keys",
-    placeholder: "sk-ant-...",
-    configProvider: "anthropic",
-    baseUrl: "",
-    needsKey: true,
-  },
-  {
-    id: "openai",
-    name: "OpenAI",
-    desc: "GPT models",
-    tag: "",
-    envKey: "OPENAI_API_KEY",
-    url: "https://platform.openai.com/api-keys",
-    placeholder: "sk-...",
-    configProvider: "openai",
-    baseUrl: "",
-    needsKey: true,
-  },
-  {
-    id: "local",
-    name: "Local LLM",
-    desc: "LM Studio, Ollama, etc.",
-    tag: "No API key needed",
-    envKey: "",
-    url: "",
-    placeholder: "",
-    configProvider: "custom",
-    baseUrl: "http://localhost:1234/v1",
-    needsKey: false,
-  },
-];
-
-const LOCAL_PRESETS = [
-  { id: "lmstudio", name: "LM Studio", port: "1234" },
-  { id: "ollama", name: "Ollama", port: "11434" },
-  { id: "vllm", name: "vLLM", port: "8000" },
-  { id: "llamacpp", name: "llama.cpp", port: "8080" },
-];
+import { PROVIDERS, LOCAL_PRESETS } from "../constants";
 
 function Setup({ onComplete }: { onComplete: () => void }): React.JSX.Element {
   const [selectedProvider, setSelectedProvider] = useState("openrouter");
@@ -68,7 +11,7 @@ function Setup({ onComplete }: { onComplete: () => void }): React.JSX.Element {
   const [error, setError] = useState("");
   const [showKey, setShowKey] = useState(false);
 
-  const provider = PROVIDERS.find((p) => p.id === selectedProvider)!;
+  const provider = PROVIDERS.setup.find((p) => p.id === selectedProvider)!;
   const isLocal = selectedProvider === "local";
 
   function applyLocalPreset(port: string): void {
@@ -117,7 +60,7 @@ function Setup({ onComplete }: { onComplete: () => void }): React.JSX.Element {
       </p>
 
       <div className="setup-provider-grid">
-        {PROVIDERS.map((p) => (
+        {PROVIDERS.setup.map((p) => (
           <button
             key={p.id}
             className={`setup-provider-card ${selectedProvider === p.id ? "selected" : ""}`}

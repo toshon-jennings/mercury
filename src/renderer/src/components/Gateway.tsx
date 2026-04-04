@@ -1,48 +1,5 @@
 import { useState, useEffect } from "react";
-
-interface FieldDef {
-  key: string;
-  label: string;
-  type: string;
-  hint: string;
-}
-
-interface SectionDef {
-  title: string;
-  items: FieldDef[];
-}
-
-const SECTIONS: SectionDef[] = [
-  {
-    title: "Messaging Platforms",
-    items: [
-      {
-        key: "TELEGRAM_BOT_TOKEN",
-        label: "Telegram Bot Token",
-        type: "password",
-        hint: "Get from @BotFather on Telegram",
-      },
-      {
-        key: "TELEGRAM_ALLOWED_USERS",
-        label: "Telegram Allowed Users",
-        type: "text",
-        hint: "Comma-separated Telegram user IDs",
-      },
-      {
-        key: "DISCORD_BOT_TOKEN",
-        label: "Discord Bot Token",
-        type: "password",
-        hint: "From the Discord Developer Portal",
-      },
-      {
-        key: "SLACK_BOT_TOKEN",
-        label: "Slack Bot Token",
-        type: "password",
-        hint: "xoxb-... token from Slack app settings",
-      },
-    ],
-  },
-];
+import { GATEWAY_SECTIONS } from "../constants";
 
 function Gateway({ profile }: { profile?: string }): React.JSX.Element {
   const [gatewayRunning, setGatewayRunning] = useState(false);
@@ -127,7 +84,7 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
         </div>
       </div>
 
-      {SECTIONS.map((section) => (
+      {GATEWAY_SECTIONS.map((section) => (
         <div key={section.title} className="settings-section">
           <div className="settings-section-title">{section.title}</div>
           {section.items.map((field) => (

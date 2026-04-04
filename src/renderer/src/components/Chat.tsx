@@ -150,13 +150,7 @@ interface ModelGroup {
   models: { provider: string; model: string; label: string }[];
 }
 
-const PROVIDER_LABELS: Record<string, string> = {
-  openrouter: "OpenRouter",
-  anthropic: "Anthropic",
-  openai: "OpenAI",
-  groq: "Groq",
-  custom: "Custom",
-};
+import { PROVIDERS } from "../constants";
 
 interface ChatProps {
   messages: ChatMessage[];
@@ -231,7 +225,7 @@ function Chat({
       if (!groupMap.has(m.provider)) {
         groupMap.set(m.provider, {
           provider: m.provider,
-          providerLabel: PROVIDER_LABELS[m.provider] || m.provider,
+          providerLabel: PROVIDERS.labels[m.provider] || m.provider,
           models: [],
         });
       }

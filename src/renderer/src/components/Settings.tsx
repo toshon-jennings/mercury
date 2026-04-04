@@ -1,191 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "./ThemeProvider";
-
-interface FieldDef {
-  key: string;
-  label: string;
-  type: string;
-  hint: string;
-}
-
-interface SectionDef {
-  title: string;
-  items: FieldDef[];
-}
-
-const SECTIONS: SectionDef[] = [
-  {
-    title: "LLM Providers",
-    items: [
-      {
-        key: "OPENROUTER_API_KEY",
-        label: "OpenRouter API Key",
-        type: "password",
-        hint: "200+ models via OpenRouter (recommended)",
-      },
-      {
-        key: "OPENAI_API_KEY",
-        label: "OpenAI API Key",
-        type: "password",
-        hint: "Direct access to GPT models",
-      },
-      {
-        key: "ANTHROPIC_API_KEY",
-        label: "Anthropic API Key",
-        type: "password",
-        hint: "Direct access to Claude models",
-      },
-      {
-        key: "GROQ_API_KEY",
-        label: "Groq API Key",
-        type: "password",
-        hint: "Ultra-fast inference (Llama, Mixtral, Gemma)",
-      },
-      {
-        key: "GLM_API_KEY",
-        label: "z.ai / GLM API Key",
-        type: "password",
-        hint: "ZhipuAI GLM models",
-      },
-      {
-        key: "KIMI_API_KEY",
-        label: "Kimi / Moonshot API Key",
-        type: "password",
-        hint: "Moonshot AI coding models",
-      },
-      {
-        key: "MINIMAX_API_KEY",
-        label: "MiniMax API Key",
-        type: "password",
-        hint: "MiniMax models (global)",
-      },
-      {
-        key: "MINIMAX_CN_API_KEY",
-        label: "MiniMax China API Key",
-        type: "password",
-        hint: "MiniMax models (China endpoint)",
-      },
-      {
-        key: "OPENCODE_ZEN_API_KEY",
-        label: "OpenCode Zen API Key",
-        type: "password",
-        hint: "Curated GPT, Claude, Gemini models",
-      },
-      {
-        key: "OPENCODE_GO_API_KEY",
-        label: "OpenCode Go API Key",
-        type: "password",
-        hint: "Open models (GLM, Kimi, MiniMax)",
-      },
-      {
-        key: "HF_TOKEN",
-        label: "Hugging Face Token",
-        type: "password",
-        hint: "20+ open models via HF Inference",
-      },
-    ],
-  },
-  {
-    title: "Tool API Keys",
-    items: [
-      {
-        key: "EXA_API_KEY",
-        label: "Exa Search API Key",
-        type: "password",
-        hint: "AI-native web search",
-      },
-      {
-        key: "PARALLEL_API_KEY",
-        label: "Parallel API Key",
-        type: "password",
-        hint: "AI-native web search and extract",
-      },
-      {
-        key: "TAVILY_API_KEY",
-        label: "Tavily API Key",
-        type: "password",
-        hint: "Web search for AI agents",
-      },
-      {
-        key: "FIRECRAWL_API_KEY",
-        label: "Firecrawl API Key",
-        type: "password",
-        hint: "Web search, extract, and crawl",
-      },
-      {
-        key: "FAL_KEY",
-        label: "FAL.ai Key",
-        type: "password",
-        hint: "Image generation with FAL.ai",
-      },
-      {
-        key: "HONCHO_API_KEY",
-        label: "Honcho API Key",
-        type: "password",
-        hint: "Cross-session AI user modeling",
-      },
-    ],
-  },
-  {
-    title: "Browser & Automation",
-    items: [
-      {
-        key: "BROWSERBASE_API_KEY",
-        label: "Browserbase API Key",
-        type: "password",
-        hint: "Cloud browser automation",
-      },
-      {
-        key: "BROWSERBASE_PROJECT_ID",
-        label: "Browserbase Project ID",
-        type: "text",
-        hint: "Project ID for Browserbase",
-      },
-    ],
-  },
-  {
-    title: "Voice & STT",
-    items: [
-      {
-        key: "VOICE_TOOLS_OPENAI_KEY",
-        label: "OpenAI Voice Key",
-        type: "password",
-        hint: "For Whisper STT and TTS",
-      },
-    ],
-  },
-  {
-    title: "Research & Training",
-    items: [
-      {
-        key: "TINKER_API_KEY",
-        label: "Tinker API Key",
-        type: "password",
-        hint: "RL training service",
-      },
-      {
-        key: "WANDB_API_KEY",
-        label: "Weights & Biases Key",
-        type: "password",
-        hint: "Experiment tracking and metrics",
-      },
-    ],
-  },
-];
-
-const PROVIDER_OPTIONS = [
-  { value: "auto", label: "Auto-detect" },
-  { value: "openrouter", label: "OpenRouter" },
-  { value: "anthropic", label: "Anthropic" },
-  { value: "openai", label: "OpenAI" },
-  { value: "custom", label: "Local / Custom" },
-];
-
-const THEME_OPTIONS = [
-  { value: "system" as const, label: "System" },
-  { value: "light" as const, label: "Light" },
-  { value: "dark" as const, label: "Dark" },
-];
+import { SETTINGS_SECTIONS, PROVIDERS, THEME_OPTIONS } from "../constants";
 
 function Settings({ profile }: { profile?: string }): React.JSX.Element {
   const [env, setEnv] = useState<Record<string, string>>({});
@@ -363,7 +178,7 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
               }
             }}
           >
-            {PROVIDER_OPTIONS.map((opt) => (
+            {PROVIDERS.options.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -422,11 +237,13 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
               style={{ width: 140 }}
             >
               <option value="">Provider</option>
-              {PROVIDER_OPTIONS.filter((p) => p.value !== "auto").map((p) => (
-                <option key={p.value} value={p.value}>
-                  {p.label}
-                </option>
-              ))}
+              {PROVIDERS.options
+                .filter((p) => p.value !== "auto")
+                .map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
             </select>
             <input
               className="input"
@@ -457,7 +274,7 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
               entries.length > 0 && (
                 <div key={provider} className="settings-pool-group">
                   <div className="settings-pool-provider">
-                    {PROVIDER_OPTIONS.find((p) => p.value === provider)
+                    {PROVIDERS.options.find((p) => p.value === provider)
                       ?.label || provider}
                   </div>
                   {entries.map((entry, idx) => (
@@ -497,7 +314,7 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
         </div>
       )}
 
-      {SECTIONS.map((section) => (
+      {SETTINGS_SECTIONS.map((section) => (
         <div key={section.title} className="settings-section">
           <div className="settings-section-title">{section.title}</div>
           {section.items.map((field) => (

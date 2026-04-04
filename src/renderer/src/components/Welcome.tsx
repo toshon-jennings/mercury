@@ -1,14 +1,12 @@
 import icon from "../assets/icon.png";
 import { ArrowRight, Refresh, Copy } from "../assets/icons";
+import { INSTALL_CMD } from "../constants";
 
 interface WelcomeProps {
   error: string | null;
   onStart: () => void;
   onRecheck: () => void;
 }
-
-const INSTALL_CMD =
-  "curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash";
 
 function Welcome({
   error,

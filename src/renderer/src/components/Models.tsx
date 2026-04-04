@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash, Search, X } from "../assets/icons";
+import { PROVIDERS } from "../constants";
 
 interface SavedModel {
   id: string;
@@ -10,16 +11,8 @@ interface SavedModel {
   createdAt: number;
 }
 
-const PROVIDERS = [
-  { value: "openrouter", label: "OpenRouter" },
-  { value: "anthropic", label: "Anthropic" },
-  { value: "openai", label: "OpenAI" },
-  { value: "groq", label: "Groq" },
-  { value: "custom", label: "Custom / Local" },
-];
-
 function providerLabel(value: string): string {
-  return PROVIDERS.find((p) => p.value === value)?.label || value;
+  return PROVIDERS.options.find((p) => p.value === value)?.label || value;
 }
 
 function Models(): React.JSX.Element {
@@ -261,7 +254,7 @@ function Models(): React.JSX.Element {
                   value={formProvider}
                   onChange={(e) => setFormProvider(e.target.value)}
                 >
-                  {PROVIDERS.map((p) => (
+                  {PROVIDERS.options.map((p) => (
                     <option key={p.value} value={p.value}>
                       {p.label}
                     </option>
