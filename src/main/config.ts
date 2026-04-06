@@ -1,7 +1,47 @@
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { HERMES_HOME } from "./installer";
 import { profileHome, escapeRegex } from "./utils";
+
+// ── Connection Config (local vs remote) ─────────────────
+
+export interface ConnectionConfig {
+  mode: "local" | "remote";
+  remoteUrl: string;
+}
+
+const DESKTOP_CONFIG_FILE = join(HERMES_HOME, "desktop.json");
+
+function readDesktopConfig(): Record<string, unknown> {
+  try {
+    if (!existsSync(DESKTOP_CONFIG_FILE)) return {};
+    return JSON.parse(readFileSync(DESKTOP_CONFIG_FILE, "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+function writeDesktopConfig(data: Record<string, unknown>): void {
+  if (!existsSync(HERMES_HOME)) {
+    mkdirSync(HERMES_HOME, { recursive: true });
+  }
+  writeFileSync(DESKTOP_CONFIG_FILE, JSON.stringify(data, null, 2), "utf-8");
+}
+
+export function getConnectionConfig(): ConnectionConfig {
+  const data = readDesktopConfig();
+  return {
+    mode: (data.connectionMode as "local" | "remote") || "local",
+    remoteUrl: (data.remoteUrl as string) || "",
+  };
+}
+
+export function setConnectionConfig(config: ConnectionConfig): void {
+  const data = readDesktopConfig();
+  data.connectionMode = config.mode;
+  data.remoteUrl = config.remoteUrl;
+  writeDesktopConfig(data);
+}
 
 function profilePaths(profile?: string): {
   envFile: string;

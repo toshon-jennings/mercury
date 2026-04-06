@@ -18,6 +18,7 @@ import {
   startGateway,
   stopGateway,
   isGatewayRunning,
+  testRemoteConnection,
 } from "./hermes";
 import {
   getClaw3dStatus,
@@ -45,6 +46,8 @@ import {
   setModelConfig,
   getCredentialPool,
   setCredentialPool,
+  getConnectionConfig,
+  setConnectionConfig,
 } from "./config";
 import { listSessions, getSessionMessages, searchSessions } from "./sessions";
 import { listModels, addModel, removeModel, updateModel } from "./models";
@@ -229,6 +232,21 @@ function setupIPC(): void {
       setModelConfig(provider, model, baseUrl, profile);
       return true;
     },
+  );
+
+  // Connection mode (local vs remote)
+  ipcMain.handle("get-connection-config", () => getConnectionConfig());
+
+  ipcMain.handle(
+    "set-connection-config",
+    (_event, mode: "local" | "remote", remoteUrl: string) => {
+      setConnectionConfig({ mode, remoteUrl });
+      return true;
+    },
+  );
+
+  ipcMain.handle("test-remote-connection", (_event, url: string) =>
+    testRemoteConnection(url),
   );
 
   // Chat

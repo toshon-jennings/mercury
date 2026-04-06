@@ -48,6 +48,17 @@ interface HermesAPI {
     profile?: string,
   ) => Promise<boolean>;
 
+  // Connection mode (local vs remote)
+  getConnectionConfig: () => Promise<{
+    mode: "local" | "remote";
+    remoteUrl: string;
+  }>;
+  setConnectionConfig: (
+    mode: "local" | "remote",
+    remoteUrl: string,
+  ) => Promise<boolean>;
+  testRemoteConnection: (url: string) => Promise<boolean>;
+
   // Chat
   sendMessage: (
     message: string,

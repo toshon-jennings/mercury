@@ -338,6 +338,28 @@ body {
   padding: 10px;
 }
 
+.welcome-remote-input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-input, var(--bg-secondary));
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: var(--font-mono);
+  outline: none;
+}
+
+.welcome-remote-input:focus {
+  border-color: var(--accent);
+}
+
+.welcome-remote-error {
+  font-size: 13px;
+  color: var(--error, #ef4444);
+  margin: 0;
+}
+
 /* ========================================================================
    INSTALL SCREEN
    ======================================================================== */
