@@ -10,6 +10,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { createConnection } from "net";
 import { getEnhancedPath, HERMES_HOME } from "./installer";
+import { stripAnsi } from "./utils";
 
 const CLAW3D_REPO = "https://github.com/iamlukethedev/Claw3D.git";
 const CLAW3D_DIR = join(HERMES_HOME, "claw3d");
@@ -226,14 +227,6 @@ export async function getClaw3dStatus(): Promise<Claw3dStatus> {
     wsUrl: getSavedWsUrl(),
     error,
   };
-}
-
-function stripAnsi(str: string): string {
-  return str
-    .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "")
-    .replace(/\x1B\][^\x07]*\x07/g, "")
-    .replace(/\x1B\(B/g, "")
-    .replace(/\r/g, "");
 }
 
 function findNpm(): string {

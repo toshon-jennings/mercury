@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Plus, Search, X } from "../assets/icons";
 
 interface SessionSummary {
@@ -80,9 +80,16 @@ function Sessions({
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
+  const loadSessions = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    const list = await window.hermesAPI.listSessions(50);
+    setSessions(list);
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     loadSessions();
-  }, []);
+  }, [loadSessions]);
 
   // Debounced search
   useEffect(() => {
@@ -105,13 +112,6 @@ function Sessions({
       if (searchTimer.current) clearTimeout(searchTimer.current);
     };
   }, [searchQuery]);
-
-  async function loadSessions(): Promise<void> {
-    setLoading(true);
-    const list = await window.hermesAPI.listSessions(50);
-    setSessions(list);
-    setLoading(false);
-  }
 
   const isShowingSearch = searchQuery.trim().length > 0;
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash, ChatBubble } from "../assets/icons";
 import icon from "../assets/icon.png";
 
@@ -48,15 +48,15 @@ function Agents({
   const [error, setError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  async function loadProfiles(): Promise<void> {
+  const loadProfiles = useCallback(async (): Promise<void> => {
     const list = await window.hermesAPI.listProfiles();
     setProfiles(list);
     setLoading(false);
-  }
+  }, []);
 
   useEffect(() => {
     loadProfiles();
-  }, []);
+  }, [loadProfiles]);
 
   async function handleCreate(): Promise<void> {
     const name = newName.trim().toLowerCase();

@@ -275,6 +275,10 @@ interface HermesAPI {
   ) => () => void;
   onUpdateDownloaded: (callback: () => void) => () => void;
 
+  // Menu events
+  onMenuNewChat: (callback: () => void) => () => void;
+  onMenuSearchSessions: (callback: () => void) => () => void;
+
   // Shell
   openExternal: (url: string) => Promise<void>;
 }

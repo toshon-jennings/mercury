@@ -9,6 +9,7 @@ import {
   HERMES_REPO,
   getEnhancedPath,
 } from "./installer";
+import { profileHome } from "./utils";
 
 export interface InstalledSkill {
   name: string;
@@ -23,12 +24,6 @@ export interface SkillSearchResult {
   category: string;
   source: string;
   installed: boolean;
-}
-
-function profileHome(profile?: string): string {
-  return profile && profile !== "default"
-    ? join(HERMES_HOME, "profiles", profile)
-    : HERMES_HOME;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
-import { HERMES_HOME } from "./installer";
+import { profileHome } from "./utils";
 
 const DEFAULT_SOUL = `You are Hermes, a helpful AI assistant. You are friendly, knowledgeable, and always eager to help.
 
@@ -8,12 +8,6 @@ You communicate clearly and concisely. When asked to perform tasks, you think st
 
 You strive to be helpful while being safe and responsible. You respect the user's privacy and handle sensitive information carefully.
 `;
-
-function profileHome(profile?: string): string {
-  return profile && profile !== "default"
-    ? join(HERMES_HOME, "profiles", profile)
-    : HERMES_HOME;
-}
 
 export function readSoul(profile?: string): string {
   const soulFile = join(profileHome(profile), "SOUL.md");

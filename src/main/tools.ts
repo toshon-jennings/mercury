@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
-import { HERMES_HOME } from "./installer";
+import { profileHome } from "./utils";
 
 export interface ToolsetInfo {
   key: string;
@@ -91,12 +91,6 @@ const TOOLSET_DEFS: { key: string; label: string; description: string }[] = [
     description: "Create and manage to-do lists for complex tasks",
   },
 ];
-
-function profileHome(profile?: string): string {
-  return profile && profile !== "default"
-    ? join(HERMES_HOME, "profiles", profile)
-    : HERMES_HOME;
-}
 
 /**
  * Parse the platform_toolsets.cli list from config.yaml.

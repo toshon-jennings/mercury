@@ -419,6 +419,19 @@ const hermesAPI = {
     return () => ipcRenderer.removeListener("update-downloaded", handler);
   },
 
+  // Menu events (from native menu bar)
+  onMenuNewChat: (callback: () => void): (() => void) => {
+    const handler = (): void => callback();
+    ipcRenderer.on("menu-new-chat", handler);
+    return () => ipcRenderer.removeListener("menu-new-chat", handler);
+  },
+
+  onMenuSearchSessions: (callback: () => void): (() => void) => {
+    const handler = (): void => callback();
+    ipcRenderer.on("menu-search-sessions", handler);
+    return () => ipcRenderer.removeListener("menu-search-sessions", handler);
+  },
+
   // Shell
   openExternal: (url: string): Promise<void> =>
     ipcRenderer.invoke("open-external", url),

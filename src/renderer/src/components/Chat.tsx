@@ -109,7 +109,16 @@ function AgentMarkdown({ children }: { children: string }): React.JSX.Element {
             href={href}
             onClick={(e) => {
               e.preventDefault();
-              if (href) window.hermesAPI.openExternal(href);
+              if (!href) return;
+              try {
+                const url = new URL(href, "https://placeholder.invalid");
+                if (!["http:", "https:", "mailto:"].includes(url.protocol)) {
+                  return;
+                }
+              } catch {
+                return;
+              }
+              window.hermesAPI.openExternal(href);
             }}
           >
             {children}
@@ -205,12 +214,7 @@ function Chat({
     }
   }, [messages]);
 
-  // Load model config and build available models list
-  useEffect(() => {
-    loadModelConfig();
-  }, [profile]);
-
-  async function loadModelConfig(): Promise<void> {
+  const loadModelConfig = useCallback(async (): Promise<void> => {
     const [mc, savedModels] = await Promise.all([
       window.hermesAPI.getModelConfig(profile),
       window.hermesAPI.listModels(),
@@ -236,7 +240,12 @@ function Chat({
       });
     }
     setModelGroups(Array.from(groupMap.values()));
-  }
+  }, [profile]);
+
+  // Load model config and build available models list
+  useEffect(() => {
+    loadModelConfig();
+  }, [loadModelConfig]);
 
   // Close picker on click outside
   useEffect(() => {

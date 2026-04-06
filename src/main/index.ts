@@ -204,45 +204,50 @@ function setupIPC(): void {
       profile?: string,
       resumeSessionId?: string,
     ) => {
-      return new Promise<{ response: string; sessionId?: string }>(
-        async (resolve, reject) => {
-          if (currentChatAbort) {
-            currentChatAbort();
-          }
+      if (currentChatAbort) {
+        currentChatAbort();
+      }
 
-          let fullResponse = "";
-
-          const handle = await sendMessage(
-            message,
-            {
-              onChunk: (chunk) => {
-                fullResponse += chunk;
-                event.sender.send("chat-chunk", chunk);
-              },
-              onDone: (sessionId) => {
-                currentChatAbort = null;
-                event.sender.send("chat-done", sessionId || "");
-                resolve({ response: fullResponse, sessionId });
-              },
-              onError: (error) => {
-                currentChatAbort = null;
-                event.sender.send("chat-error", error);
-                reject(new Error(error));
-              },
-              onToolProgress: (tool) => {
-                event.sender.send("chat-tool-progress", tool);
-              },
-              onUsage: (usage) => {
-                event.sender.send("chat-usage", usage);
-              },
-            },
-            profile,
-            resumeSessionId,
-          );
-
-          currentChatAbort = handle.abort;
+      let fullResponse = "";
+      let resolveChat: (v: { response: string; sessionId?: string }) => void;
+      let rejectChat: (reason?: unknown) => void;
+      const promise = new Promise<{ response: string; sessionId?: string }>(
+        (res, rej) => {
+          resolveChat = res;
+          rejectChat = rej;
         },
       );
+
+      const handle = await sendMessage(
+        message,
+        {
+          onChunk: (chunk) => {
+            fullResponse += chunk;
+            event.sender.send("chat-chunk", chunk);
+          },
+          onDone: (sessionId) => {
+            currentChatAbort = null;
+            event.sender.send("chat-done", sessionId || "");
+            resolveChat({ response: fullResponse, sessionId });
+          },
+          onError: (error) => {
+            currentChatAbort = null;
+            event.sender.send("chat-error", error);
+            rejectChat(new Error(error));
+          },
+          onToolProgress: (tool) => {
+            event.sender.send("chat-tool-progress", tool);
+          },
+          onUsage: (usage) => {
+            event.sender.send("chat-usage", usage);
+          },
+        },
+        profile,
+        resumeSessionId,
+      );
+
+      currentChatAbort = handle.abort;
+      return promise;
     },
   );
 

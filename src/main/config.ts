@@ -1,17 +1,14 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join } from "path";
 import { HERMES_HOME } from "./installer";
+import { profileHome, escapeRegex } from "./utils";
 
-/** Resolve profile-specific paths. 'default' or undefined → ~/.hermes */
 function profilePaths(profile?: string): {
   envFile: string;
   configFile: string;
   home: string;
 } {
-  const home =
-    profile && profile !== "default"
-      ? join(HERMES_HOME, "profiles", profile)
-      : HERMES_HOME;
+  const home = profileHome(profile);
   return {
     home,
     envFile: join(home, ".env"),
@@ -64,7 +61,7 @@ export function setEnvValue(
 
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
-    if (trimmed.match(new RegExp(`^#?\\s*${key}\\s*=`))) {
+    if (trimmed.match(new RegExp(`^#?\\s*${escapeRegex(key)}\\s*=`))) {
       lines[i] = `${key}=${value}`;
       found = true;
       break;
@@ -83,7 +80,10 @@ export function getConfigValue(key: string, profile?: string): string | null {
   if (!existsSync(configFile)) return null;
 
   const content = readFileSync(configFile, "utf-8");
-  const regex = new RegExp(`^\\s*${key}:\\s*["']?([^"'\\n#]+)["']?`, "m");
+  const regex = new RegExp(
+    `^\\s*${escapeRegex(key)}:\\s*["']?([^"'\\n#]+)["']?`,
+    "m",
+  );
   const match = content.match(regex);
   return match ? match[1].trim() : null;
 }
@@ -97,7 +97,10 @@ export function setConfigValue(
   if (!existsSync(configFile)) return;
 
   let content = readFileSync(configFile, "utf-8");
-  const regex = new RegExp(`^(\\s*#?\\s*${key}:\\s*)["']?[^"'\\n#]*["']?`, "m");
+  const regex = new RegExp(
+    `^(\\s*#?\\s*${escapeRegex(key)}:\\s*)["']?[^"'\\n#]*["']?`,
+    "m",
+  );
 
   if (regex.test(content)) {
     content = content.replace(regex, `$1"${value}"`);

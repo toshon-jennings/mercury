@@ -36,21 +36,21 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
   const [error, setError] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
-  async function loadInstalled(): Promise<void> {
+  const loadInstalled = useCallback(async (): Promise<void> => {
     const list = await window.hermesAPI.listInstalledSkills(profile);
     setInstalledSkills(list);
-  }
+  }, [profile]);
 
-  async function loadBundled(): Promise<void> {
+  const loadBundled = useCallback(async (): Promise<void> => {
     const list = await window.hermesAPI.listBundledSkills();
     setBundledSkills(list);
-  }
+  }, []);
 
   const loadAll = useCallback(async (): Promise<void> => {
     setLoading(true);
     await Promise.all([loadInstalled(), loadBundled()]);
     setLoading(false);
-  }, [profile]);
+  }, [loadInstalled, loadBundled]);
 
   useEffect(() => {
     loadAll();

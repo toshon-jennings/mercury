@@ -25,10 +25,26 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
   const [poolNewKey, setPoolNewKey] = useState("");
   const [poolNewLabel, setPoolNewLabel] = useState("");
 
+  const loadConfig = useCallback(async (): Promise<void> => {
+    const envData = await window.hermesAPI.getEnv(profile);
+    setEnv(envData);
+    const home = await window.hermesAPI.getHermesHome(profile);
+    setHermesHome(home);
+    const mc = await window.hermesAPI.getModelConfig(profile);
+    setModelProvider(mc.provider);
+    setModelName(mc.model);
+    setModelBaseUrl(mc.baseUrl);
+    const pool = await window.hermesAPI.getCredentialPool();
+    setCredPool(pool);
+    setTimeout(() => {
+      modelLoaded.current = true;
+    }, 600);
+  }, [profile]);
+
   useEffect(() => {
     modelLoaded.current = false;
     loadConfig();
-  }, [profile]);
+  }, [loadConfig]);
 
   // Auto-save model config when values change (debounced)
   const saveModelConfig = useCallback(async () => {
@@ -63,24 +79,6 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
   }, [modelProvider, modelName, modelBaseUrl, saveModelConfig]);
-
-  async function loadConfig(): Promise<void> {
-    const envData = await window.hermesAPI.getEnv(profile);
-    setEnv(envData);
-    const home = await window.hermesAPI.getHermesHome(profile);
-    setHermesHome(home);
-    const mc = await window.hermesAPI.getModelConfig(profile);
-    setModelProvider(mc.provider);
-    setModelName(mc.model);
-    setModelBaseUrl(mc.baseUrl);
-    // Load credential pool
-    const pool = await window.hermesAPI.getCredentialPool();
-    setCredPool(pool);
-    // Mark loaded after state is set so auto-save doesn't fire on initial load
-    setTimeout(() => {
-      modelLoaded.current = true;
-    }, 600);
-  }
 
   async function handleBlur(key: string): Promise<void> {
     const value = env[key] || "";

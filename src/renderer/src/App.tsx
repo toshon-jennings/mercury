@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { ThemeProvider } from "./components/ThemeProvider";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Welcome from "./components/Welcome";
 import Install from "./components/Install";
 import Setup from "./components/Setup";
@@ -15,8 +16,7 @@ function App(): React.JSX.Element {
   const [splashDone, setSplashDone] = useState(false);
   const isMac = window.electron?.process?.platform === "darwin";
 
-  // Run install check during splash
-  useEffect(() => {
+  const runInstallCheck = useCallback(() => {
     window.hermesAPI
       .checkInstall()
       .then((status) => {
@@ -37,6 +37,11 @@ function App(): React.JSX.Element {
         setNextScreen("welcome");
       });
   }, []);
+
+  // Run install check during splash
+  useEffect(() => {
+    runInstallCheck();
+  }, [runInstallCheck]);
 
   // Transition away from splash when both animation and install check are done
   useEffect(() => {
@@ -69,25 +74,7 @@ function App(): React.JSX.Element {
     setScreen("splash");
     setSplashDone(false);
     setNextScreen(null);
-    window.hermesAPI
-      .checkInstall()
-      .then((status) => {
-        if (!status.installed) {
-          setNextScreen("welcome");
-        } else if (!status.verified) {
-          setInstallError(
-            "Hermes is installed but appears to be broken. Try reinstalling to fix it.",
-          );
-          setNextScreen("welcome");
-        } else if (!status.hasApiKey) {
-          setNextScreen("setup");
-        } else {
-          setNextScreen("main");
-        }
-      })
-      .catch(() => {
-        setNextScreen("welcome");
-      });
+    runInstallCheck();
   }
 
   function renderScreen(): React.JSX.Element {
@@ -118,10 +105,12 @@ function App(): React.JSX.Element {
 
   return (
     <ThemeProvider>
-      <div className="app">
-        {isMac && <div className="drag-region" />}
-        <div className="app-content">{renderScreen()}</div>
-      </div>
+      <ErrorBoundary>
+        <div className="app">
+          {isMac && <div className="drag-region" />}
+          <div className="app-content">{renderScreen()}</div>
+        </div>
+      </ErrorBoundary>
     </ThemeProvider>
   );
 }

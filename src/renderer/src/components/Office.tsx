@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Refresh, ExternalLink, Settings } from "../assets/icons";
 
 type OfficeState =
@@ -40,11 +40,35 @@ function Office(): React.JSX.Element {
   const logRef = useRef<HTMLDivElement>(null);
   const webviewRef = useRef<HTMLWebViewElement>(null);
 
-  useEffect(() => {
-    checkStatus();
+  // Refs to avoid restarting the poll interval on every state change
+  const startingRef = useRef(starting);
+  const runningRef = useRef(running);
+  const errorRef = useRef(error);
+  startingRef.current = starting;
+  runningRef.current = running;
+  errorRef.current = error;
+
+  const checkStatus = useCallback(async (): Promise<void> => {
+    setState("checking");
+    const status = await window.hermesAPI.claw3dStatus();
+    setRunning(status.running);
+    setPort(status.port);
+    setPortInput(String(status.port));
+    setPortInUse(status.portInUse);
+    setWsUrlInput(status.wsUrl || "ws://localhost:18789");
+    if (status.error) setError(status.error);
+    if (status.installed) {
+      setState("ready");
+    } else {
+      setState("not-installed");
+    }
   }, []);
 
-  // Poll status when in ready state
+  useEffect(() => {
+    checkStatus();
+  }, [checkStatus]);
+
+  // Poll status when in ready state — only restarts when `state` changes
   useEffect(() => {
     if (state !== "ready") return;
     const interval = setInterval(async () => {
@@ -52,21 +76,19 @@ function Office(): React.JSX.Element {
       setRunning(status.running);
       setPort(status.port);
       setPortInUse(status.portInUse);
-      if (status.error && !error) {
+      if (status.error && !errorRef.current) {
         setError(status.error);
       }
-      // If was starting and now both are up, clear starting state
-      if (starting && status.running) {
+      if (startingRef.current && status.running) {
         setStarting(false);
       }
-      // If processes died unexpectedly
-      if (!starting && !status.running && running) {
+      if (!startingRef.current && !status.running && runningRef.current) {
         setRunning(false);
         if (status.error) setError(status.error);
       }
     }, 2000);
     return () => clearInterval(interval);
-  }, [state, starting, running, error]);
+  }, [state]);
 
   // Auto-scroll log
   useEffect(() => {
@@ -108,22 +130,6 @@ function Office(): React.JSX.Element {
       wv.removeEventListener("did-fail-load", onFail);
     };
   }, [running, port]);
-
-  async function checkStatus(): Promise<void> {
-    setState("checking");
-    const status = await window.hermesAPI.claw3dStatus();
-    setRunning(status.running);
-    setPort(status.port);
-    setPortInput(String(status.port));
-    setPortInUse(status.portInUse);
-    setWsUrlInput(status.wsUrl || "ws://localhost:18789");
-    if (status.error) setError(status.error);
-    if (status.installed) {
-      setState("ready");
-    } else {
-      setState("not-installed");
-    }
-  }
 
   async function handleInstall(): Promise<void> {
     setState("installing");

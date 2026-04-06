@@ -7,7 +7,7 @@ import {
 } from "fs";
 import { join, dirname } from "path";
 import Database from "better-sqlite3";
-import { HERMES_HOME } from "./installer";
+import { profileHome } from "./utils";
 
 const ENTRY_DELIMITER = "\n§\n";
 const MEMORY_CHAR_LIMIT = 2200;
@@ -35,12 +35,6 @@ export interface MemoryInfo {
     charLimit: number;
   };
   stats: { totalSessions: number; totalMessages: number };
-}
-
-function profileHome(profile?: string): string {
-  return profile && profile !== "default"
-    ? join(HERMES_HOME, "profiles", profile)
-    : HERMES_HOME;
 }
 
 function memoryPath(profile?: string): string {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { GATEWAY_SECTIONS } from "../constants";
 
 function Gateway({ profile }: { profile?: string }): React.JSX.Element {
@@ -7,9 +7,16 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
 
+  const loadConfig = useCallback(async (): Promise<void> => {
+    const envData = await window.hermesAPI.getEnv(profile);
+    setEnv(envData);
+    const gwStatus = await window.hermesAPI.gatewayStatus();
+    setGatewayRunning(gwStatus);
+  }, [profile]);
+
   useEffect(() => {
     loadConfig();
-  }, [profile]);
+  }, [loadConfig]);
 
   // Poll gateway status
   useEffect(() => {
@@ -19,13 +26,6 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
     }, 3000);
     return () => clearInterval(interval);
   }, []);
-
-  async function loadConfig(): Promise<void> {
-    const envData = await window.hermesAPI.getEnv(profile);
-    setEnv(envData);
-    const gwStatus = await window.hermesAPI.gatewayStatus();
-    setGatewayRunning(gwStatus);
-  }
 
   async function toggleGateway(): Promise<void> {
     if (gatewayRunning) {

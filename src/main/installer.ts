@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { getModelConfig } from "./config";
+import { stripAnsi } from "./utils";
 
 export const HERMES_HOME = join(homedir(), ".hermes");
 export const HERMES_REPO = join(HERMES_HOME, "hermes-agent");
@@ -154,14 +155,6 @@ const STAGE_MARKERS: { pattern: RegExp; step: number; title: string }[] = [
     title: "Finishing setup",
   },
 ];
-
-function stripAnsi(str: string): string {
-  return str
-    .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "")
-    .replace(/\x1B\][^\x07]*\x07/g, "")
-    .replace(/\x1B\(B/g, "")
-    .replace(/\r/g, "");
-}
 
 export async function runInstall(
   onProgress: (progress: InstallProgress) => void,

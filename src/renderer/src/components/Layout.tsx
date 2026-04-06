@@ -110,20 +110,17 @@ function Layout(): React.JSX.Element {
     setView("chat");
   }, []);
 
-  // Listen for menu IPC events (Cmd+N from app menu)
+  // Listen for menu IPC events (Cmd+N, Cmd+K from app menu)
   useEffect(() => {
-    const onNewChat = window.electron?.ipcRenderer?.on("menu-new-chat", () => {
+    const cleanupNewChat = window.hermesAPI.onMenuNewChat(() => {
       handleNewChat();
     });
-    const onSearch = window.electron?.ipcRenderer?.on(
-      "menu-search-sessions",
-      () => {
-        setView("sessions");
-      },
-    );
+    const cleanupSearch = window.hermesAPI.onMenuSearchSessions(() => {
+      setView("sessions");
+    });
     return () => {
-      onNewChat?.();
-      onSearch?.();
+      cleanupNewChat();
+      cleanupSearch();
     };
   }, [handleNewChat]);
 

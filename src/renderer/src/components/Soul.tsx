@@ -13,7 +13,7 @@ function Soul({ profile }: SoulProps): React.JSX.Element {
   const loaded = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function loadSoul(): Promise<void> {
+  const loadSoul = useCallback(async (): Promise<void> => {
     loaded.current = false;
     setLoading(true);
     const text = await window.hermesAPI.readSoul(profile);
@@ -22,11 +22,11 @@ function Soul({ profile }: SoulProps): React.JSX.Element {
     setTimeout(() => {
       loaded.current = true;
     }, 300);
-  }
+  }, [profile]);
 
   useEffect(() => {
     loadSoul();
-  }, [profile]);
+  }, [loadSoul]);
 
   const saveSoul = useCallback(
     async (text: string) => {

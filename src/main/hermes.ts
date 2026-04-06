@@ -1,5 +1,5 @@
 import { ChildProcess, spawn } from "child_process";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, appendFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import http from "http";
@@ -11,16 +11,9 @@ import {
   getEnhancedPath,
 } from "./installer";
 import { getModelConfig, readEnv } from "./config";
+import { stripAnsi } from "./utils";
 
 const API_URL = "http://127.0.0.1:8642";
-
-function stripAnsi(str: string): string {
-  return str
-    .replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "")
-    .replace(/\x1B\][^\x07]*\x07/g, "")
-    .replace(/\x1B\(B/g, "")
-    .replace(/\r/g, "");
-}
 
 interface ChatHandle {
   abort: () => void;
@@ -55,7 +48,6 @@ function ensureApiServerConfig(): void {
     const content = readFileSync(configPath, "utf-8");
     // If api_server is already configured, skip
     if (/api_server/i.test(content)) return;
-    // Append API server platform config
     const addition = `
 # Desktop app API server (auto-configured)
 platforms:
@@ -65,8 +57,7 @@ platforms:
       port: 8642
       host: "127.0.0.1"
 `;
-    const fs = require("fs");
-    fs.appendFileSync(configPath, addition, "utf-8");
+    appendFileSync(configPath, addition, "utf-8");
   } catch {
     /* non-fatal */
   }
