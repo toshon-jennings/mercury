@@ -9,6 +9,8 @@ import {
   getHermesVersion,
   runHermesDoctor,
   runHermesUpdate,
+  checkOpenClawExists,
+  runClawMigrate,
   InstallProgress,
 } from "./installer";
 import {
@@ -163,6 +165,19 @@ function setupIPC(): void {
   ipcMain.handle("run-hermes-update", async (event) => {
     try {
       await runHermesUpdate((progress: InstallProgress) => {
+        event.sender.send("install-progress", progress);
+      });
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  // OpenClaw migration
+  ipcMain.handle("check-openclaw", () => checkOpenClawExists());
+  ipcMain.handle("run-claw-migrate", async (event) => {
+    try {
+      await runClawMigrate((progress: InstallProgress) => {
         event.sender.send("install-progress", progress);
       });
       return { success: true };

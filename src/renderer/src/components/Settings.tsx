@@ -17,6 +17,17 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
   const [updating, setUpdating] = useState(false);
   const [updateResult, setUpdateResult] = useState<string | null>(null);
 
+  // OpenClaw migration
+  const [openclawFound, setOpenclawFound] = useState(false);
+  const [openclawPath, setOpenclawPath] = useState<string | null>(null);
+  const [migrationDismissed, setMigrationDismissed] = useState(
+    () => localStorage.getItem("hermes-openclaw-dismissed") === "true",
+  );
+  const [migrating, setMigrating] = useState(false);
+  const [migrationLog, setMigrationLog] = useState("");
+  const [migrationResult, setMigrationResult] = useState<string | null>(null);
+  const migrationLogRef = useRef<HTMLPreElement>(null);
+
   // Model config
   const [modelProvider, setModelProvider] = useState("auto");
   const [modelName, setModelName] = useState("");
@@ -50,6 +61,11 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
     setCredPool(pool);
     setHermesVersion(hVersion);
     setAppVersion(aVersion);
+    if (localStorage.getItem("hermes-openclaw-dismissed") !== "true") {
+      const claw = await window.hermesAPI.checkOpenClaw();
+      setOpenclawFound(claw.found);
+      setOpenclawPath(claw.path);
+    }
     setTimeout(() => {
       modelLoaded.current = true;
     }, 600);
@@ -140,6 +156,38 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
     });
   }
 
+  async function handleMigrate(): Promise<void> {
+    setMigrating(true);
+    setMigrationLog("");
+    setMigrationResult(null);
+
+    const cleanup = window.hermesAPI.onInstallProgress((p) => {
+      setMigrationLog(p.log);
+    });
+
+    try {
+      const result = await window.hermesAPI.runClawMigrate();
+      cleanup();
+      if (result.success) {
+        setMigrationResult(
+          "Migration complete! Your config, keys, and data have been imported.",
+        );
+        setOpenclawFound(false);
+      } else {
+        setMigrationResult(result.error || "Migration failed.");
+      }
+    } catch (err) {
+      cleanup();
+      setMigrationResult((err as Error).message || "Migration failed.");
+    }
+    setMigrating(false);
+  }
+
+  function handleDismissMigration(): void {
+    localStorage.setItem("hermes-openclaw-dismissed", "true");
+    setMigrationDismissed(true);
+  }
+
   async function handleDoctor(): Promise<void> {
     setDoctorRunning(true);
     setDoctorOutput(null);
@@ -187,45 +235,61 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
           <div className="settings-hermes-row">
             <div className="settings-hermes-detail">
               <span className="settings-hermes-label">Engine</span>
-              <span className="settings-hermes-value">
-                {parsedVersion ? `v${parsedVersion.version}` : "Not detected"}
-              </span>
-            </div>
-            {parsedVersion?.date && (
-              <div className="settings-hermes-detail">
-                <span className="settings-hermes-label">Released</span>
+              {hermesVersion === null ? (
+                <span className="skeleton skeleton-sm" />
+              ) : (
                 <span className="settings-hermes-value">
-                  {parsedVersion.date}
+                  {parsedVersion ? `v${parsedVersion.version}` : "Not detected"}
                 </span>
-              </div>
-            )}
+              )}
+            </div>
+            <div className="settings-hermes-detail">
+              <span className="settings-hermes-label">Released</span>
+              {hermesVersion === null ? (
+                <span className="skeleton skeleton-sm" />
+              ) : (
+                <span className="settings-hermes-value">
+                  {parsedVersion?.date || "—"}
+                </span>
+              )}
+            </div>
             <div className="settings-hermes-detail">
               <span className="settings-hermes-label">Desktop</span>
-              <span className="settings-hermes-value">
-                v{appVersion || "—"}
-              </span>
+              {!appVersion ? (
+                <span className="skeleton skeleton-sm" />
+              ) : (
+                <span className="settings-hermes-value">v{appVersion}</span>
+              )}
             </div>
-            {parsedVersion?.python && (
-              <div className="settings-hermes-detail">
-                <span className="settings-hermes-label">Python</span>
+            <div className="settings-hermes-detail">
+              <span className="settings-hermes-label">Python</span>
+              {hermesVersion === null ? (
+                <span className="skeleton skeleton-sm" />
+              ) : (
                 <span className="settings-hermes-value">
-                  {parsedVersion.python}
+                  {parsedVersion?.python || "—"}
                 </span>
-              </div>
-            )}
-            {parsedVersion?.sdk && (
-              <div className="settings-hermes-detail">
-                <span className="settings-hermes-label">OpenAI SDK</span>
+              )}
+            </div>
+            <div className="settings-hermes-detail">
+              <span className="settings-hermes-label">OpenAI SDK</span>
+              {hermesVersion === null ? (
+                <span className="skeleton skeleton-sm" />
+              ) : (
                 <span className="settings-hermes-value">
-                  {parsedVersion.sdk}
+                  {parsedVersion?.sdk || "—"}
                 </span>
-              </div>
-            )}
+              )}
+            </div>
             <div className="settings-hermes-detail">
               <span className="settings-hermes-label">Home</span>
-              <span className="settings-hermes-value settings-hermes-path">
-                {hermesHome || "—"}
-              </span>
+              {!hermesHome ? (
+                <span className="skeleton skeleton-md" />
+              ) : (
+                <span className="settings-hermes-value settings-hermes-path">
+                  {hermesHome}
+                </span>
+              )}
             </div>
           </div>
           {parsedVersion?.updateInfo && (
@@ -267,6 +331,56 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
           )}
         </div>
       </div>
+
+      {openclawFound && !migrationDismissed && (
+        <div className="settings-migration-banner">
+          <div className="settings-migration-header">
+            <div>
+              <div className="settings-migration-title">
+                OpenClaw Installation Detected
+              </div>
+              <div className="settings-migration-desc">
+                Found at <code>{openclawPath}</code>. You can migrate your
+                config, API keys, sessions, and skills to Hermes.
+              </div>
+            </div>
+            <button
+              className="btn-ghost settings-migration-dismiss"
+              onClick={handleDismissMigration}
+              title="Don't show again"
+            >
+              &times;
+            </button>
+          </div>
+          {migrationLog && (
+            <pre className="settings-hermes-doctor" ref={migrationLogRef}>
+              {migrationLog}
+            </pre>
+          )}
+          {migrationResult && (
+            <div
+              className={`settings-hermes-result ${migrationResult.includes("complete") ? "success" : "error"}`}
+            >
+              {migrationResult}
+            </div>
+          )}
+          <div className="settings-migration-actions">
+            <button
+              className="btn btn-primary "
+              onClick={handleMigrate}
+              disabled={migrating}
+            >
+              {migrating ? "Migrating..." : "Migrate to Hermes"}
+            </button>
+            <button
+              className="btn btn-secondary "
+              onClick={handleDismissMigration}
+            >
+              Skip
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="settings-section">
         <div className="settings-section-title">Appearance</div>

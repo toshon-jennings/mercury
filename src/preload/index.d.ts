@@ -28,6 +28,10 @@ interface HermesAPI {
   runHermesDoctor: () => Promise<string>;
   runHermesUpdate: () => Promise<{ success: boolean; error?: string }>;
 
+  // OpenClaw migration
+  checkOpenClaw: () => Promise<{ found: boolean; path: string | null }>;
+  runClawMigrate: () => Promise<{ success: boolean; error?: string }>;
+
   // Configuration (profile-aware)
   getEnv: (profile?: string) => Promise<Record<string, string>>;
   setEnv: (key: string, value: string, profile?: string) => Promise<boolean>;

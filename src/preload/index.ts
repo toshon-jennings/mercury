@@ -46,6 +46,12 @@ const hermesAPI = {
   runHermesUpdate: (): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke("run-hermes-update"),
 
+  // OpenClaw migration
+  checkOpenClaw: (): Promise<{ found: boolean; path: string | null }> =>
+    ipcRenderer.invoke("check-openclaw"),
+  runClawMigrate: (): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke("run-claw-migrate"),
+
   // Configuration (profile-aware)
   getEnv: (profile?: string): Promise<Record<string, string>> =>
     ipcRenderer.invoke("get-env", profile),

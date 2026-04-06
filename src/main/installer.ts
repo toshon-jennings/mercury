@@ -146,6 +146,88 @@ export function runHermesDoctor(): string {
   }
 }
 
+const OPENCLAW_DIR_NAMES = [".openclaw", ".clawdbot", ".moldbot"];
+
+export function checkOpenClawExists(): { found: boolean; path: string | null } {
+  for (const name of OPENCLAW_DIR_NAMES) {
+    const dir = join(homedir(), name);
+    if (existsSync(dir)) {
+      return { found: true, path: dir };
+    }
+  }
+  return { found: false, path: null };
+}
+
+export async function runClawMigrate(
+  onProgress: (progress: InstallProgress) => void,
+): Promise<void> {
+  if (!existsSync(HERMES_PYTHON) || !existsSync(HERMES_SCRIPT)) {
+    throw new Error("Hermes is not installed.");
+  }
+
+  const openclaw = checkOpenClawExists();
+  if (!openclaw.found) {
+    throw new Error("No OpenClaw installation found.");
+  }
+
+  let log = "";
+  function emit(text: string): void {
+    log += text;
+    onProgress({
+      step: 1,
+      totalSteps: 1,
+      title: "Migrating from OpenClaw",
+      detail: text.trim().slice(0, 120),
+      log,
+    });
+  }
+
+  emit(`Migrating from ${openclaw.path}...\n`);
+
+  return new Promise((resolve, reject) => {
+    const args = [
+      HERMES_SCRIPT,
+      "claw",
+      "migrate",
+      "--preset",
+      "full",
+    ];
+
+    const proc = spawn(HERMES_PYTHON, args, {
+      cwd: HERMES_REPO,
+      env: {
+        ...process.env,
+        PATH: getEnhancedPath(),
+        HOME: homedir(),
+        HERMES_HOME,
+        TERM: "dumb",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    proc.stdout?.on("data", (data: Buffer) => {
+      emit(stripAnsi(data.toString()));
+    });
+
+    proc.stderr?.on("data", (data: Buffer) => {
+      emit(stripAnsi(data.toString()));
+    });
+
+    proc.on("close", (code) => {
+      if (code === 0) {
+        emit("\nMigration complete!\n");
+        resolve();
+      } else {
+        reject(new Error(`Migration failed (exit code ${code}).`));
+      }
+    });
+
+    proc.on("error", (err) => {
+      reject(new Error(`Failed to run migration: ${err.message}`));
+    });
+  });
+}
+
 export async function runHermesUpdate(
   onProgress: (progress: InstallProgress) => void,
 ): Promise<void> {
