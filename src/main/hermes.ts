@@ -396,10 +396,11 @@ function ensureInitialized(): void {
 // ────────────────────────────────────────────────────
 
 let gatewayProcess: ChildProcess | null = null;
+let gatewayStartedByApp = false;
 
 export function startGateway(): boolean {
   ensureInitialized();
-  if (gatewayProcess && !gatewayProcess.killed) return false;
+  if (isGatewayRunning()) return false;
 
   gatewayProcess = spawn(HERMES_PYTHON, [HERMES_SCRIPT, "gateway"], {
     cwd: HERMES_REPO,
@@ -418,8 +419,11 @@ export function startGateway(): boolean {
 
   gatewayProcess.on("close", () => {
     gatewayProcess = null;
+    gatewayStartedByApp = false;
     apiServerAvailable = false;
   });
+
+  gatewayStartedByApp = true;
 
   // Wait a bit then check if API server came up
   setTimeout(async () => {
@@ -429,7 +433,9 @@ export function startGateway(): boolean {
   return true;
 }
 
-export function stopGateway(): void {
+export function stopGateway(force = false): void {
+  if (!force && !gatewayStartedByApp) return;
+
   if (gatewayProcess && !gatewayProcess.killed) {
     gatewayProcess.kill("SIGTERM");
     gatewayProcess = null;
@@ -443,6 +449,7 @@ export function stopGateway(): void {
       // already dead
     }
   }
+  gatewayStartedByApp = false;
   apiServerAvailable = false;
 }
 

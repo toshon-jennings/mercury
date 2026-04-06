@@ -256,7 +256,7 @@ function setupIPC(): void {
   // Gateway
   ipcMain.handle("start-gateway", () => startGateway());
   ipcMain.handle("stop-gateway", () => {
-    stopGateway();
+    stopGateway(true);
     return true;
   });
   ipcMain.handle("gateway-status", () => isGatewayRunning());
@@ -623,9 +623,14 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
-  stopGateway();
-  stopClaw3d();
   if (process.platform !== "darwin") {
+    stopGateway();
+    stopClaw3d();
     app.quit();
   }
+});
+
+app.on("before-quit", () => {
+  stopGateway();
+  stopClaw3d();
 });
