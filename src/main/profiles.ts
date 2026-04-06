@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
@@ -153,7 +153,7 @@ export function createProfile(
     const args = clone
       ? ["profile", "create", name, "--clone"]
       : ["profile", "create", name];
-    execSync(`"${HERMES_PYTHON}" "${HERMES_SCRIPT}" ${args.join(" ")}`, {
+    execFileSync(HERMES_PYTHON, [HERMES_SCRIPT, ...args], {
       cwd: join(HERMES_HOME, "hermes-agent"),
       env: {
         ...process.env,
@@ -179,8 +179,9 @@ export function deleteProfile(name: string): {
   if (name === "default")
     return { success: false, error: "Cannot delete the default profile" };
   try {
-    execSync(
-      `"${HERMES_PYTHON}" "${HERMES_SCRIPT}" profile delete ${name} --yes`,
+    execFileSync(
+      HERMES_PYTHON,
+      [HERMES_SCRIPT, "profile", "delete", name, "--yes"],
       {
         cwd: join(HERMES_HOME, "hermes-agent"),
         env: {
@@ -203,7 +204,7 @@ export function deleteProfile(name: string): {
 
 export function setActiveProfile(name: string): void {
   try {
-    execSync(`"${HERMES_PYTHON}" "${HERMES_SCRIPT}" profile use ${name}`, {
+    execFileSync(HERMES_PYTHON, [HERMES_SCRIPT, "profile", "use", name], {
       cwd: join(HERMES_HOME, "hermes-agent"),
       env: {
         ...process.env,

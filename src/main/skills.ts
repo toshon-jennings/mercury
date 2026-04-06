@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
@@ -140,8 +140,9 @@ export function getSkillContent(skillPath: string): string {
  */
 export function searchSkills(query: string): SkillSearchResult[] {
   try {
-    const output = execSync(
-      `"${HERMES_PYTHON}" "${HERMES_SCRIPT}" skills browse --query "${query.replace(/"/g, '\\"')}" --json 2>/dev/null`,
+    const output = execFileSync(
+      HERMES_PYTHON,
+      [HERMES_SCRIPT, "skills", "browse", "--query", query, "--json"],
       {
         cwd: HERMES_REPO,
         env: {
@@ -247,7 +248,7 @@ export function installSkill(
       args.splice(1, 0, "-p", profile);
     }
 
-    execSync(`"${HERMES_PYTHON}" ${args.map((a) => `"${a}"`).join(" ")}`, {
+    execFileSync(HERMES_PYTHON, args, {
       cwd: HERMES_REPO,
       env: {
         ...process.env,
@@ -276,7 +277,7 @@ export function uninstallSkill(
       args.splice(1, 0, "-p", profile);
     }
 
-    execSync(`"${HERMES_PYTHON}" ${args.map((a) => `"${a}"`).join(" ")}`, {
+    execFileSync(HERMES_PYTHON, args, {
       cwd: HERMES_REPO,
       env: {
         ...process.env,
