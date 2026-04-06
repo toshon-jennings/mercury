@@ -1700,6 +1700,87 @@ body {
   }
 }
 
+.settings-hermes-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.settings-hermes-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.settings-hermes-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-hermes-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.settings-hermes-value {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.settings-hermes-path {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.settings-hermes-update-badge {
+  font-size: 12px;
+  color: var(--warning);
+  background: rgba(245, 158, 11, 0.1);
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  width: fit-content;
+}
+
+.settings-hermes-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-hermes-result {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+}
+
+.settings-hermes-result.success {
+  color: var(--success);
+  background: var(--success-bg);
+}
+
+.settings-hermes-result.error {
+  color: var(--error);
+  background: var(--error-bg);
+}
+
+.settings-hermes-doctor {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border-radius: var(--radius);
+  padding: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .settings-gateway-row {
   display: flex;
   align-items: center;

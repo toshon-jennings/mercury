@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect } from "react";
-import { useTheme } from "./ThemeProvider";
 import Chat, { ChatMessage } from "./Chat";
 import Sessions from "./Sessions";
 import Agents from "./Agents";
@@ -17,9 +16,6 @@ import {
   Clock,
   Users,
   Settings as SettingsIcon,
-  Sun,
-  Monitor,
-  Moon,
   Puzzle,
   Sparkles,
   Brain,
@@ -60,8 +56,6 @@ const NAV_ITEMS: { view: View; icon: LucideIcon; label: string }[] = [
 
 function Layout(): React.JSX.Element {
   const [view, setView] = useState<View>("chat");
-  const { theme, setTheme } = useTheme();
-
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [activeProfile, setActiveProfile] = useState("default");
@@ -163,29 +157,6 @@ function Layout(): React.JSX.Element {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="theme-switcher">
-            <button
-              className={`theme-switcher-btn ${theme === "light" ? "active" : ""}`}
-              onClick={() => setTheme("light")}
-              title="Light"
-            >
-              <Sun size={14} />
-            </button>
-            <button
-              className={`theme-switcher-btn ${theme === "system" ? "active" : ""}`}
-              onClick={() => setTheme("system")}
-              title="System"
-            >
-              <Monitor size={14} />
-            </button>
-            <button
-              className={`theme-switcher-btn ${theme === "dark" ? "active" : ""}`}
-              onClick={() => setTheme("dark")}
-              title="Dark"
-            >
-              <Moon size={14} />
-            </button>
-          </div>
           {updateState && (
             <button className="sidebar-update-btn" onClick={handleUpdate}>
               <Download size={13} />

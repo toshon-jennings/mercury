@@ -9,6 +9,14 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
   const { theme, setTheme } = useTheme();
 
+  // Hermes engine info
+  const [hermesVersion, setHermesVersion] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState("");
+  const [doctorOutput, setDoctorOutput] = useState<string | null>(null);
+  const [doctorRunning, setDoctorRunning] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [updateResult, setUpdateResult] = useState<string | null>(null);
+
   // Model config
   const [modelProvider, setModelProvider] = useState("auto");
   const [modelName, setModelName] = useState("");
@@ -26,16 +34,22 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
   const [poolNewLabel, setPoolNewLabel] = useState("");
 
   const loadConfig = useCallback(async (): Promise<void> => {
-    const envData = await window.hermesAPI.getEnv(profile);
+    const [envData, home, mc, pool, hVersion, aVersion] = await Promise.all([
+      window.hermesAPI.getEnv(profile),
+      window.hermesAPI.getHermesHome(profile),
+      window.hermesAPI.getModelConfig(profile),
+      window.hermesAPI.getCredentialPool(),
+      window.hermesAPI.getHermesVersion(),
+      window.hermesAPI.getAppVersion(),
+    ]);
     setEnv(envData);
-    const home = await window.hermesAPI.getHermesHome(profile);
     setHermesHome(home);
-    const mc = await window.hermesAPI.getModelConfig(profile);
     setModelProvider(mc.provider);
     setModelName(mc.model);
     setModelBaseUrl(mc.baseUrl);
-    const pool = await window.hermesAPI.getCredentialPool();
     setCredPool(pool);
+    setHermesVersion(hVersion);
+    setAppVersion(aVersion);
     setTimeout(() => {
       modelLoaded.current = true;
     }, 600);
@@ -126,11 +140,133 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
     });
   }
 
+  async function handleDoctor(): Promise<void> {
+    setDoctorRunning(true);
+    setDoctorOutput(null);
+    const output = await window.hermesAPI.runHermesDoctor();
+    setDoctorOutput(output);
+    setDoctorRunning(false);
+  }
+
+  async function handleUpdateHermes(): Promise<void> {
+    setUpdating(true);
+    setUpdateResult(null);
+    const result = await window.hermesAPI.runHermesUpdate();
+    setUpdating(false);
+    if (result.success) {
+      setUpdateResult("Updated successfully!");
+      const v = await window.hermesAPI.getHermesVersion();
+      setHermesVersion(v);
+    } else {
+      setUpdateResult(result.error || "Update failed.");
+    }
+  }
+
+  // Parse "Hermes Agent v0.7.0 (2026.4.3) Project: ... Python: 3.11.15 OpenAI SDK: 2.30.0 Update available: ..."
+  const parsedVersion = (() => {
+    if (!hermesVersion) return null;
+    const v = hermesVersion;
+    const version = v.match(/v([\d.]+)/)?.[1] || "";
+    const date = v.match(/\(([\d.]+)\)/)?.[1] || "";
+    const python = v.match(/Python:\s*([\d.]+)/)?.[1] || "";
+    const sdk = v.match(/OpenAI SDK:\s*([\d.]+)/)?.[1] || "";
+    const updateMatch = v.match(/Update available:\s*(.+?)(?:\s*—|$)/);
+    const updateInfo = updateMatch?.[1]?.trim() || null;
+    return { version, date, python, sdk, updateInfo };
+  })();
+
   const isCustomProvider = modelProvider === "custom";
 
   return (
     <div className="settings-container">
       <h1 className="settings-header">Settings</h1>
+
+      <div className="settings-section">
+        <div className="settings-section-title">Hermes Agent</div>
+        <div className="settings-hermes-info">
+          <div className="settings-hermes-row">
+            <div className="settings-hermes-detail">
+              <span className="settings-hermes-label">Engine</span>
+              <span className="settings-hermes-value">
+                {parsedVersion ? `v${parsedVersion.version}` : "Not detected"}
+              </span>
+            </div>
+            {parsedVersion?.date && (
+              <div className="settings-hermes-detail">
+                <span className="settings-hermes-label">Released</span>
+                <span className="settings-hermes-value">
+                  {parsedVersion.date}
+                </span>
+              </div>
+            )}
+            <div className="settings-hermes-detail">
+              <span className="settings-hermes-label">Desktop</span>
+              <span className="settings-hermes-value">
+                v{appVersion || "—"}
+              </span>
+            </div>
+            {parsedVersion?.python && (
+              <div className="settings-hermes-detail">
+                <span className="settings-hermes-label">Python</span>
+                <span className="settings-hermes-value">
+                  {parsedVersion.python}
+                </span>
+              </div>
+            )}
+            {parsedVersion?.sdk && (
+              <div className="settings-hermes-detail">
+                <span className="settings-hermes-label">OpenAI SDK</span>
+                <span className="settings-hermes-value">
+                  {parsedVersion.sdk}
+                </span>
+              </div>
+            )}
+            <div className="settings-hermes-detail">
+              <span className="settings-hermes-label">Home</span>
+              <span className="settings-hermes-value settings-hermes-path">
+                {hermesHome || "—"}
+              </span>
+            </div>
+          </div>
+          {parsedVersion?.updateInfo && (
+            <div className="settings-hermes-update-badge">
+              {parsedVersion.updateInfo}
+            </div>
+          )}
+          <div className="settings-hermes-actions">
+            {parsedVersion?.updateInfo ? (
+              <button
+                className="btn btn-primary "
+                onClick={handleUpdateHermes}
+                disabled={updating}
+              >
+                {updating ? "Updating..." : "Update Engine"}
+              </button>
+            ) : (
+              <button className="btn btn-secondary" disabled>
+                Up to date
+              </button>
+            )}
+            <button
+              className="btn btn-secondary "
+              onClick={handleDoctor}
+              disabled={doctorRunning}
+            >
+              {doctorRunning ? "Running..." : "Run Doctor"}
+            </button>
+          </div>
+          {updateResult && (
+            <div
+              className={`settings-hermes-result ${updateResult.includes("success") ? "success" : "error"}`}
+            >
+              {updateResult}
+            </div>
+          )}
+          {doctorOutput && (
+            <pre className="settings-hermes-doctor">{doctorOutput}</pre>
+          )}
+        </div>
+      </div>
 
       <div className="settings-section">
         <div className="settings-section-title">Appearance</div>
@@ -299,18 +435,6 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
           )}
         </div>
       </div>
-
-      {hermesHome && (
-        <div className="settings-section">
-          <div className="settings-section-title">Installation</div>
-          <div className="settings-field">
-            <label className="settings-field-label">
-              Hermes Home Directory
-            </label>
-            <div className="settings-field-value">{hermesHome}</div>
-          </div>
-        </div>
-      )}
 
       {SETTINGS_SECTIONS.map((section) => (
         <div key={section.title} className="settings-section">

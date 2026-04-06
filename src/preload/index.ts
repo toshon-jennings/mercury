@@ -38,6 +38,14 @@ const hermesAPI = {
     return () => ipcRenderer.removeListener("install-progress", handler);
   },
 
+  // Hermes engine info
+  getHermesVersion: (): Promise<string | null> =>
+    ipcRenderer.invoke("get-hermes-version"),
+  runHermesDoctor: (): Promise<string> =>
+    ipcRenderer.invoke("run-hermes-doctor"),
+  runHermesUpdate: (): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke("run-hermes-update"),
+
   // Configuration (profile-aware)
   getEnv: (profile?: string): Promise<Record<string, string>> =>
     ipcRenderer.invoke("get-env", profile),

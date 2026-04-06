@@ -3,7 +3,14 @@ import { join } from "path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import type { AppUpdater } from "electron-updater";
 import icon from "../../resources/icon.png?asset";
-import { checkInstallStatus, runInstall, InstallProgress } from "./installer";
+import {
+  checkInstallStatus,
+  runInstall,
+  getHermesVersion,
+  runHermesDoctor,
+  runHermesUpdate,
+  InstallProgress,
+} from "./installer";
 import {
   sendMessage,
   startGateway,
@@ -142,6 +149,20 @@ function setupIPC(): void {
   ipcMain.handle("start-install", async (event) => {
     try {
       await runInstall((progress: InstallProgress) => {
+        event.sender.send("install-progress", progress);
+      });
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  });
+
+  // Hermes engine info
+  ipcMain.handle("get-hermes-version", () => getHermesVersion());
+  ipcMain.handle("run-hermes-doctor", () => runHermesDoctor());
+  ipcMain.handle("run-hermes-update", async (event) => {
+    try {
+      await runHermesUpdate((progress: InstallProgress) => {
         event.sender.send("install-progress", progress);
       });
       return { success: true };

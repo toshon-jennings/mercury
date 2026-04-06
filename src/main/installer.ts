@@ -103,6 +103,106 @@ export function checkInstallStatus(): InstallStatus {
   return { installed, configured, hasApiKey, verified };
 }
 
+export function getHermesVersion(): string | null {
+  if (!existsSync(HERMES_PYTHON) || !existsSync(HERMES_SCRIPT)) return null;
+  try {
+    const output = execSync(`"${HERMES_PYTHON}" "${HERMES_SCRIPT}" --version`, {
+      cwd: HERMES_REPO,
+      env: {
+        ...process.env,
+        PATH: getEnhancedPath(),
+        HOME: homedir(),
+        HERMES_HOME,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 15000,
+    });
+    return output.toString().trim();
+  } catch {
+    return null;
+  }
+}
+
+export function runHermesDoctor(): string {
+  if (!existsSync(HERMES_PYTHON) || !existsSync(HERMES_SCRIPT)) {
+    return "Hermes is not installed.";
+  }
+  try {
+    const output = execSync(`"${HERMES_PYTHON}" "${HERMES_SCRIPT}" doctor`, {
+      cwd: HERMES_REPO,
+      env: {
+        ...process.env,
+        PATH: getEnhancedPath(),
+        HOME: homedir(),
+        HERMES_HOME,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 30000,
+    });
+    return stripAnsi(output.toString());
+  } catch (err) {
+    const stderr = (err as { stderr?: Buffer }).stderr?.toString() || "";
+    return stripAnsi(stderr) || "Doctor check failed.";
+  }
+}
+
+export async function runHermesUpdate(
+  onProgress: (progress: InstallProgress) => void,
+): Promise<void> {
+  if (!existsSync(HERMES_PYTHON) || !existsSync(HERMES_SCRIPT)) {
+    throw new Error("Hermes is not installed. Please install it first.");
+  }
+
+  let log = "";
+  function emit(text: string): void {
+    log += text;
+    onProgress({
+      step: 1,
+      totalSteps: 1,
+      title: "Updating Hermes Agent",
+      detail: text.trim().slice(0, 120),
+      log,
+    });
+  }
+
+  emit("Running hermes update...\n");
+
+  return new Promise((resolve, reject) => {
+    const proc = spawn(HERMES_PYTHON, [HERMES_SCRIPT, "update"], {
+      cwd: HERMES_REPO,
+      env: {
+        ...process.env,
+        PATH: getEnhancedPath(),
+        HOME: homedir(),
+        HERMES_HOME,
+        TERM: "dumb",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    proc.stdout?.on("data", (data: Buffer) => {
+      emit(stripAnsi(data.toString()));
+    });
+
+    proc.stderr?.on("data", (data: Buffer) => {
+      emit(stripAnsi(data.toString()));
+    });
+
+    proc.on("close", (code) => {
+      if (code === 0) {
+        emit("\nUpdate complete!\n");
+        resolve();
+      } else {
+        reject(new Error(`Update failed (exit code ${code}).`));
+      }
+    });
+
+    proc.on("error", (err) => {
+      reject(new Error(`Failed to run update: ${err.message}`));
+    });
+  });
+}
+
 function getShellProfile(home: string): string | null {
   // Check for the user's shell profile to source their PATH
   const candidates = [

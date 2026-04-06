@@ -23,6 +23,11 @@ interface HermesAPI {
     callback: (progress: InstallProgress) => void,
   ) => () => void;
 
+  // Hermes engine info
+  getHermesVersion: () => Promise<string | null>;
+  runHermesDoctor: () => Promise<string>;
+  runHermesUpdate: () => Promise<{ success: boolean; error?: string }>;
+
   // Configuration (profile-aware)
   getEnv: (profile?: string) => Promise<Record<string, string>>;
   setEnv: (key: string, value: string, profile?: string) => Promise<boolean>;
