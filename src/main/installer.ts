@@ -1,4 +1,4 @@
-import { spawn, execSync } from "child_process";
+import { spawn, execSync, execFile } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
@@ -103,24 +103,54 @@ export function checkInstallStatus(): InstallStatus {
   return { installed, configured, hasApiKey, verified };
 }
 
-export function getHermesVersion(): string | null {
+// Cached version to avoid re-running the Python process
+let _cachedVersion: string | null = null;
+let _versionFetching = false;
+
+export async function getHermesVersion(): Promise<string | null> {
+  if (_cachedVersion !== null) return _cachedVersion;
   if (!existsSync(HERMES_PYTHON) || !existsSync(HERMES_SCRIPT)) return null;
-  try {
-    const output = execSync(`"${HERMES_PYTHON}" "${HERMES_SCRIPT}" --version`, {
-      cwd: HERMES_REPO,
-      env: {
-        ...process.env,
-        PATH: getEnhancedPath(),
-        HOME: homedir(),
-        HERMES_HOME,
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-      timeout: 15000,
+  if (_versionFetching) {
+    // Wait for in-flight fetch
+    return new Promise((resolve) => {
+      const check = setInterval(() => {
+        if (!_versionFetching) {
+          clearInterval(check);
+          resolve(_cachedVersion);
+        }
+      }, 100);
     });
-    return output.toString().trim();
-  } catch {
-    return null;
   }
+  _versionFetching = true;
+  return new Promise((resolve) => {
+    execFile(
+      HERMES_PYTHON,
+      [HERMES_SCRIPT, "--version"],
+      {
+        cwd: HERMES_REPO,
+        env: {
+          ...process.env,
+          PATH: getEnhancedPath(),
+          HOME: homedir(),
+          HERMES_HOME,
+        },
+        timeout: 15000,
+      },
+      (error, stdout) => {
+        _versionFetching = false;
+        if (error) {
+          resolve(null);
+        } else {
+          _cachedVersion = stdout.toString().trim();
+          resolve(_cachedVersion);
+        }
+      },
+    );
+  });
+}
+
+export function clearVersionCache(): void {
+  _cachedVersion = null;
 }
 
 export function runHermesDoctor(): string {

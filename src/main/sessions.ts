@@ -43,6 +43,7 @@ export function listSessions(limit = 30, offset = 0): SessionSummary[] {
   if (!db) return [];
 
   try {
+    // Simple query without correlated subquery — titles come from session cache
     const rows = db
       .prepare(
         `SELECT
@@ -52,14 +53,7 @@ export function listSessions(limit = 30, offset = 0): SessionSummary[] {
           s.ended_at,
           s.message_count,
           s.model,
-          s.title,
-          COALESCE(
-            (SELECT SUBSTR(REPLACE(REPLACE(m.content, X'0A', ' '), X'0D', ' '), 1, 80)
-             FROM messages m
-             WHERE m.session_id = s.id AND m.role = 'user' AND m.content IS NOT NULL
-             ORDER BY m.timestamp, m.id LIMIT 1),
-            ''
-          ) AS preview
+          s.title
         FROM sessions s
         ORDER BY s.started_at DESC
         LIMIT ? OFFSET ?`,
@@ -72,7 +66,6 @@ export function listSessions(limit = 30, offset = 0): SessionSummary[] {
       message_count: number;
       model: string;
       title: string | null;
-      preview: string;
     }>;
 
     return rows.map((r) => ({
@@ -83,7 +76,7 @@ export function listSessions(limit = 30, offset = 0): SessionSummary[] {
       messageCount: r.message_count,
       model: r.model || "",
       title: r.title,
-      preview: r.preview,
+      preview: "",
     }));
   } finally {
     db.close();

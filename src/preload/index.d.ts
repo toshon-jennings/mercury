@@ -25,6 +25,7 @@ interface HermesAPI {
 
   // Hermes engine info
   getHermesVersion: () => Promise<string | null>;
+  refreshHermesVersion: () => Promise<string | null>;
   runHermesDoctor: () => Promise<string>;
   runHermesUpdate: () => Promise<{ success: boolean; error?: string }>;
 
@@ -184,6 +185,32 @@ interface HermesAPI {
     name: string,
     profile?: string,
   ) => Promise<{ success: boolean; error?: string }>;
+
+  // Session cache
+  listCachedSessions: (
+    limit?: number,
+    offset?: number,
+  ) => Promise<
+    Array<{
+      id: string;
+      title: string;
+      startedAt: number;
+      source: string;
+      messageCount: number;
+      model: string;
+    }>
+  >;
+  syncSessionCache: () => Promise<
+    Array<{
+      id: string;
+      title: string;
+      startedAt: number;
+      source: string;
+      messageCount: number;
+      model: string;
+    }>
+  >;
+  updateSessionTitle: (sessionId: string, title: string) => Promise<void>;
 
   // Session search
   searchSessions: (

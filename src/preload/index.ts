@@ -41,6 +41,8 @@ const hermesAPI = {
   // Hermes engine info
   getHermesVersion: (): Promise<string | null> =>
     ipcRenderer.invoke("get-hermes-version"),
+  refreshHermesVersion: (): Promise<string | null> =>
+    ipcRenderer.invoke("refresh-hermes-version"),
   runHermesDoctor: (): Promise<string> =>
     ipcRenderer.invoke("run-hermes-doctor"),
   runHermesUpdate: (): Promise<{ success: boolean; error?: string }> =>
@@ -279,6 +281,35 @@ const hermesAPI = {
     profile?: string,
   ): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke("uninstall-skill", name, profile),
+
+  // Session cache (fast local cache with generated titles)
+  listCachedSessions: (
+    limit?: number,
+    offset?: number,
+  ): Promise<
+    Array<{
+      id: string;
+      title: string;
+      startedAt: number;
+      source: string;
+      messageCount: number;
+      model: string;
+    }>
+  > => ipcRenderer.invoke("list-cached-sessions", limit, offset),
+
+  syncSessionCache: (): Promise<
+    Array<{
+      id: string;
+      title: string;
+      startedAt: number;
+      source: string;
+      messageCount: number;
+      model: string;
+    }>
+  > => ipcRenderer.invoke("sync-session-cache"),
+
+  updateSessionTitle: (sessionId: string, title: string): Promise<void> =>
+    ipcRenderer.invoke("update-session-title", sessionId, title),
 
   // Session search
   searchSessions: (

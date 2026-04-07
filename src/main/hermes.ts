@@ -373,13 +373,32 @@ export async function sendMessage(
 
 // Lazy init — called on first sendMessage or gateway start
 let _initialized = false;
+let _healthCheckInterval: ReturnType<typeof setInterval> | null = null;
+
 function ensureInitialized(): void {
   if (_initialized) return;
   _initialized = true;
   ensureApiServerConfig();
-  setInterval(async () => {
+  startHealthPolling();
+}
+
+function startHealthPolling(): void {
+  if (_healthCheckInterval) return;
+  _healthCheckInterval = setInterval(async () => {
     apiServerAvailable = await isApiServerReady();
+    // Stop polling once API is confirmed available — only re-check on demand
+    if (apiServerAvailable && _healthCheckInterval) {
+      clearInterval(_healthCheckInterval);
+      _healthCheckInterval = null;
+    }
   }, 15000);
+}
+
+export function stopHealthPolling(): void {
+  if (_healthCheckInterval) {
+    clearInterval(_healthCheckInterval);
+    _healthCheckInterval = null;
+  }
 }
 
 // ────────────────────────────────────────────────────
@@ -412,6 +431,8 @@ export function startGateway(): boolean {
     gatewayProcess = null;
     gatewayStartedByApp = false;
     apiServerAvailable = false;
+    // Restart health polling to detect if gateway comes back
+    startHealthPolling();
   });
 
   gatewayStartedByApp = true;

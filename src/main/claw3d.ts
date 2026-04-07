@@ -12,8 +12,8 @@ import { createConnection } from "net";
 import { getEnhancedPath, HERMES_HOME } from "./installer";
 import { stripAnsi } from "./utils";
 
-const CLAW3D_REPO = "https://github.com/iamlukethedev/Claw3D.git";
-const CLAW3D_DIR = join(HERMES_HOME, "claw3d");
+const HERMES_OFFICE_REPO = "https://github.com/fathah/hermes-office";
+const HERMES_OFFICE_DIR = join(HERMES_HOME, "hermes-office");
 const DEV_PID_FILE = join(HERMES_HOME, "claw3d-dev.pid");
 const ADAPTER_PID_FILE = join(HERMES_HOME, "claw3d-adapter.pid");
 const PORT_FILE = join(HERMES_HOME, "claw3d-port");
@@ -100,8 +100,8 @@ function writeClaw3dSettings(wsUrl?: string): void {
 
   // Write .env in claw3d directory
   try {
-    if (existsSync(CLAW3D_DIR)) {
-      const envPath = join(CLAW3D_DIR, ".env");
+    if (existsSync(HERMES_OFFICE_DIR)) {
+      const envPath = join(HERMES_OFFICE_DIR, ".env");
       const port = getSavedPort();
       const envContent = [
         "# Auto-configured by Hermes Desktop",
@@ -125,7 +125,7 @@ function writeClaw3dSettings(wsUrl?: string): void {
 function checkPort(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = createConnection({ port, host: "127.0.0.1" });
-    socket.setTimeout(1000);
+    socket.setTimeout(300); // 300ms is plenty for localhost
     socket.on("connect", () => {
       socket.destroy();
       resolve(true); // port is in use
@@ -208,8 +208,8 @@ function isAdapterRunning(): boolean {
 }
 
 export async function getClaw3dStatus(): Promise<Claw3dStatus> {
-  const cloned = existsSync(join(CLAW3D_DIR, "package.json"));
-  const installed = existsSync(join(CLAW3D_DIR, "node_modules"));
+  const cloned = existsSync(join(HERMES_OFFICE_DIR, "package.json"));
+  const installed = existsSync(join(HERMES_OFFICE_DIR, "node_modules"));
   const port = getSavedPort();
   const devRunning = isDevServerRunning();
   // Only check port conflict when dev server is NOT running
@@ -229,15 +229,21 @@ export async function getClaw3dStatus(): Promise<Claw3dStatus> {
   };
 }
 
-function findNpm(): string {
-  // Try to find npm in common locations
-  const candidates = [
-    "/usr/local/bin/npm",
-    "/opt/homebrew/bin/npm",
-    join(homedir(), ".nvm/versions/node"), // nvm — resolved below
-  ];
+let _cachedNpmPath: string | null = null;
 
-  // Try which/where first
+function findNpm(): string {
+  if (_cachedNpmPath) return _cachedNpmPath;
+
+  // Try common locations first (no process spawn)
+  const candidates = ["/usr/local/bin/npm", "/opt/homebrew/bin/npm"];
+  for (const c of candidates) {
+    if (existsSync(c)) {
+      _cachedNpmPath = c;
+      return c;
+    }
+  }
+
+  // Fallback: which/where (blocks main thread — only runs once)
   try {
     const npmPath = execSync("which npm 2>/dev/null || where npm 2>/dev/null", {
       env: { ...process.env, PATH: getEnhancedPath() },
@@ -246,16 +252,16 @@ function findNpm(): string {
       .toString()
       .trim()
       .split("\n")[0];
-    if (npmPath && existsSync(npmPath)) return npmPath;
+    if (npmPath && existsSync(npmPath)) {
+      _cachedNpmPath = npmPath;
+      return npmPath;
+    }
   } catch {
     /* fall through */
   }
 
-  for (const c of candidates) {
-    if (existsSync(c)) return c;
-  }
-
-  return "npm"; // fallback — rely on PATH
+  _cachedNpmPath = "npm";
+  return "npm";
 }
 
 export async function setupClaw3d(
@@ -283,16 +289,20 @@ export async function setupClaw3d(
   };
 
   // Step 1: Clone (or pull if already cloned)
-  const cloned = existsSync(join(CLAW3D_DIR, "package.json"));
+  const cloned = existsSync(join(HERMES_OFFICE_DIR, "package.json"));
 
   if (!cloned) {
     emit(1, "Cloning Claw3D repository...", "Cloning from GitHub...\n");
     await new Promise<void>((resolve, reject) => {
-      const proc = spawn("git", ["clone", CLAW3D_REPO, CLAW3D_DIR], {
-        cwd: homedir(),
-        env,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
+      const proc = spawn(
+        "git",
+        ["clone", HERMES_OFFICE_REPO, HERMES_OFFICE_DIR],
+        {
+          cwd: homedir(),
+          env,
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
 
       proc.stdout?.on("data", (data: Buffer) => {
         emit(1, "Cloning Claw3D repository...", stripAnsi(data.toString()));
@@ -321,7 +331,7 @@ export async function setupClaw3d(
     );
     await new Promise<void>((resolve) => {
       const proc = spawn("git", ["pull", "--ff-only"], {
-        cwd: CLAW3D_DIR,
+        cwd: HERMES_OFFICE_DIR,
         env,
         stdio: ["ignore", "pipe", "pipe"],
       });
@@ -347,7 +357,7 @@ export async function setupClaw3d(
 
   await new Promise<void>((resolve, reject) => {
     const proc = spawn(npm, ["install"], {
-      cwd: CLAW3D_DIR,
+      cwd: HERMES_OFFICE_DIR,
       env,
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -404,14 +414,14 @@ function killProcessTree(proc: ChildProcess): void {
 
 export function startDevServer(): boolean {
   if (isDevServerRunning()) return true;
-  if (!existsSync(join(CLAW3D_DIR, "node_modules"))) return false;
+  if (!existsSync(join(HERMES_OFFICE_DIR, "node_modules"))) return false;
 
   devServerError = "";
   devServerLogs = "";
   const port = getSavedPort();
   const npm = findNpm();
   const proc = spawn(npm, ["run", "dev"], {
-    cwd: CLAW3D_DIR,
+    cwd: HERMES_OFFICE_DIR,
     env: {
       ...process.env,
       PATH: getEnhancedPath(),
@@ -480,13 +490,13 @@ export function stopDevServer(): void {
 
 export function startAdapter(): boolean {
   if (isAdapterRunning()) return true;
-  if (!existsSync(join(CLAW3D_DIR, "node_modules"))) return false;
+  if (!existsSync(join(HERMES_OFFICE_DIR, "node_modules"))) return false;
 
   adapterError = "";
   adapterLogs = "";
   const npm = findNpm();
   const proc = spawn(npm, ["run", "hermes-adapter"], {
-    cwd: CLAW3D_DIR,
+    cwd: HERMES_OFFICE_DIR,
     env: {
       ...process.env,
       PATH: getEnhancedPath(),
@@ -551,7 +561,7 @@ export function stopAdapter(): void {
 }
 
 export function startAll(): { success: boolean; error?: string } {
-  if (!existsSync(join(CLAW3D_DIR, "node_modules"))) {
+  if (!existsSync(join(HERMES_OFFICE_DIR, "node_modules"))) {
     return {
       success: false,
       error: "Claw3D is not installed. Please install it first.",

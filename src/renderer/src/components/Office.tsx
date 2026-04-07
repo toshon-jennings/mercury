@@ -16,7 +16,7 @@ interface SetupProgress {
   log: string;
 }
 
-function Office(): React.JSX.Element {
+function Office({ visible }: { visible?: boolean }): React.JSX.Element {
   const [state, setState] = useState<OfficeState>("checking");
   const [running, setRunning] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -68,9 +68,9 @@ function Office(): React.JSX.Element {
     checkStatus();
   }, [checkStatus]);
 
-  // Poll status when in ready state — only restarts when `state` changes
+  // Poll status only when tab is visible and in ready state
   useEffect(() => {
-    if (state !== "ready") return;
+    if (state !== "ready" || !visible) return;
     const interval = setInterval(async () => {
       const status = await window.hermesAPI.claw3dStatus();
       setRunning(status.running);
@@ -86,9 +86,9 @@ function Office(): React.JSX.Element {
         setRunning(false);
         if (status.error) setError(status.error);
       }
-    }, 2000);
+    }, 5000);
     return () => clearInterval(interval);
-  }, [state]);
+  }, [state, visible]);
 
   // Auto-scroll log
   useEffect(() => {

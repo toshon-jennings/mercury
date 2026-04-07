@@ -2,6 +2,24 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "./ThemeProvider";
 import { SETTINGS_SECTIONS, PROVIDERS, THEME_OPTIONS } from "../constants";
 
+// Read cached values from localStorage for instant display
+function getCachedVersion(): string | null {
+  try {
+    return localStorage.getItem("hermes-version-cache");
+  } catch {
+    return null;
+  }
+}
+
+function getCachedOpenClaw(): { found: boolean; path: string | null } | null {
+  try {
+    const raw = localStorage.getItem("hermes-openclaw-cache");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function Settings({ profile }: { profile?: string }): React.JSX.Element {
   const [env, setEnv] = useState<Record<string, string>>({});
   const [savedKey, setSavedKey] = useState<string | null>(null);
@@ -9,17 +27,24 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
   const { theme, setTheme } = useTheme();
 
-  // Hermes engine info
-  const [hermesVersion, setHermesVersion] = useState<string | null>(null);
+  // Hermes engine info — initialize from localStorage cache for instant display
+  const [hermesVersion, setHermesVersion] = useState<string | null>(
+    getCachedVersion,
+  );
   const [appVersion, setAppVersion] = useState("");
   const [doctorOutput, setDoctorOutput] = useState<string | null>(null);
   const [doctorRunning, setDoctorRunning] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [updateResult, setUpdateResult] = useState<string | null>(null);
 
-  // OpenClaw migration
-  const [openclawFound, setOpenclawFound] = useState(false);
-  const [openclawPath, setOpenclawPath] = useState<string | null>(null);
+  // OpenClaw migration — initialize from localStorage cache
+  const cachedClaw = getCachedOpenClaw();
+  const [openclawFound, setOpenclawFound] = useState(
+    cachedClaw?.found ?? false,
+  );
+  const [openclawPath, setOpenclawPath] = useState<string | null>(
+    cachedClaw?.path ?? null,
+  );
   const [migrationDismissed, setMigrationDismissed] = useState(
     () => localStorage.getItem("hermes-openclaw-dismissed") === "true",
   );
@@ -45,12 +70,12 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
   const [poolNewLabel, setPoolNewLabel] = useState("");
 
   const loadConfig = useCallback(async (): Promise<void> => {
-    const [envData, home, mc, pool, hVersion, aVersion] = await Promise.all([
+    // Load fast config first (cached in main process)
+    const [envData, home, mc, pool, aVersion] = await Promise.all([
       window.hermesAPI.getEnv(profile),
       window.hermesAPI.getHermesHome(profile),
       window.hermesAPI.getModelConfig(profile),
       window.hermesAPI.getCredentialPool(),
-      window.hermesAPI.getHermesVersion(),
       window.hermesAPI.getAppVersion(),
     ]);
     setEnv(envData);
@@ -59,16 +84,32 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
     setModelName(mc.model);
     setModelBaseUrl(mc.baseUrl);
     setCredPool(pool);
-    setHermesVersion(hVersion);
     setAppVersion(aVersion);
-    if (localStorage.getItem("hermes-openclaw-dismissed") !== "true") {
-      const claw = await window.hermesAPI.checkOpenClaw();
-      setOpenclawFound(claw.found);
-      setOpenclawPath(claw.path);
-    }
-    setTimeout(() => {
+
+    // Allow model auto-save after initial values are set
+    requestAnimationFrame(() => {
       modelLoaded.current = true;
-    }, 600);
+    });
+
+    // Defer slow calls — background refresh, cached values show instantly
+    window.hermesAPI.getHermesVersion().then((v) => {
+      setHermesVersion(v);
+      if (v) {
+        try {
+          localStorage.setItem("hermes-version-cache", v);
+        } catch { /* ignore */ }
+      }
+    });
+
+    if (localStorage.getItem("hermes-openclaw-dismissed") !== "true") {
+      window.hermesAPI.checkOpenClaw().then((claw) => {
+        setOpenclawFound(claw.found);
+        setOpenclawPath(claw.path);
+        try {
+          localStorage.setItem("hermes-openclaw-cache", JSON.stringify(claw));
+        } catch { /* ignore */ }
+      });
+    }
   }, [profile]);
 
   useEffect(() => {
@@ -196,6 +237,16 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
     setDoctorRunning(false);
   }
 
+  // Helper to fetch fresh version, clear backend cache, and update localStorage
+  function refreshVersion(): void {
+    window.hermesAPI.refreshHermesVersion().then((v) => {
+      setHermesVersion(v);
+      if (v) {
+        try { localStorage.setItem("hermes-version-cache", v); } catch { /* ignore */ }
+      }
+    });
+  }
+
   async function handleUpdateHermes(): Promise<void> {
     setUpdating(true);
     setUpdateResult(null);
@@ -203,8 +254,7 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
     setUpdating(false);
     if (result.success) {
       setUpdateResult("Updated successfully!");
-      const v = await window.hermesAPI.getHermesVersion();
-      setHermesVersion(v);
+      refreshVersion();
     } else {
       setUpdateResult(result.error || "Update failed.");
     }

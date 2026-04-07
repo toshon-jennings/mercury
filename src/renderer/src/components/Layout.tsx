@@ -59,6 +59,8 @@ function Layout(): React.JSX.Element {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [activeProfile, setActiveProfile] = useState("default");
+  // Lazy mount: only render Office after first visit, then keep mounted
+  const [officeVisited, setOfficeVisited] = useState(false);
 
   // Auto-update state
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
@@ -148,7 +150,10 @@ function Layout(): React.JSX.Element {
             <button
               key={v}
               className={`sidebar-nav-item ${view === v ? "active" : ""}`}
-              onClick={() => setView(v)}
+              onClick={() => {
+                if (v === "office") setOfficeVisited(true);
+                setView(v);
+              }}
             >
               <Icon size={16} />
               {label}
@@ -209,23 +214,34 @@ function Layout(): React.JSX.Element {
             }}
           />
         )}
-        <div
-          style={{
-            display: view === "office" ? "flex" : "none",
-            flex: 1,
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
-          <Office />
-        </div>
+        {officeVisited && (
+          <div
+            style={{
+              display: view === "office" ? "flex" : "none",
+              flex: 1,
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <Office visible={view === "office"} />
+          </div>
+        )}
         {view === "models" && <Models />}
         {view === "skills" && <Skills profile={activeProfile} />}
         {view === "soul" && <Soul profile={activeProfile} />}
         {view === "memory" && <Memory profile={activeProfile} />}
         {view === "tools" && <Tools profile={activeProfile} />}
         {view === "gateway" && <Gateway profile={activeProfile} />}
-        {view === "settings" && <Settings profile={activeProfile} />}
+        <div
+          style={{
+            display: view === "settings" ? "flex" : "none",
+            flex: 1,
+            flexDirection: "column",
+            overflow: "hidden",
+          }}
+        >
+          <Settings profile={activeProfile} />
+        </div>
       </main>
     </div>
   );
