@@ -1,5 +1,5 @@
 import { ChildProcess, spawn } from "child_process";
-import { existsSync, readFileSync, appendFileSync, writeFileSync, openSync } from "fs";
+import { existsSync, readFileSync, appendFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import http from "http";
@@ -393,19 +393,6 @@ export function startGateway(): boolean {
   ensureInitialized();
   if (isGatewayRunning()) return false;
 
-  const logFile = join(HERMES_HOME, "gateway.log");
-
-  // Write log header before spawning
-  try {
-    writeFileSync(logFile, `[start] gateway started at ${new Date().toISOString()}\n`);
-  } catch {
-    // ignore
-  }
-
-  // Open file descriptors for stdout/stderr so output is captured even if app exits
-  const outFd = openSync(logFile, "a");
-  const errFd = openSync(logFile, "a");
-
   gatewayProcess = spawn(HERMES_PYTHON, [HERMES_SCRIPT, "gateway"], {
     cwd: HERMES_REPO,
     env: {
@@ -415,32 +402,13 @@ export function startGateway(): boolean {
       HERMES_HOME: HERMES_HOME,
       API_SERVER_ENABLED: "true", // Ensure API server starts with gateway
     },
-    stdio: ["ignore", outFd, errFd],
+    stdio: "ignore",
     detached: true,
   });
 
   gatewayProcess.unref();
 
-  gatewayProcess.on("error", (err) => {
-    try {
-      appendFileSync(logFile, `[error] spawn error: ${err.message}\n`);
-    } catch {
-      // ignore
-    }
-    gatewayProcess = null;
-    gatewayStartedByApp = false;
-    apiServerAvailable = false;
-  });
-
-  gatewayProcess.on("close", (code, signal) => {
-    try {
-      appendFileSync(
-        logFile,
-        `[close] gateway exited with code=${code} signal=${signal}\n`,
-      );
-    } catch {
-      // ignore
-    }
+  gatewayProcess.on("close", () => {
     gatewayProcess = null;
     gatewayStartedByApp = false;
     apiServerAvailable = false;
@@ -456,6 +424,19 @@ export function startGateway(): boolean {
   return true;
 }
 
+function readPidFile(): number | null {
+  const pidFile = join(HERMES_HOME, "gateway.pid");
+  if (!existsSync(pidFile)) return null;
+  try {
+    const raw = readFileSync(pidFile, "utf-8").trim();
+    // PID file can be JSON ({"pid": 1234, ...}) or plain integer
+    const parsed = raw.startsWith("{") ? JSON.parse(raw).pid : parseInt(raw, 10);
+    return typeof parsed === "number" && !isNaN(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export function stopGateway(force = false): void {
   if (!force && !gatewayStartedByApp) return;
 
@@ -463,11 +444,10 @@ export function stopGateway(force = false): void {
     gatewayProcess.kill("SIGTERM");
     gatewayProcess = null;
   }
-  const pidFile = join(HERMES_HOME, "gateway.pid");
-  if (existsSync(pidFile)) {
+  const pid = readPidFile();
+  if (pid) {
     try {
-      const pid = parseInt(readFileSync(pidFile, "utf-8").trim(), 10);
-      if (!isNaN(pid)) process.kill(pid, "SIGTERM");
+      process.kill(pid, "SIGTERM");
     } catch {
       // already dead
     }
@@ -478,11 +458,9 @@ export function stopGateway(force = false): void {
 
 export function isGatewayRunning(): boolean {
   if (gatewayProcess && !gatewayProcess.killed) return true;
-  const pidFile = join(HERMES_HOME, "gateway.pid");
-  if (!existsSync(pidFile)) return false;
+  const pid = readPidFile();
+  if (!pid) return false;
   try {
-    const pid = parseInt(readFileSync(pidFile, "utf-8").trim(), 10);
-    if (isNaN(pid)) return false;
     process.kill(pid, 0);
     return true;
   } catch {
