@@ -18,12 +18,12 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
     loadConfig();
   }, [loadConfig]);
 
-  // Poll gateway status
+  // Poll gateway status (10s interval to reduce IPC overhead)
   useEffect(() => {
     const interval = setInterval(async () => {
       const status = await window.hermesAPI.gatewayStatus();
       setGatewayRunning(status);
-    }, 3000);
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -32,8 +32,13 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
       await window.hermesAPI.stopGateway();
       setGatewayRunning(false);
     } else {
-      await window.hermesAPI.startGateway();
-      setGatewayRunning(true);
+      const started = await window.hermesAPI.startGateway();
+      setGatewayRunning(started);
+      // Re-check status after a short delay to confirm it stayed up
+      setTimeout(async () => {
+        const status = await window.hermesAPI.gatewayStatus();
+        setGatewayRunning(status);
+      }, 2000);
     }
   }
 

@@ -7,6 +7,7 @@ import {
   checkInstallStatus,
   runInstall,
   getHermesVersion,
+  clearVersionCache,
   runHermesDoctor,
   runHermesUpdate,
   checkOpenClawExists,
@@ -19,6 +20,7 @@ import {
   stopGateway,
   isGatewayRunning,
   testRemoteConnection,
+  stopHealthPolling,
 } from "./hermes";
 import {
   getClaw3dStatus,
@@ -50,6 +52,11 @@ import {
   setConnectionConfig,
 } from "./config";
 import { listSessions, getSessionMessages, searchSessions } from "./sessions";
+import {
+  syncSessionCache,
+  listCachedSessions,
+  updateSessionTitle,
+} from "./session-cache";
 import { listModels, addModel, removeModel, updateModel } from "./models";
 import {
   listProfiles,
@@ -163,7 +170,11 @@ function setupIPC(): void {
   });
 
   // Hermes engine info
-  ipcMain.handle("get-hermes-version", () => getHermesVersion());
+  ipcMain.handle("get-hermes-version", async () => getHermesVersion());
+  ipcMain.handle("refresh-hermes-version", async () => {
+    clearVersionCache();
+    return getHermesVersion();
+  });
   ipcMain.handle("run-hermes-doctor", () => runHermesDoctor());
   ipcMain.handle("run-hermes-update", async (event) => {
     try {
@@ -249,7 +260,7 @@ function setupIPC(): void {
     testRemoteConnection(url),
   );
 
-  // Chat
+  // Chat — lazy-start gateway on first message
   ipcMain.handle(
     "send-message",
     async (
@@ -258,6 +269,11 @@ function setupIPC(): void {
       profile?: string,
       resumeSessionId?: string,
     ) => {
+      // Lazy start: ensure gateway is running on first chat
+      if (!isGatewayRunning()) {
+        startGateway();
+      }
+
       if (currentChatAbort) {
         currentChatAbort();
       }
@@ -330,7 +346,7 @@ function setupIPC(): void {
   });
 
   // Profiles
-  ipcMain.handle("list-profiles", () => listProfiles());
+  ipcMain.handle("list-profiles", async () => listProfiles());
   ipcMain.handle("create-profile", (_event, name: string, clone: boolean) =>
     createProfile(name, clone),
   );
@@ -402,6 +418,19 @@ function setupIPC(): void {
   );
   ipcMain.handle("uninstall-skill", (_event, name: string, profile?: string) =>
     uninstallSkill(name, profile),
+  );
+
+  // Session cache (fast local cache with generated titles)
+  ipcMain.handle(
+    "list-cached-sessions",
+    (_event, limit?: number, offset?: number) =>
+      listCachedSessions(limit, offset),
+  );
+  ipcMain.handle("sync-session-cache", () => syncSessionCache());
+  ipcMain.handle(
+    "update-session-title",
+    (_event, sessionId: string, title: string) =>
+      updateSessionTitle(sessionId, title),
   );
 
   // Session search
@@ -668,14 +697,6 @@ app.whenReady().then(() => {
   createWindow();
   setupUpdater();
 
-  // Auto-start gateway (includes API server) for fast chat
-  // Small delay to let the app window load first
-  setTimeout(() => {
-    if (!isGatewayRunning()) {
-      startGateway();
-    }
-  }, 2000);
-
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
@@ -690,6 +711,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  stopHealthPolling();
   stopGateway();
   stopClaw3d();
 });

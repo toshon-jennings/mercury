@@ -1,7 +1,8 @@
 import { execFileSync } from "child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import { promises as fs } from "fs";
+import { existsSync } from "fs";
 import {
   HERMES_HOME,
   HERMES_PYTHON,
@@ -24,15 +25,13 @@ export interface ProfileInfo {
   gatewayRunning: boolean;
 }
 
-function readProfileConfig(profilePath: string): {
+async function readProfileConfig(profilePath: string): Promise<{
   model: string;
   provider: string;
-} {
+}> {
   const configFile = join(profilePath, "config.yaml");
-  if (!existsSync(configFile)) return { model: "", provider: "" };
-
   try {
-    const content = readFileSync(configFile, "utf-8");
+    const content = await fs.readFile(configFile, "utf-8");
     const modelMatch = content.match(/^\s*default:\s*["']?([^"'\n#]+)["']?/m);
     const providerMatch = content.match(
       /^\s*provider:\s*["']?([^"'\n#]+)["']?/m,
@@ -46,18 +45,23 @@ function readProfileConfig(profilePath: string): {
   }
 }
 
-function countSkills(profilePath: string): number {
+async function countSkills(profilePath: string): Promise<number> {
   const skillsDir = join(profilePath, "skills");
-  if (!existsSync(skillsDir)) return 0;
   try {
+    const dirs = await fs.readdir(skillsDir);
     let count = 0;
-    const dirs = readdirSync(skillsDir);
     for (const d of dirs) {
       const sub = join(skillsDir, d);
-      if (statSync(sub).isDirectory()) {
-        const inner = readdirSync(sub);
+      const stat = await fs.stat(sub);
+      if (stat.isDirectory()) {
+        const inner = await fs.readdir(sub);
         for (const f of inner) {
-          if (existsSync(join(sub, f, "SKILL.md"))) count++;
+          try {
+            await fs.access(join(sub, f, "SKILL.md"));
+            count++;
+          } catch {
+            // not a skill
+          }
         }
       }
     }
@@ -67,11 +71,11 @@ function countSkills(profilePath: string): number {
   }
 }
 
-function isGatewayRunning(profilePath: string): boolean {
+async function isGatewayRunning(profilePath: string): Promise<boolean> {
   const pidFile = join(profilePath, "gateway.pid");
-  if (!existsSync(pidFile)) return false;
   try {
-    const pid = parseInt(readFileSync(pidFile, "utf-8").trim(), 10);
+    const raw = await fs.readFile(pidFile, "utf-8");
+    const pid = parseInt(raw.trim(), 10);
     if (isNaN(pid)) return false;
     process.kill(pid, 0);
     return true;
@@ -80,22 +84,39 @@ function isGatewayRunning(profilePath: string): boolean {
   }
 }
 
-function getActiveProfileName(): string {
+async function getActiveProfileName(): Promise<string> {
   const activeFile = join(HERMES_HOME, "active_profile");
-  if (!existsSync(activeFile)) return "default";
   try {
-    return readFileSync(activeFile, "utf-8").trim() || "default";
+    const name = await fs.readFile(activeFile, "utf-8");
+    return name.trim() || "default";
   } catch {
     return "default";
   }
 }
 
-export function listProfiles(): ProfileInfo[] {
-  const activeName = getActiveProfileName();
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await fs.access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function listProfiles(): Promise<ProfileInfo[]> {
+  const activeName = await getActiveProfileName();
   const profiles: ProfileInfo[] = [];
 
   // Default profile is HERMES_HOME itself
-  const defaultConfig = readProfileConfig(HERMES_HOME);
+  const [defaultConfig, defaultHasEnv, defaultHasSoul, defaultSkills, defaultGw] =
+    await Promise.all([
+      readProfileConfig(HERMES_HOME),
+      fileExists(join(HERMES_HOME, ".env")),
+      fileExists(join(HERMES_HOME, "SOUL.md")),
+      countSkills(HERMES_HOME),
+      isGatewayRunning(HERMES_HOME),
+    ]);
+
   profiles.push({
     name: "default",
     path: HERMES_HOME,
@@ -103,39 +124,49 @@ export function listProfiles(): ProfileInfo[] {
     isActive: activeName === "default",
     model: defaultConfig.model,
     provider: defaultConfig.provider,
-    hasEnv: existsSync(join(HERMES_HOME, ".env")),
-    hasSoul: existsSync(join(HERMES_HOME, "SOUL.md")),
-    skillCount: countSkills(HERMES_HOME),
-    gatewayRunning: isGatewayRunning(HERMES_HOME),
+    hasEnv: defaultHasEnv,
+    hasSoul: defaultHasSoul,
+    skillCount: defaultSkills,
+    gatewayRunning: defaultGw,
   });
 
   // Named profiles under ~/.hermes/profiles/
   if (existsSync(PROFILES_DIR)) {
     try {
-      const dirs = readdirSync(PROFILES_DIR);
-      for (const name of dirs) {
+      const dirs = await fs.readdir(PROFILES_DIR);
+      const profilePromises = dirs.map(async (name) => {
         const profilePath = join(PROFILES_DIR, name);
-        if (!statSync(profilePath).isDirectory()) continue;
-        // Must have at least a config.yaml or .env to be a real profile
-        if (
-          !existsSync(join(profilePath, "config.yaml")) &&
-          !existsSync(join(profilePath, ".env"))
-        )
-          continue;
+        const stat = await fs.stat(profilePath);
+        if (!stat.isDirectory()) return null;
 
-        const config = readProfileConfig(profilePath);
-        profiles.push({
+        const hasConfig = await fileExists(join(profilePath, "config.yaml"));
+        const hasEnvFile = await fileExists(join(profilePath, ".env"));
+        if (!hasConfig && !hasEnvFile) return null;
+
+        const [config, hasSoul, skillCount, gwRunning] = await Promise.all([
+          readProfileConfig(profilePath),
+          fileExists(join(profilePath, "SOUL.md")),
+          countSkills(profilePath),
+          isGatewayRunning(profilePath),
+        ]);
+
+        return {
           name,
           path: profilePath,
           isDefault: false,
           isActive: activeName === name,
           model: config.model,
           provider: config.provider,
-          hasEnv: existsSync(join(profilePath, ".env")),
-          hasSoul: existsSync(join(profilePath, "SOUL.md")),
-          skillCount: countSkills(profilePath),
-          gatewayRunning: isGatewayRunning(profilePath),
-        });
+          hasEnv: hasEnvFile,
+          hasSoul: hasSoul,
+          skillCount,
+          gatewayRunning: gwRunning,
+        } as ProfileInfo;
+      });
+
+      const resolved = await Promise.all(profilePromises);
+      for (const p of resolved) {
+        if (p) profiles.push(p);
       }
     } catch {
       // ignore

@@ -43,6 +43,30 @@ export function setConnectionConfig(config: ConnectionConfig): void {
   writeDesktopConfig(data);
 }
 
+// ── In-memory cache with TTL ─────────────────────────────
+const CACHE_TTL = 5000; // 5 seconds
+const _cache = new Map<string, { data: unknown; ts: number }>();
+
+function getCached<T>(key: string): T | undefined {
+  const entry = _cache.get(key);
+  if (!entry) return undefined;
+  if (Date.now() - entry.ts > CACHE_TTL) {
+    _cache.delete(key);
+    return undefined;
+  }
+  return entry.data as T;
+}
+
+function setCache(key: string, data: unknown): void {
+  _cache.set(key, { data, ts: Date.now() });
+}
+
+function invalidateCache(prefix: string): void {
+  for (const key of _cache.keys()) {
+    if (key.startsWith(prefix)) _cache.delete(key);
+  }
+}
+
 function profilePaths(profile?: string): {
   envFile: string;
   configFile: string;
@@ -57,6 +81,10 @@ function profilePaths(profile?: string): {
 }
 
 export function readEnv(profile?: string): Record<string, string> {
+  const cacheKey = `env:${profile || "default"}`;
+  const cached = getCached<Record<string, string>>(cacheKey);
+  if (cached) return cached;
+
   const { envFile } = profilePaths(profile);
   if (!existsSync(envFile)) return {};
 
@@ -81,6 +109,7 @@ export function readEnv(profile?: string): Record<string, string> {
     if (value) result[key] = value;
   }
 
+  setCache(cacheKey, result);
   return result;
 }
 
@@ -90,6 +119,8 @@ export function setEnvValue(
   profile?: string,
 ): void {
   const { envFile } = profilePaths(profile);
+  invalidateCache(`env:${profile || "default"}`);
+
   if (!existsSync(envFile)) {
     writeFileSync(envFile, `${key}=${value}\n`);
     return;
@@ -154,6 +185,10 @@ export function getModelConfig(profile?: string): {
   model: string;
   baseUrl: string;
 } {
+  const cacheKey = `mc:${profile || "default"}`;
+  const cached = getCached<{ provider: string; model: string; baseUrl: string }>(cacheKey);
+  if (cached) return cached;
+
   const { configFile } = profilePaths(profile);
   const defaults = { provider: "auto", model: "", baseUrl: "" };
   if (!existsSync(configFile)) return defaults;
@@ -164,11 +199,14 @@ export function getModelConfig(profile?: string): {
   const modelMatch = content.match(/^\s*default:\s*["']?([^"'\n#]+)["']?/m);
   const baseUrlMatch = content.match(/^\s*base_url:\s*["']?([^"'\n#]+)["']?/m);
 
-  return {
+  const result = {
     provider: providerMatch ? providerMatch[1].trim() : defaults.provider,
     model: modelMatch ? modelMatch[1].trim() : defaults.model,
     baseUrl: baseUrlMatch ? baseUrlMatch[1].trim() : defaults.baseUrl,
   };
+
+  setCache(cacheKey, result);
+  return result;
 }
 
 export function setModelConfig(
@@ -177,6 +215,7 @@ export function setModelConfig(
   baseUrl: string,
   profile?: string,
 ): void {
+  invalidateCache(`mc:${profile || "default"}`);
   const { configFile } = profilePaths(profile);
   if (!existsSync(configFile)) return;
 

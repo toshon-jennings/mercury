@@ -396,15 +396,34 @@ export async function sendMessage(
 
 // Lazy init — called on first sendMessage or gateway start
 let _initialized = false;
+let _healthCheckInterval: ReturnType<typeof setInterval> | null = null;
+
 function ensureInitialized(): void {
   if (_initialized) return;
   _initialized = true;
   if (!isRemoteMode()) {
     ensureApiServerConfig();
   }
-  setInterval(async () => {
+  startHealthPolling();
+}
+
+function startHealthPolling(): void {
+  if (_healthCheckInterval) return;
+  _healthCheckInterval = setInterval(async () => {
     apiServerAvailable = await isApiServerReady();
+    // Stop polling once API is confirmed available — only re-check on demand
+    if (apiServerAvailable && _healthCheckInterval) {
+      clearInterval(_healthCheckInterval);
+      _healthCheckInterval = null;
+    }
   }, 15000);
+}
+
+export function stopHealthPolling(): void {
+  if (_healthCheckInterval) {
+    clearInterval(_healthCheckInterval);
+    _healthCheckInterval = null;
+  }
 }
 
 // ────────────────────────────────────────────────────
@@ -437,6 +456,8 @@ export function startGateway(): boolean {
     gatewayProcess = null;
     gatewayStartedByApp = false;
     apiServerAvailable = false;
+    // Restart health polling to detect if gateway comes back
+    startHealthPolling();
   });
 
   gatewayStartedByApp = true;
@@ -449,6 +470,19 @@ export function startGateway(): boolean {
   return true;
 }
 
+function readPidFile(): number | null {
+  const pidFile = join(HERMES_HOME, "gateway.pid");
+  if (!existsSync(pidFile)) return null;
+  try {
+    const raw = readFileSync(pidFile, "utf-8").trim();
+    // PID file can be JSON ({"pid": 1234, ...}) or plain integer
+    const parsed = raw.startsWith("{") ? JSON.parse(raw).pid : parseInt(raw, 10);
+    return typeof parsed === "number" && !isNaN(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export function stopGateway(force = false): void {
   if (!force && !gatewayStartedByApp) return;
 
@@ -456,11 +490,10 @@ export function stopGateway(force = false): void {
     gatewayProcess.kill("SIGTERM");
     gatewayProcess = null;
   }
-  const pidFile = join(HERMES_HOME, "gateway.pid");
-  if (existsSync(pidFile)) {
+  const pid = readPidFile();
+  if (pid) {
     try {
-      const pid = parseInt(readFileSync(pidFile, "utf-8").trim(), 10);
-      if (!isNaN(pid)) process.kill(pid, "SIGTERM");
+      process.kill(pid, "SIGTERM");
     } catch {
       // already dead
     }
@@ -471,11 +504,9 @@ export function stopGateway(force = false): void {
 
 export function isGatewayRunning(): boolean {
   if (gatewayProcess && !gatewayProcess.killed) return true;
-  const pidFile = join(HERMES_HOME, "gateway.pid");
-  if (!existsSync(pidFile)) return false;
+  const pid = readPidFile();
+  if (!pid) return false;
   try {
-    const pid = parseInt(readFileSync(pidFile, "utf-8").trim(), 10);
-    if (isNaN(pid)) return false;
     process.kill(pid, 0);
     return true;
   } catch {
