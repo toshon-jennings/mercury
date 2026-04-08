@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
-import { join, dirname } from "path";
-import { profileHome } from "./utils";
+import { existsSync, readFileSync } from "fs";
+import { join } from "path";
+import { profileHome, safeWriteFile } from "./utils";
 
 const DEFAULT_SOUL = `You are Hermes, a helpful AI assistant. You are friendly, knowledgeable, and always eager to help.
 
@@ -24,11 +24,7 @@ export function writeSoul(content: string, profile?: string): boolean {
   const soulFile = join(profileHome(profile), "SOUL.md");
 
   try {
-    const dir = dirname(soulFile);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
-    writeFileSync(soulFile, content);
+    safeWriteFile(soulFile, content);
     return true;
   } catch {
     return false;

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { ArrowRight } from "../assets/icons";
+import { ArrowRight, Copy } from "../assets/icons";
 
 interface InstallProgress {
   step: number;
@@ -23,6 +23,8 @@ function Install({ onComplete, onFailed }: InstallProps): React.JSX.Element {
     log: "",
   });
   const [done, setDone] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,14 +38,14 @@ function Install({ onComplete, onFailed }: InstallProps): React.JSX.Element {
         if (result.success) {
           setDone(true);
         } else {
-          onFailed(
+          setFailed(
             result.error ||
               "Installation failed. Please try again or install via terminal.",
           );
         }
       })
       .catch((err) => {
-        onFailed(
+        setFailed(
           err.message ||
             "Installation failed. Please try again or install via terminal.",
         );
@@ -58,6 +60,13 @@ function Install({ onComplete, onFailed }: InstallProps): React.JSX.Element {
     }
   }, [progress.log]);
 
+  function handleCopyLogs(): void {
+    const text = `Installation Error:\n${failed}\n\n--- Full Log ---\n${progress.log}`;
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   const percent =
     progress.totalSteps > 0
       ? Math.round((progress.step / progress.totalSteps) * 100)
@@ -66,20 +75,44 @@ function Install({ onComplete, onFailed }: InstallProps): React.JSX.Element {
   return (
     <div className="screen install-screen">
       <h1 className="install-title">
-        {done ? "Installation Complete" : "Installing Hermes Agent"}
+        {done
+          ? "Installation Complete"
+          : failed
+            ? "Installation Failed"
+            : "Installing Hermes Agent"}
       </h1>
 
       <div className="install-progress-container">
         <div className="install-progress-bar">
           <div
-            className="install-progress-fill"
+            className={`install-progress-fill ${failed ? "install-progress-fill--error" : ""}`}
             style={{ width: `${done ? 100 : percent}%` }}
           />
         </div>
         <div className="install-percent">{done ? "100" : percent}%</div>
       </div>
 
-      {!done && (
+      {failed && (
+        <div className="install-error-banner">
+          <p className="install-error-text">{failed}</p>
+          <div className="install-error-actions">
+            <button className="btn btn-primary btn-sm" onClick={() => {
+              setFailed(null);
+              setProgress({ step: 0, totalSteps: 7, title: "Preparing...", detail: "Starting installation", log: "" });
+              // Re-trigger install via parent
+              onFailed(failed);
+            }}>
+              Retry Installation
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={handleCopyLogs}>
+              <Copy size={13} />
+              {copied ? "Copied!" : "Copy Logs"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!done && !failed && (
         <div className="install-step-info">
           <div className="install-step-title">
             Step {progress.step}/{progress.totalSteps}: {progress.title}

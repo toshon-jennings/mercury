@@ -1,7 +1,8 @@
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { randomUUID } from "crypto";
 import { HERMES_HOME } from "./installer";
+import { safeWriteFile } from "./utils";
 import DEFAULT_MODELS from "./default-models";
 
 const MODELS_FILE = join(HERMES_HOME, "models.json");
@@ -25,7 +26,7 @@ function readModels(): SavedModel[] {
 }
 
 function writeModels(models: SavedModel[]): void {
-  writeFileSync(MODELS_FILE, JSON.stringify(models, null, 2), "utf-8");
+  safeWriteFile(MODELS_FILE, JSON.stringify(models, null, 2));
 }
 
 function seedDefaults(): SavedModel[] {

@@ -1,7 +1,7 @@
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { HERMES_HOME } from "./installer";
-import { profileHome, escapeRegex } from "./utils";
+import { profileHome, escapeRegex, safeWriteFile } from "./utils";
 
 // ── In-memory cache with TTL ─────────────────────────────
 const CACHE_TTL = 5000; // 5 seconds
@@ -82,7 +82,7 @@ export function setEnvValue(
   invalidateCache(`env:${profile || "default"}`);
 
   if (!existsSync(envFile)) {
-    writeFileSync(envFile, `${key}=${value}\n`);
+    safeWriteFile(envFile, `${key}=${value}\n`);
     return;
   }
 
@@ -103,7 +103,7 @@ export function setEnvValue(
     lines.push(`${key}=${value}`);
   }
 
-  writeFileSync(envFile, lines.join("\n"));
+  safeWriteFile(envFile, lines.join("\n"));
 }
 
 export function getConfigValue(key: string, profile?: string): string | null {
@@ -137,7 +137,7 @@ export function setConfigValue(
     content = content.replace(regex, `$1"${value}"`);
   }
 
-  writeFileSync(configFile, content);
+  safeWriteFile(configFile, content);
 }
 
 export function getModelConfig(profile?: string): {
@@ -215,7 +215,7 @@ export function setModelConfig(
     content = content.replace(streamingRegex, "$1true");
   }
 
-  writeFileSync(configFile, content);
+  safeWriteFile(configFile, content);
 }
 
 export function getHermesHome(profile?: string): string {
@@ -244,7 +244,7 @@ function readAuthStore(): Record<string, unknown> {
 }
 
 function writeAuthStore(store: Record<string, unknown>): void {
-  writeFileSync(authFilePath(), JSON.stringify(store, null, 2), "utf-8");
+  safeWriteFile(authFilePath(), JSON.stringify(store, null, 2));
 }
 
 export function getCredentialPool(): Record<string, CredentialEntry[]> {

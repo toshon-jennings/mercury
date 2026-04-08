@@ -467,6 +467,34 @@ body {
   user-select: text;
 }
 
+.install-progress-fill--error {
+  background: var(--error) !important;
+}
+
+.install-error-banner {
+  width: 100%;
+  max-width: 620px;
+  background: var(--error-bg);
+  border: 1px solid var(--error);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.install-error-text {
+  font-size: 13px;
+  color: var(--error);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.install-error-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .install-error {
   text-align: center;
   margin-top: 16px;

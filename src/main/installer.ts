@@ -435,11 +435,21 @@ export async function runInstall(
         emit("\nInstallation complete!\n");
         resolve();
       } else {
-        reject(
-          new Error(
-            `Installation failed (exit code ${code}). You can try installing via terminal instead.`,
-          ),
-        );
+        // The install script can exit non-zero due to benign issues
+        // (e.g. git stash pop failure on already-clean repo).
+        // If Hermes is actually installed and working, treat as success.
+        if (existsSync(HERMES_PYTHON) && existsSync(HERMES_SCRIPT)) {
+          emit(
+            "\nInstall script exited with warnings, but Hermes is installed successfully.\n",
+          );
+          resolve();
+        } else {
+          reject(
+            new Error(
+              `Installation failed (exit code ${code}). You can try installing via terminal instead.`,
+            ),
+          );
+        }
       }
     });
 

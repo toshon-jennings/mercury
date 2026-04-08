@@ -1,6 +1,6 @@
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { profileHome } from "./utils";
+import { profileHome, safeWriteFile } from "./utils";
 
 export interface ToolsetInfo {
   key: string;
@@ -263,12 +263,12 @@ export function setToolsetEnabled(
         result.push(line);
       }
 
-      writeFileSync(configFile, result.join("\n"));
+      safeWriteFile(configFile, result.join("\n"));
     } else {
       // Append platform_toolsets section at end
       const newContent =
         content.trimEnd() + "\n\nplatform_toolsets:\n" + newSection + "\n";
-      writeFileSync(configFile, newContent);
+      safeWriteFile(configFile, newContent);
     }
 
     return true;
