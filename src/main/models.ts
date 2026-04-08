@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from "fs";
-import { join } from "path";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import { join, dirname } from "path";
 import { randomUUID } from "crypto";
 import { HERMES_HOME } from "./installer";
 import DEFAULT_MODELS from "./default-models";
@@ -25,6 +25,8 @@ function readModels(): SavedModel[] {
 }
 
 function writeModels(models: SavedModel[]): void {
+  const dir = dirname(MODELS_FILE);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   writeFileSync(MODELS_FILE, JSON.stringify(models, null, 2), "utf-8");
 }
 

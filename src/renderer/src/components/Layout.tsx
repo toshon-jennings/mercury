@@ -10,6 +10,7 @@ import Tools from "./Tools";
 import Gateway from "./Gateway";
 import Office from "./Office";
 import Models from "./Models";
+import RemoteNotice from "./RemoteNotice";
 import hermeslogo from "../assets/hermes.png";
 import {
   ChatBubble,
@@ -61,6 +62,13 @@ function Layout(): React.JSX.Element {
   const [activeProfile, setActiveProfile] = useState("default");
   // Lazy mount: only render Office after first visit, then keep mounted
   const [officeVisited, setOfficeVisited] = useState(false);
+  // Remote mode — many screens show "not available" instead of empty data
+  const [remoteMode, setRemoteMode] = useState(false);
+
+  // Re-check remote mode on tab switch (picks up Settings changes)
+  useEffect(() => {
+    window.hermesAPI.isRemoteMode().then(setRemoteMode);
+  }, [view]);
 
   // Auto-update state
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
@@ -197,23 +205,29 @@ function Layout(): React.JSX.Element {
             onNewChat={handleNewChat}
           />
         </div>
-        {view === "sessions" && (
-          <Sessions
-            onResumeSession={handleResumeSession}
-            onNewChat={handleNewChat}
-            currentSessionId={currentSessionId}
-          />
-        )}
-        {view === "agents" && (
-          <Agents
-            activeProfile={activeProfile}
-            onSelectProfile={handleSelectProfile}
-            onChatWith={(name: string) => {
-              handleSelectProfile(name);
-              setView("chat");
-            }}
-          />
-        )}
+        {view === "sessions" &&
+          (remoteMode ? (
+            <RemoteNotice feature="Sessions" />
+          ) : (
+            <Sessions
+              onResumeSession={handleResumeSession}
+              onNewChat={handleNewChat}
+              currentSessionId={currentSessionId}
+            />
+          ))}
+        {view === "agents" &&
+          (remoteMode ? (
+            <RemoteNotice feature="Profiles" />
+          ) : (
+            <Agents
+              activeProfile={activeProfile}
+              onSelectProfile={handleSelectProfile}
+              onChatWith={(name: string) => {
+                handleSelectProfile(name);
+                setView("chat");
+              }}
+            />
+          ))}
         {officeVisited && (
           <div
             style={{
@@ -227,11 +241,36 @@ function Layout(): React.JSX.Element {
           </div>
         )}
         {view === "models" && <Models />}
-        {view === "skills" && <Skills profile={activeProfile} />}
-        {view === "soul" && <Soul profile={activeProfile} />}
-        {view === "memory" && <Memory profile={activeProfile} />}
-        {view === "tools" && <Tools profile={activeProfile} />}
-        {view === "gateway" && <Gateway profile={activeProfile} />}
+        {view === "skills" &&
+          (remoteMode ? (
+            <RemoteNotice feature="Skills" />
+          ) : (
+            <Skills profile={activeProfile} />
+          ))}
+        {view === "soul" &&
+          (remoteMode ? (
+            <RemoteNotice feature="Persona" />
+          ) : (
+            <Soul profile={activeProfile} />
+          ))}
+        {view === "memory" &&
+          (remoteMode ? (
+            <RemoteNotice feature="Memory" />
+          ) : (
+            <Memory profile={activeProfile} />
+          ))}
+        {view === "tools" &&
+          (remoteMode ? (
+            <RemoteNotice feature="Tools" />
+          ) : (
+            <Tools profile={activeProfile} />
+          ))}
+        {view === "gateway" &&
+          (remoteMode ? (
+            <RemoteNotice feature="Gateway" />
+          ) : (
+            <Gateway profile={activeProfile} />
+          ))}
         <div
           style={{
             display: view === "settings" ? "flex" : "none",

@@ -19,6 +19,7 @@ import {
   startGateway,
   stopGateway,
   isGatewayRunning,
+  isRemoteMode,
   testRemoteConnection,
   stopHealthPolling,
 } from "./hermes";
@@ -246,6 +247,7 @@ function setupIPC(): void {
   );
 
   // Connection mode (local vs remote)
+  ipcMain.handle("is-remote-mode", () => isRemoteMode());
   ipcMain.handle("get-connection-config", () => getConnectionConfig());
 
   ipcMain.handle(
@@ -269,8 +271,8 @@ function setupIPC(): void {
       profile?: string,
       resumeSessionId?: string,
     ) => {
-      // Lazy start: ensure gateway is running on first chat
-      if (!isGatewayRunning()) {
+      // Lazy start: ensure gateway is running on first chat (skip in remote mode)
+      if (!isRemoteMode() && !isGatewayRunning()) {
         startGateway();
       }
 

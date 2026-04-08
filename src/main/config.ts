@@ -10,12 +10,17 @@ export interface ConnectionConfig {
   remoteUrl: string;
 }
 
-const DESKTOP_CONFIG_FILE = join(HERMES_HOME, "desktop.json");
+// Lazy getter — avoids circular dependency with installer.ts
+// (HERMES_HOME may not be assigned yet when this module first loads)
+function desktopConfigFile(): string {
+  return join(HERMES_HOME, "desktop.json");
+}
 
 function readDesktopConfig(): Record<string, unknown> {
   try {
-    if (!existsSync(DESKTOP_CONFIG_FILE)) return {};
-    return JSON.parse(readFileSync(DESKTOP_CONFIG_FILE, "utf-8"));
+    const f = desktopConfigFile();
+    if (!existsSync(f)) return {};
+    return JSON.parse(readFileSync(f, "utf-8"));
   } catch {
     return {};
   }
@@ -25,7 +30,7 @@ function writeDesktopConfig(data: Record<string, unknown>): void {
   if (!existsSync(HERMES_HOME)) {
     mkdirSync(HERMES_HOME, { recursive: true });
   }
-  writeFileSync(DESKTOP_CONFIG_FILE, JSON.stringify(data, null, 2), "utf-8");
+  writeFileSync(desktopConfigFile(), JSON.stringify(data, null, 2), "utf-8");
 }
 
 export function getConnectionConfig(): ConnectionConfig {

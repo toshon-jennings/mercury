@@ -84,6 +84,7 @@ const hermesAPI = {
     ipcRenderer.invoke("set-model-config", provider, model, baseUrl, profile),
 
   // Connection mode (local vs remote)
+  isRemoteMode: (): Promise<boolean> => ipcRenderer.invoke("is-remote-mode"),
   getConnectionConfig: (): Promise<{
     mode: "local" | "remote";
     remoteUrl: string;
