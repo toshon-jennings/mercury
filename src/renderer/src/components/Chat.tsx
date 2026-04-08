@@ -33,7 +33,48 @@ import {
   Code,
   ChartLine,
   Bell,
+  Slash,
 } from "lucide-react";
+
+// ── Slash Commands ──────────────────────────────────────
+
+interface SlashCommand {
+  name: string;
+  description: string;
+  category: "chat" | "agent" | "tools" | "info";
+  /** If true, the command is handled locally instead of sent to the backend */
+  local?: boolean;
+}
+
+const SLASH_COMMANDS: SlashCommand[] = [
+  // Chat control
+  { name: "/new", description: "Start a new chat", category: "chat", local: true },
+  { name: "/clear", description: "Clear conversation history", category: "chat", local: true },
+  // Agent commands (sent to backend)
+  { name: "/btw", description: "Ask a side question without affecting context", category: "agent" },
+  { name: "/approve", description: "Approve a pending action", category: "agent" },
+  { name: "/deny", description: "Deny a pending action", category: "agent" },
+  { name: "/status", description: "Show current agent status", category: "agent" },
+  { name: "/reset", description: "Reset conversation context", category: "agent" },
+  { name: "/compact", description: "Compact and summarize the conversation", category: "agent" },
+  { name: "/undo", description: "Undo the last action", category: "agent" },
+  { name: "/retry", description: "Retry the last failed action", category: "agent" },
+  // Tools & capabilities
+  { name: "/web", description: "Search the web", category: "tools" },
+  { name: "/image", description: "Generate an image", category: "tools" },
+  { name: "/browse", description: "Browse a URL", category: "tools" },
+  { name: "/code", description: "Write or execute code", category: "tools" },
+  { name: "/file", description: "Read or write files", category: "tools" },
+  { name: "/shell", description: "Run a shell command", category: "tools" },
+  // Info
+  { name: "/help", description: "Show available commands and help", category: "info" },
+  { name: "/tools", description: "List available tools", category: "info" },
+  { name: "/skills", description: "List installed skills", category: "info" },
+  { name: "/model", description: "Show or switch the current model", category: "info" },
+  { name: "/memory", description: "Show agent memory", category: "info" },
+  { name: "/persona", description: "Show current persona", category: "info" },
+  { name: "/version", description: "Show Hermes version", category: "info" },
+];
 
 function HermesAvatar({ size = 30 }: { size?: number }): React.JSX.Element {
   return (
@@ -244,8 +285,21 @@ function Chat({
   const [customModelInput, setCustomModelInput] = useState("");
   const pickerRef = useRef<HTMLDivElement>(null);
 
+  // Slash command menu state
+  const [slashMenuOpen, setSlashMenuOpen] = useState(false);
+  const [slashFilter, setSlashFilter] = useState("");
+  const [slashSelectedIndex, setSlashSelectedIndex] = useState(0);
+  const slashMenuRef = useRef<HTMLDivElement>(null);
+
   // Keep ref in sync for use in IPC callbacks
   isLoadingRef.current = isLoading;
+
+  // Filtered slash commands based on current input
+  const filteredSlashCommands = slashMenuOpen
+    ? SLASH_COMMANDS.filter((cmd) =>
+        cmd.name.toLowerCase().startsWith(slashFilter.toLowerCase()),
+      )
+    : [];
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -302,6 +356,28 @@ function Chat({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showModelPicker]);
+
+  // Close slash menu on click outside
+  useEffect(() => {
+    if (!slashMenuOpen) return;
+    function handleClickOutside(e: MouseEvent): void {
+      if (
+        slashMenuRef.current &&
+        !slashMenuRef.current.contains(e.target as Node)
+      ) {
+        setSlashMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [slashMenuOpen]);
+
+  // Scroll active slash menu item into view
+  useEffect(() => {
+    if (!slashMenuOpen) return;
+    const active = slashMenuRef.current?.querySelector(".slash-menu-item-active");
+    active?.scrollIntoView({ block: "nearest" });
+  }, [slashSelectedIndex, slashMenuOpen]);
 
   async function selectModel(provider: string, model: string): Promise<void> {
     const baseUrl = provider === "custom" ? currentBaseUrl : "";
@@ -408,10 +484,29 @@ function Chat({
     const text = input.trim();
     if (!text || isLoading) return;
 
+    setSlashMenuOpen(false);
     setInput("");
 
     if (inputRef.current) {
       inputRef.current.style.height = "auto";
+    }
+
+    // Intercept slash commands that can be handled locally
+    if (text.startsWith("/")) {
+      const cmd = text.split(/\s+/)[0].toLowerCase();
+      const isLocal = SLASH_COMMANDS.some(
+        (c) => c.name === cmd && (c.local || c.category === "info"),
+      );
+      if (isLocal) {
+        if (cmd !== "/new" && cmd !== "/clear") {
+          setMessages((prev) => [
+            ...prev,
+            { id: `user-${Date.now()}`, role: "user", content: text },
+          ]);
+        }
+        await executeLocalCommand(text);
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -471,6 +566,34 @@ function Chat({
   }
 
   function handleKeyDown(e: React.KeyboardEvent): void {
+    // Slash menu keyboard navigation
+    if (slashMenuOpen && filteredSlashCommands.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSlashSelectedIndex((i) =>
+          i < filteredSlashCommands.length - 1 ? i + 1 : 0,
+        );
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSlashSelectedIndex((i) =>
+          i > 0 ? i - 1 : filteredSlashCommands.length - 1,
+        );
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        handleSlashSelect(filteredSlashCommands[slashSelectedIndex]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setSlashMenuOpen(false);
+        return;
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -478,10 +601,177 @@ function Chat({
   }
 
   function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>): void {
-    setInput(e.target.value);
+    const value = e.target.value;
+    setInput(value);
     const target = e.target;
     target.style.height = "auto";
     target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
+
+    // Slash command detection: open menu when input starts with /
+    if (value.startsWith("/")) {
+      const query = value.split(" ")[0]; // only match the command part before space
+      if (!value.includes(" ")) {
+        setSlashMenuOpen(true);
+        setSlashFilter(query);
+        setSlashSelectedIndex(0);
+      } else {
+        setSlashMenuOpen(false);
+      }
+    } else {
+      setSlashMenuOpen(false);
+    }
+  }
+
+  /** Push a fake agent message into the chat (for locally-handled commands). */
+  function pushLocalResponse(content: string): void {
+    setMessages((prev) => [
+      ...prev,
+      { id: `agent-local-${Date.now()}`, role: "agent", content },
+    ]);
+  }
+
+  /**
+   * Execute a slash command that can be resolved entirely in the desktop app.
+   * Returns true if handled, false if the command should go to the backend.
+   */
+  async function executeLocalCommand(cmdText: string): Promise<boolean> {
+    const parts = cmdText.trim().split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+
+    switch (cmd) {
+      case "/new":
+        onNewChat?.();
+        return true;
+
+      case "/clear":
+        handleClear();
+        return true;
+
+      case "/model": {
+        const mc = await window.hermesAPI.getModelConfig(profile);
+        const display = mc.model || "Not set";
+        const prov = mc.provider || "auto";
+        pushLocalResponse(
+          `**Current model:** \`${display}\`\n**Provider:** ${prov}${mc.baseUrl ? `\n**Base URL:** ${mc.baseUrl}` : ""}`,
+        );
+        return true;
+      }
+
+      case "/memory": {
+        const mem = await window.hermesAPI.readMemory(profile);
+        const lines: string[] = ["**Agent Memory**\n"];
+        if (mem.memory.exists && mem.memory.content.trim()) {
+          lines.push(mem.memory.content.trim());
+        } else {
+          lines.push("_No memory entries yet._");
+        }
+        lines.push(
+          `\n**Stats:** ${mem.stats.totalSessions} sessions, ${mem.stats.totalMessages} messages`,
+        );
+        pushLocalResponse(lines.join("\n"));
+        return true;
+      }
+
+      case "/tools": {
+        const tools = await window.hermesAPI.getToolsets(profile);
+        if (!tools.length) {
+          pushLocalResponse("No toolsets found.");
+        } else {
+          const rows = tools
+            .map(
+              (t) =>
+                `- **${t.label}** — ${t.description} ${t.enabled ? "*(enabled)*" : "*(disabled)*"}`,
+            )
+            .join("\n");
+          pushLocalResponse(`**Available Toolsets**\n\n${rows}`);
+        }
+        return true;
+      }
+
+      case "/skills": {
+        const skills = await window.hermesAPI.listInstalledSkills(profile);
+        if (!skills.length) {
+          pushLocalResponse("No skills installed.");
+        } else {
+          const rows = skills
+            .map((s) => `- **${s.name}** (${s.category}) — ${s.description}`)
+            .join("\n");
+          pushLocalResponse(`**Installed Skills**\n\n${rows}`);
+        }
+        return true;
+      }
+
+      case "/persona": {
+        const soul = await window.hermesAPI.readSoul(profile);
+        pushLocalResponse(
+          soul.trim()
+            ? `**Current Persona**\n\n${soul.trim()}`
+            : "_No persona configured._",
+        );
+        return true;
+      }
+
+      case "/version": {
+        const [hermesVer, appVer] = await Promise.all([
+          window.hermesAPI.getHermesVersion(),
+          window.hermesAPI.getAppVersion(),
+        ]);
+        pushLocalResponse(
+          `**Hermes Agent:** ${hermesVer || "unknown"}\n**Desktop App:** v${appVer}`,
+        );
+        return true;
+      }
+
+      case "/help": {
+        const grouped: Record<string, SlashCommand[]> = {};
+        for (const c of SLASH_COMMANDS) {
+          (grouped[c.category] ||= []).push(c);
+        }
+        const categoryLabels: Record<string, string> = {
+          chat: "Chat",
+          agent: "Agent",
+          tools: "Tools",
+          info: "Info",
+        };
+        let md = "**Available Commands**\n";
+        for (const cat of ["chat", "agent", "tools", "info"]) {
+          if (!grouped[cat]) continue;
+          md += `\n**${categoryLabels[cat]}**\n`;
+          for (const c of grouped[cat]) {
+            md += `\`${c.name}\` — ${c.description}\n`;
+          }
+        }
+        pushLocalResponse(md);
+        return true;
+      }
+
+      default:
+        return false;
+    }
+  }
+
+  function handleSlashSelect(cmd: SlashCommand): void {
+    setSlashMenuOpen(false);
+    setInput("");
+    if (inputRef.current) inputRef.current.style.height = "auto";
+
+    // Commands that need no arguments — execute immediately
+    if (cmd.local || ["info"].includes(cmd.category)) {
+      // Show as user message for non-UI commands
+      if (cmd.name !== "/new" && cmd.name !== "/clear") {
+        setMessages((prev) => [
+          ...prev,
+          { id: `user-${Date.now()}`, role: "user", content: cmd.name },
+        ]);
+      }
+      executeLocalCommand(cmd.name);
+      return;
+    }
+
+    // For backend commands that take arguments, insert command + space
+    const newValue = cmd.name + " ";
+    setInput(newValue);
+    inputRef.current?.focus();
   }
 
   function handleAbort(): void {
@@ -734,6 +1024,27 @@ function Chat({
       </div>
 
       <div className="chat-input-area">
+        {slashMenuOpen && filteredSlashCommands.length > 0 && (
+          <div className="slash-menu" ref={slashMenuRef}>
+            <div className="slash-menu-header">
+              <Slash size={12} />
+              Commands
+            </div>
+            <div className="slash-menu-list">
+              {filteredSlashCommands.map((cmd, i) => (
+                <button
+                  key={cmd.name}
+                  className={`slash-menu-item ${i === slashSelectedIndex ? "slash-menu-item-active" : ""}`}
+                  onMouseEnter={() => setSlashSelectedIndex(i)}
+                  onClick={() => handleSlashSelect(cmd)}
+                >
+                  <span className="slash-menu-item-name">{cmd.name}</span>
+                  <span className="slash-menu-item-desc">{cmd.description}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="chat-input-wrapper">
           <textarea
             ref={inputRef}
@@ -798,8 +1109,8 @@ function Chat({
                   </div>
                   {group.models.map((m) => (
                     <button
-                      key={m.model}
-                      className={`chat-model-option ${currentModel === m.model ? "active" : ""}`}
+                      key={`${m.provider}:${m.model}`}
+                      className={`chat-model-option ${currentModel === m.model && currentProvider === m.provider ? "active" : ""}`}
                       onClick={() => selectModel(m.provider, m.model)}
                     >
                       <span className="chat-model-option-label">{m.label}</span>

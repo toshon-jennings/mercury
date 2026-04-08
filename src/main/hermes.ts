@@ -104,12 +104,23 @@ function sendMessageViaApi(
 
   let sessionId = resumeSessionId || "";
   let hasContent = false;
+  let finished = false; // guard against double callbacks
   // Tool progress pattern: `emoji tool_name` or `emoji description`
   const toolProgressRe = /^`([^\s`]+)\s+([^`]+)`$/;
 
+  function finish(error?: string): void {
+    if (finished) return;
+    finished = true;
+    if (error) {
+      cb.onError(error);
+    } else {
+      cb.onDone(sessionId || undefined);
+    }
+  }
+
   function processSseData(data: string): boolean {
     if (data === "[DONE]") {
-      cb.onDone(sessionId || undefined);
+      finish(hasContent ? undefined : "No response received from the model. Check your model configuration and API key.");
       return true; // signals done
     }
     try {
@@ -162,9 +173,9 @@ function sendMessageViaApi(
         res.on("end", () => {
           try {
             const err = JSON.parse(errBody);
-            cb.onError(err.error?.message || `API error ${res.statusCode}`);
+            finish(err.error?.message || `API error ${res.statusCode}`);
           } catch {
-            cb.onError(`API server returned ${res.statusCode}`);
+            finish(`API server returned ${res.statusCode}: ${errBody.slice(0, 200)}`);
           }
         });
         return;
@@ -192,16 +203,21 @@ function sendMessageViaApi(
             if (processSseData(line.slice(6))) return;
           }
         }
-        if (hasContent) cb.onDone(sessionId || undefined);
+        // Signal completion — even when no content was received
+        finish(
+          hasContent
+            ? undefined
+            : "No response received from the model. Check your model configuration and API key.",
+        );
       });
 
-      res.on("error", (err) => cb.onError(`Stream error: ${err.message}`));
+      res.on("error", (err) => finish(`Stream error: ${err.message}`));
     },
   );
 
   req.on("error", (err) => {
     if (err.name === "AbortError") return;
-    cb.onError(`API request failed: ${err.message}`);
+    finish(`API request failed: ${err.message}`);
   });
 
   req.write(body);
@@ -251,23 +267,74 @@ function sendMessageViaCli(
     PYTHONUNBUFFERED: "1",
   };
 
-  const PROVIDER_KEY_MAP: Record<string, string> = {
-    custom: "OPENAI_API_KEY",
-    lmstudio: "",
-    ollama: "",
-    vllm: "",
-    llamacpp: "",
-  };
+  // Inject all API keys from the profile .env so the CLI can access them
+  const KNOWN_API_KEYS = [
+    "OPENROUTER_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GROQ_API_KEY",
+    "GLM_API_KEY",
+    "KIMI_API_KEY",
+    "MINIMAX_API_KEY",
+    "MINIMAX_CN_API_KEY",
+    "HF_TOKEN",
+    "EXA_API_KEY",
+    "PARALLEL_API_KEY",
+    "TAVILY_API_KEY",
+    "FIRECRAWL_API_KEY",
+    "FAL_KEY",
+    "HONCHO_API_KEY",
+    "BROWSERBASE_API_KEY",
+    "BROWSERBASE_PROJECT_ID",
+    "VOICE_TOOLS_OPENAI_KEY",
+    "TINKER_API_KEY",
+    "WANDB_API_KEY",
+  ];
+  for (const key of KNOWN_API_KEYS) {
+    if (profileEnv[key] && !env[key]) {
+      env[key] = profileEnv[key];
+    }
+  }
 
-  const isCustomEndpoint = mc.provider in PROVIDER_KEY_MAP;
+  const LOCAL_PROVIDERS = new Set([
+    "custom",
+    "lmstudio",
+    "ollama",
+    "vllm",
+    "llamacpp",
+  ]);
+
+  // Map base-URL patterns to the API key env var they need
+  const URL_KEY_MAP: Array<{ pattern: RegExp; envKey: string }> = [
+    { pattern: /groq\.com/i, envKey: "GROQ_API_KEY" },
+    { pattern: /openrouter\.ai/i, envKey: "OPENROUTER_API_KEY" },
+    { pattern: /anthropic\.com/i, envKey: "ANTHROPIC_API_KEY" },
+    { pattern: /openai\.com/i, envKey: "OPENAI_API_KEY" },
+    { pattern: /huggingface\.co/i, envKey: "HF_TOKEN" },
+  ];
+
+  const isCustomEndpoint = LOCAL_PROVIDERS.has(mc.provider);
   if (isCustomEndpoint && mc.baseUrl) {
     env.HERMES_INFERENCE_PROVIDER = "custom";
     env.OPENAI_BASE_URL = mc.baseUrl.replace(/\/+$/, "");
-    const keyEnvVar = PROVIDER_KEY_MAP[mc.provider];
-    const resolvedKey = keyEnvVar
-      ? profileEnv[keyEnvVar] || env[keyEnvVar] || ""
-      : "no-key-required";
+
+    // Resolve the right API key: check URL-specific key first, then OPENAI_API_KEY
+    let resolvedKey = "";
+    for (const { pattern, envKey } of URL_KEY_MAP) {
+      if (pattern.test(mc.baseUrl)) {
+        resolvedKey = profileEnv[envKey] || env[envKey] || "";
+        break;
+      }
+    }
+    if (!resolvedKey) {
+      resolvedKey = profileEnv.OPENAI_API_KEY || env.OPENAI_API_KEY || "";
+    }
+    // Local servers (localhost/127.0.0.1) don't need a real key
+    if (!resolvedKey && /localhost|127\.0\.0\.1/i.test(mc.baseUrl)) {
+      resolvedKey = "no-key-required";
+    }
     env.OPENAI_API_KEY = resolvedKey || "no-key-required";
+
     delete env.OPENROUTER_API_KEY;
     delete env.ANTHROPIC_API_KEY;
     delete env.ANTHROPIC_TOKEN;
@@ -309,17 +376,23 @@ function sendMessageViaCli(
 
   proc.stdout?.on("data", processOutput);
 
+  let stderrBuffer = "";
   proc.stderr?.on("data", (data: Buffer) => {
     const text = stripAnsi(data.toString());
     if (
-      text.trim() &&
-      !text.includes("UserWarning") &&
-      !text.includes("FutureWarning")
+      !text.trim() ||
+      text.includes("UserWarning") ||
+      text.includes("FutureWarning")
     ) {
-      if (/❌|⚠️|Error|Traceback/.test(text)) {
-        hasOutput = true;
-        cb.onChunk(text);
-      }
+      return;
+    }
+    // Forward errors visibly to the chat
+    if (/❌|⚠️|Error|Traceback|error|failed|denied|unauthorized|invalid/i.test(text)) {
+      hasOutput = true;
+      cb.onChunk(text);
+    } else {
+      // Buffer other stderr for reporting on non-zero exit
+      stderrBuffer += text;
     }
   });
 
@@ -327,7 +400,12 @@ function sendMessageViaCli(
     if (code === 0 || hasOutput) {
       cb.onDone(capturedSessionId || undefined);
     } else {
-      cb.onError(`Hermes exited with code ${code}`);
+      const detail = stderrBuffer.trim();
+      cb.onError(
+        detail
+          ? `Hermes exited with code ${code}: ${detail}`
+          : `Hermes exited with code ${code}. Check your model configuration and API key.`,
+      );
     }
   });
 
@@ -408,19 +486,32 @@ export function stopHealthPolling(): void {
 let gatewayProcess: ChildProcess | null = null;
 let gatewayStartedByApp = false;
 
-export function startGateway(): boolean {
+export function startGateway(profile?: string): boolean {
   ensureInitialized();
   if (isGatewayRunning()) return false;
 
+  // Build gateway env with profile API keys
+  const gatewayEnv: Record<string, string> = {
+    ...(process.env as Record<string, string>),
+    PATH: getEnhancedPath(),
+    HOME: homedir(),
+    HERMES_HOME: HERMES_HOME,
+    API_SERVER_ENABLED: "true", // Ensure API server starts with gateway
+  };
+
+  // Inject ALL profile API keys so the gateway can authenticate with any provider.
+  // Do NOT do URL-based key mapping here — the gateway is long-lived and must
+  // support switching providers at runtime via config.yaml.
+  const profileEnv = readEnv(profile);
+  for (const [key, value] of Object.entries(profileEnv)) {
+    if (value) {
+      gatewayEnv[key] = value;
+    }
+  }
+
   gatewayProcess = spawn(HERMES_PYTHON, [HERMES_SCRIPT, "gateway"], {
     cwd: HERMES_REPO,
-    env: {
-      ...process.env,
-      PATH: getEnhancedPath(),
-      HOME: homedir(),
-      HERMES_HOME: HERMES_HOME,
-      API_SERVER_ENABLED: "true", // Ensure API server starts with gateway
-    },
+    env: gatewayEnv,
     stdio: "ignore",
     detached: true,
   });
@@ -491,4 +582,17 @@ export function isGatewayRunning(): boolean {
 
 export function isApiReady(): boolean {
   return apiServerAvailable === true;
+}
+
+/**
+ * Restart the gateway so it picks up new model/provider config.
+ * Only restarts if the gateway was started by this app.
+ */
+export function restartGateway(profile?: string): void {
+  if (!gatewayStartedByApp && !isGatewayRunning()) return;
+  stopGateway(true);
+  // Small delay to let the old process die before starting a new one
+  setTimeout(() => {
+    startGateway(profile);
+  }, 500);
 }

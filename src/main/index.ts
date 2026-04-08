@@ -20,6 +20,7 @@ import {
   stopGateway,
   isGatewayRunning,
   stopHealthPolling,
+  restartGateway,
 } from "./hermes";
 import {
   getClaw3dStatus,
@@ -237,7 +238,17 @@ function setupIPC(): void {
       baseUrl: string,
       profile?: string,
     ) => {
+      const prev = getModelConfig(profile);
       setModelConfig(provider, model, baseUrl, profile);
+
+      // Restart gateway when provider or endpoint changes so it picks up new config
+      if (
+        isGatewayRunning() &&
+        (prev.provider !== provider || prev.baseUrl !== baseUrl)
+      ) {
+        restartGateway(profile);
+      }
+
       return true;
     },
   );
@@ -253,7 +264,7 @@ function setupIPC(): void {
     ) => {
       // Lazy start: ensure gateway is running on first chat
       if (!isGatewayRunning()) {
-        startGateway();
+        startGateway(profile);
       }
 
       if (currentChatAbort) {
