@@ -10,6 +10,7 @@ import Tools from "./Tools";
 import Gateway from "./Gateway";
 import Office from "./Office";
 import Models from "./Models";
+import Schedules from "./Schedules";
 import hermeslogo from "../assets/hermes.png";
 import {
   ChatBubble,
@@ -23,6 +24,7 @@ import {
   Signal,
   Building,
   Layers,
+  Timer,
   Download,
 } from "../assets/icons";
 import type { LucideIcon } from "lucide-react";
@@ -37,6 +39,7 @@ type View =
   | "soul"
   | "memory"
   | "tools"
+  | "schedules"
   | "gateway"
   | "settings";
 
@@ -50,6 +53,7 @@ const NAV_ITEMS: { view: View; icon: LucideIcon; label: string }[] = [
   { view: "soul", icon: Sparkles, label: "Persona" },
   { view: "memory", icon: Brain, label: "Memory" },
   { view: "tools", icon: Wrench, label: "Tools" },
+  { view: "schedules", icon: Timer, label: "Schedules" },
   { view: "gateway", icon: Signal, label: "Gateway" },
   { view: "settings", icon: SettingsIcon, label: "Settings" },
 ];
@@ -231,6 +235,7 @@ function Layout(): React.JSX.Element {
         {view === "soul" && <Soul profile={activeProfile} />}
         {view === "memory" && <Memory profile={activeProfile} />}
         {view === "tools" && <Tools profile={activeProfile} />}
+        {view === "schedules" && <Schedules />}
         {view === "gateway" && <Gateway profile={activeProfile} />}
         <div
           style={{

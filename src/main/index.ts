@@ -78,6 +78,14 @@ import {
   installSkill,
   uninstallSkill,
 } from "./skills";
+import {
+  listCronJobs,
+  createCronJob,
+  removeCronJob,
+  pauseCronJob,
+  resumeCronJob,
+  triggerCronJob,
+} from "./cronjobs";
 
 process.on("uncaughtException", (err) => {
   console.error("[MAIN UNCAUGHT]", err);
@@ -501,6 +509,28 @@ function setupIPC(): void {
     stopAdapter();
     return true;
   });
+
+  // Cron Jobs
+  ipcMain.handle("list-cron-jobs", (_event, includeDisabled?: boolean) =>
+    listCronJobs(includeDisabled),
+  );
+  ipcMain.handle(
+    "create-cron-job",
+    (_event, schedule: string, prompt?: string, name?: string, deliver?: string) =>
+      createCronJob(schedule, prompt, name, deliver),
+  );
+  ipcMain.handle("remove-cron-job", (_event, jobId: string) =>
+    removeCronJob(jobId),
+  );
+  ipcMain.handle("pause-cron-job", (_event, jobId: string) =>
+    pauseCronJob(jobId),
+  );
+  ipcMain.handle("resume-cron-job", (_event, jobId: string) =>
+    resumeCronJob(jobId),
+  );
+  ipcMain.handle("trigger-cron-job", (_event, jobId: string) =>
+    triggerCronJob(jobId),
+  );
 
   // Shell
   ipcMain.handle("open-external", (_event, url: string) => {

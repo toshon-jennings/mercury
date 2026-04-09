@@ -315,6 +315,36 @@ interface HermesAPI {
   onMenuNewChat: (callback: () => void) => () => void;
   onMenuSearchSessions: (callback: () => void) => () => void;
 
+  // Cron Jobs
+  listCronJobs: (includeDisabled?: boolean) => Promise<
+    Array<{
+      id: string;
+      name: string;
+      schedule: string;
+      prompt: string;
+      state: "active" | "paused" | "completed";
+      enabled: boolean;
+      next_run_at: string | null;
+      last_run_at: string | null;
+      last_status: string | null;
+      last_error: string | null;
+      repeat: { times: number | null; completed: number } | null;
+      deliver: string[];
+      skills: string[];
+      script: string | null;
+    }>
+  >;
+  createCronJob: (
+    schedule: string,
+    prompt?: string,
+    name?: string,
+    deliver?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  removeCronJob: (jobId: string) => Promise<{ success: boolean; error?: string }>;
+  pauseCronJob: (jobId: string) => Promise<{ success: boolean; error?: string }>;
+  resumeCronJob: (jobId: string) => Promise<{ success: boolean; error?: string }>;
+  triggerCronJob: (jobId: string) => Promise<{ success: boolean; error?: string }>;
+
   // Shell
   openExternal: (url: string) => Promise<void>;
 }

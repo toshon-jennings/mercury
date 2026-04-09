@@ -477,6 +477,56 @@ const hermesAPI = {
     return () => ipcRenderer.removeListener("menu-search-sessions", handler);
   },
 
+  // Cron Jobs
+  listCronJobs: (
+    includeDisabled?: boolean,
+  ): Promise<
+    Array<{
+      id: string;
+      name: string;
+      schedule: string;
+      prompt: string;
+      state: "active" | "paused" | "completed";
+      enabled: boolean;
+      next_run_at: string | null;
+      last_run_at: string | null;
+      last_status: string | null;
+      last_error: string | null;
+      repeat: { times: number | null; completed: number } | null;
+      deliver: string[];
+      skills: string[];
+      script: string | null;
+    }>
+  > => ipcRenderer.invoke("list-cron-jobs", includeDisabled),
+
+  createCronJob: (
+    schedule: string,
+    prompt?: string,
+    name?: string,
+    deliver?: string,
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke("create-cron-job", schedule, prompt, name, deliver),
+
+  removeCronJob: (
+    jobId: string,
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke("remove-cron-job", jobId),
+
+  pauseCronJob: (
+    jobId: string,
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke("pause-cron-job", jobId),
+
+  resumeCronJob: (
+    jobId: string,
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke("resume-cron-job", jobId),
+
+  triggerCronJob: (
+    jobId: string,
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke("trigger-cron-job", jobId),
+
   // Shell
   openExternal: (url: string): Promise<void> =>
     ipcRenderer.invoke("open-external", url),
