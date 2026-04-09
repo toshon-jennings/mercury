@@ -26,6 +26,7 @@
   --error: #ef4444;
   --error-bg: rgba(239, 68, 68, 0.1);
   --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.1);
   --user-bubble: #003f7a;
   --user-bubble-text: #ffffff;
   --agent-bubble: #2f2f2f;
@@ -59,6 +60,7 @@
   --error: #dc2626;
   --error-bg: rgba(220, 38, 38, 0.06);
   --warning: #d97706;
+  --warning-bg: rgba(217, 119, 6, 0.08);
   --user-bubble: #003f7a;
   --user-bubble-text: #ffffff;
   --agent-bubble: #f0f0f0;
@@ -210,6 +212,16 @@ body {
 .btn-sm {
   padding: 6px 14px;
   font-size: 13px;
+}
+
+.btn-danger {
+  background: var(--error);
+  color: #fff;
+  border: none;
+}
+
+.btn-danger:hover:not(:disabled) {
+  opacity: 0.9;
 }
 
 .btn-ghost {
@@ -3035,8 +3047,8 @@ body {
 }
 
 .schedules-badge-paused {
-  color: var(--warning, #eab308);
-  background: var(--warning-bg, rgba(234, 179, 8, 0.1));
+  color: var(--warning);
+  background: var(--warning-bg);
 }
 
 .schedules-badge-completed {
@@ -3109,6 +3121,7 @@ body {
   border-radius: var(--radius-lg);
   width: 90%;
   max-width: 480px;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
   animation: slideUp 0.2s ease;
@@ -3137,6 +3150,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow-y: auto;
 }
 
 .schedules-modal-footer {
@@ -3175,20 +3189,42 @@ body {
   font-family: var(--font-sans);
 }
 
+.schedules-freq-pills {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+
+.schedules-freq-pill {
+  flex: 1;
+  padding: 6px 8px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.schedules-freq-pill:hover {
+  color: var(--text-primary);
+}
+
+.schedules-freq-pill.active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
 .schedules-confirm-text {
   font-size: 13px;
   color: var(--text-secondary);
   line-height: 1.5;
-}
-
-.btn-danger {
-  background: var(--error);
-  color: #fff;
-  border: none;
-}
-
-.btn-danger:hover {
-  opacity: 0.9;
 }
 
 /* ========================================================================

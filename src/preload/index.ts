@@ -480,6 +480,7 @@ const hermesAPI = {
   // Cron Jobs
   listCronJobs: (
     includeDisabled?: boolean,
+    profile?: string,
   ): Promise<
     Array<{
       id: string;
@@ -497,35 +498,40 @@ const hermesAPI = {
       skills: string[];
       script: string | null;
     }>
-  > => ipcRenderer.invoke("list-cron-jobs", includeDisabled),
+  > => ipcRenderer.invoke("list-cron-jobs", includeDisabled, profile),
 
   createCronJob: (
     schedule: string,
     prompt?: string,
     name?: string,
     deliver?: string,
+    profile?: string,
   ): Promise<{ success: boolean; error?: string }> =>
-    ipcRenderer.invoke("create-cron-job", schedule, prompt, name, deliver),
+    ipcRenderer.invoke("create-cron-job", schedule, prompt, name, deliver, profile),
 
   removeCronJob: (
     jobId: string,
+    profile?: string,
   ): Promise<{ success: boolean; error?: string }> =>
-    ipcRenderer.invoke("remove-cron-job", jobId),
+    ipcRenderer.invoke("remove-cron-job", jobId, profile),
 
   pauseCronJob: (
     jobId: string,
+    profile?: string,
   ): Promise<{ success: boolean; error?: string }> =>
-    ipcRenderer.invoke("pause-cron-job", jobId),
+    ipcRenderer.invoke("pause-cron-job", jobId, profile),
 
   resumeCronJob: (
     jobId: string,
+    profile?: string,
   ): Promise<{ success: boolean; error?: string }> =>
-    ipcRenderer.invoke("resume-cron-job", jobId),
+    ipcRenderer.invoke("resume-cron-job", jobId, profile),
 
   triggerCronJob: (
     jobId: string,
+    profile?: string,
   ): Promise<{ success: boolean; error?: string }> =>
-    ipcRenderer.invoke("trigger-cron-job", jobId),
+    ipcRenderer.invoke("trigger-cron-job", jobId, profile),
 
   // Shell
   openExternal: (url: string): Promise<void> =>

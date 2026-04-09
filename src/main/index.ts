@@ -511,25 +511,37 @@ function setupIPC(): void {
   });
 
   // Cron Jobs
-  ipcMain.handle("list-cron-jobs", (_event, includeDisabled?: boolean) =>
-    listCronJobs(includeDisabled),
+  ipcMain.handle(
+    "list-cron-jobs",
+    (_event, includeDisabled?: boolean, profile?: string) =>
+      listCronJobs(includeDisabled, profile),
   );
   ipcMain.handle(
     "create-cron-job",
-    (_event, schedule: string, prompt?: string, name?: string, deliver?: string) =>
-      createCronJob(schedule, prompt, name, deliver),
+    (
+      _event,
+      schedule: string,
+      prompt?: string,
+      name?: string,
+      deliver?: string,
+      profile?: string,
+    ) => createCronJob(schedule, prompt, name, deliver, profile),
   );
-  ipcMain.handle("remove-cron-job", (_event, jobId: string) =>
-    removeCronJob(jobId),
+  ipcMain.handle("remove-cron-job", (_event, jobId: string, profile?: string) =>
+    removeCronJob(jobId, profile),
   );
-  ipcMain.handle("pause-cron-job", (_event, jobId: string) =>
-    pauseCronJob(jobId),
+  ipcMain.handle("pause-cron-job", (_event, jobId: string, profile?: string) =>
+    pauseCronJob(jobId, profile),
   );
-  ipcMain.handle("resume-cron-job", (_event, jobId: string) =>
-    resumeCronJob(jobId),
+  ipcMain.handle(
+    "resume-cron-job",
+    (_event, jobId: string, profile?: string) =>
+      resumeCronJob(jobId, profile),
   );
-  ipcMain.handle("trigger-cron-job", (_event, jobId: string) =>
-    triggerCronJob(jobId),
+  ipcMain.handle(
+    "trigger-cron-job",
+    (_event, jobId: string, profile?: string) =>
+      triggerCronJob(jobId, profile),
   );
 
   // Shell

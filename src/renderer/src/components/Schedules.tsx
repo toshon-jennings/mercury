@@ -1,6 +1,25 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Trash, Refresh, X, Play, Pause, Alert } from "../assets/icons";
 
+const DELIVER_TARGETS = [
+  { value: "local", label: "Local" },
+  { value: "origin", label: "Origin" },
+  { value: "telegram", label: "Telegram" },
+  { value: "discord", label: "Discord" },
+  { value: "slack", label: "Slack" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "signal", label: "Signal" },
+  { value: "matrix", label: "Matrix" },
+  { value: "mattermost", label: "Mattermost" },
+  { value: "email", label: "Email" },
+  { value: "webhook", label: "Webhook" },
+  { value: "sms", label: "SMS" },
+  { value: "homeassistant", label: "Home Assistant" },
+  { value: "dingtalk", label: "DingTalk" },
+  { value: "feishu", label: "Feishu" },
+  { value: "wecom", label: "WeCom" },
+];
+
 interface CronJob {
   id: string;
   name: string;
@@ -18,7 +37,13 @@ interface CronJob {
   script: string | null;
 }
 
-function Schedules(): React.JSX.Element {
+type FrequencyType = "minutes" | "hourly" | "daily" | "weekly" | "custom";
+
+interface SchedulesProps {
+  profile?: string;
+}
+
+function Schedules({ profile }: SchedulesProps): React.JSX.Element {
   const [jobs, setJobs] = useState<CronJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -28,81 +53,167 @@ function Schedules(): React.JSX.Element {
 
   // Create form state
   const [newName, setNewName] = useState("");
-  const [newSchedule, setNewSchedule] = useState("");
   const [newPrompt, setNewPrompt] = useState("");
-  const [newDeliver, setNewDeliver] = useState("");
+  const [newDeliver, setNewDeliver] = useState("local");
+
+  // Schedule builder state
+  const [frequency, setFrequency] = useState<FrequencyType>("daily");
+  const [minutesInterval, setMinutesInterval] = useState("30");
+  const [hourlyInterval, setHourlyInterval] = useState("1");
+  const [dailyTime, setDailyTime] = useState("09:00");
+  const [weeklyDay, setWeeklyDay] = useState("1");
+  const [weeklyTime, setWeeklyTime] = useState("09:00");
+  const [customCron, setCustomCron] = useState("");
 
   const loadJobs = useCallback(async (): Promise<void> => {
-    setLoading(true);
-    const list = await window.hermesAPI.listCronJobs(true);
-    setJobs(list);
-    setLoading(false);
-  }, []);
+    try {
+      const list = await window.hermesAPI.listCronJobs(true, profile);
+      setJobs(list);
+    } catch {
+      setError("Failed to load scheduled tasks");
+    } finally {
+      setLoading(false);
+    }
+  }, [profile]);
 
   useEffect(() => {
     loadJobs();
   }, [loadJobs]);
 
+  // Escape key to close modals
+  useEffect(() => {
+    if (!showCreate && !confirmDelete) return;
+    function handleKeyDown(e: KeyboardEvent): void {
+      if (e.key === "Escape") {
+        if (confirmDelete) setConfirmDelete(null);
+        else if (showCreate) setShowCreate(false);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [showCreate, confirmDelete]);
+
+  function resetForm(): void {
+    setNewName("");
+    setNewPrompt("");
+    setNewDeliver("local");
+    setFrequency("daily");
+    setMinutesInterval("30");
+    setHourlyInterval("1");
+    setDailyTime("09:00");
+    setWeeklyDay("1");
+    setWeeklyTime("09:00");
+    setCustomCron("");
+  }
+
+  function closeCreateModal(): void {
+    setShowCreate(false);
+    resetForm();
+  }
+
+  function buildSchedule(): string {
+    switch (frequency) {
+      case "minutes":
+        return `${minutesInterval}m`;
+      case "hourly":
+        return `${hourlyInterval}h`;
+      case "daily": {
+        const [h, m] = dailyTime.split(":");
+        return `${m} ${h} * * *`;
+      }
+      case "weekly": {
+        const [h, m] = weeklyTime.split(":");
+        return `${m} ${h} * * ${weeklyDay}`;
+      }
+      case "custom":
+        return customCron.trim();
+    }
+  }
+
+  function isScheduleValid(): boolean {
+    if (frequency === "custom") return customCron.trim().length > 0;
+    if (frequency === "minutes") return parseInt(minutesInterval) > 0;
+    if (frequency === "hourly") return parseInt(hourlyInterval) > 0;
+    return true;
+  }
+
   async function handleCreate(): Promise<void> {
-    if (!newSchedule.trim()) return;
+    if (!isScheduleValid()) return;
     setActionInProgress("creating");
     setError("");
-    const result = await window.hermesAPI.createCronJob(
-      newSchedule.trim(),
-      newPrompt.trim() || undefined,
-      newName.trim() || undefined,
-      newDeliver.trim() || undefined,
-    );
-    setActionInProgress(null);
-    if (result.success) {
-      setShowCreate(false);
-      setNewName("");
-      setNewSchedule("");
-      setNewPrompt("");
-      setNewDeliver("");
-      await loadJobs();
-    } else {
-      setError(result.error || "Failed to create job");
+    try {
+      const result = await window.hermesAPI.createCronJob(
+        buildSchedule(),
+        newPrompt.trim() || undefined,
+        newName.trim() || undefined,
+        newDeliver !== "local" ? newDeliver : undefined,
+        profile,
+      );
+      if (result.success) {
+        closeCreateModal();
+        await loadJobs();
+      } else {
+        setError(result.error || "Failed to create job");
+      }
+    } catch {
+      setError("Failed to create job");
+    } finally {
+      setActionInProgress(null);
     }
   }
 
   async function handleRemove(jobId: string): Promise<void> {
     setActionInProgress(jobId);
     setError("");
-    const result = await window.hermesAPI.removeCronJob(jobId);
-    setActionInProgress(null);
-    setConfirmDelete(null);
-    if (result.success) {
-      await loadJobs();
-    } else {
-      setError(result.error || "Failed to remove job");
+    try {
+      const result = await window.hermesAPI.removeCronJob(jobId, profile);
+      setConfirmDelete(null);
+      if (result.success) {
+        await loadJobs();
+      } else {
+        setError(result.error || "Failed to remove job");
+      }
+    } catch {
+      setError("Failed to remove job");
+    } finally {
+      setActionInProgress(null);
     }
   }
 
   async function handleToggle(job: CronJob): Promise<void> {
     setActionInProgress(job.id);
     setError("");
-    const result =
-      job.state === "paused"
-        ? await window.hermesAPI.resumeCronJob(job.id)
-        : await window.hermesAPI.pauseCronJob(job.id);
-    setActionInProgress(null);
-    if (result.success) {
-      await loadJobs();
-    } else {
-      setError(result.error || "Failed to update job");
+    try {
+      const result =
+        job.state === "paused"
+          ? await window.hermesAPI.resumeCronJob(job.id, profile)
+          : await window.hermesAPI.pauseCronJob(job.id, profile);
+      if (result.success) {
+        await loadJobs();
+      } else {
+        setError(result.error || "Failed to update job");
+      }
+    } catch {
+      setError("Failed to update job");
+    } finally {
+      setActionInProgress(null);
     }
   }
 
   async function handleTrigger(jobId: string): Promise<void> {
     setActionInProgress(jobId);
     setError("");
-    const result = await window.hermesAPI.triggerCronJob(jobId);
-    setActionInProgress(null);
-    if (result.success) {
-      await loadJobs();
-    } else {
-      setError(result.error || "Failed to trigger job");
+    try {
+      const result = await window.hermesAPI.triggerCronJob(jobId, profile);
+      if (result.success) {
+        await loadJobs();
+      } else {
+        setError(result.error || "Failed to trigger job");
+      }
+    } catch {
+      setError("Failed to trigger job");
+    } finally {
+      setActionInProgress(null);
     }
   }
 
@@ -136,17 +247,11 @@ function Schedules(): React.JSX.Element {
     <div className="schedules-container">
       {/* Create Modal */}
       {showCreate && (
-        <div
-          className="skills-detail-overlay"
-          onClick={() => setShowCreate(false)}
-        >
+        <div className="skills-detail-overlay" onClick={closeCreateModal}>
           <div className="schedules-modal" onClick={(e) => e.stopPropagation()}>
             <div className="schedules-modal-header">
               <h3>New Scheduled Task</h3>
-              <button
-                className="btn-ghost"
-                onClick={() => setShowCreate(false)}
-              >
+              <button className="btn-ghost" onClick={closeCreateModal}>
                 <X size={18} />
               </button>
             </div>
@@ -163,19 +268,133 @@ function Schedules(): React.JSX.Element {
               </div>
               <div className="schedules-field">
                 <label className="schedules-field-label">
-                  Schedule <span className="schedules-required">*</span>
+                  Frequency <span className="schedules-required">*</span>
                 </label>
-                <input
-                  className="input"
-                  type="text"
-                  placeholder="e.g. 30m, every 2h, 0 9 * * *"
-                  value={newSchedule}
-                  onChange={(e) => setNewSchedule(e.target.value)}
-                />
-                <div className="schedules-field-hint">
-                  Duration (30m, 2h), human (every 2 hours), or cron expression
+                <div className="schedules-freq-pills">
+                  {(
+                    [
+                      ["minutes", "Minutes"],
+                      ["hourly", "Hourly"],
+                      ["daily", "Daily"],
+                      ["weekly", "Weekly"],
+                      ["custom", "Custom"],
+                    ] as const
+                  ).map(([val, label]) => (
+                    <button
+                      key={val}
+                      type="button"
+                      className={`schedules-freq-pill ${frequency === val ? "active" : ""}`}
+                      onClick={() => setFrequency(val)}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
+
+              {frequency === "minutes" && (
+                <div className="schedules-field">
+                  <label className="schedules-field-label">
+                    Every how many minutes?
+                  </label>
+                  <select
+                    className="input"
+                    value={minutesInterval}
+                    onChange={(e) => setMinutesInterval(e.target.value)}
+                  >
+                    {["5", "10", "15", "30", "45"].map((v) => (
+                      <option key={v} value={v}>
+                        Every {v} minutes
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {frequency === "hourly" && (
+                <div className="schedules-field">
+                  <label className="schedules-field-label">
+                    Every how many hours?
+                  </label>
+                  <select
+                    className="input"
+                    value={hourlyInterval}
+                    onChange={(e) => setHourlyInterval(e.target.value)}
+                  >
+                    {["1", "2", "3", "4", "6", "8", "12"].map((v) => (
+                      <option key={v} value={v}>
+                        Every {v} hour{v !== "1" ? "s" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {frequency === "daily" && (
+                <div className="schedules-field">
+                  <label className="schedules-field-label">Time of day</label>
+                  <input
+                    className="input"
+                    type="time"
+                    value={dailyTime}
+                    onChange={(e) => setDailyTime(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {frequency === "weekly" && (
+                <>
+                  <div className="schedules-field">
+                    <label className="schedules-field-label">Day of week</label>
+                    <select
+                      className="input"
+                      value={weeklyDay}
+                      onChange={(e) => setWeeklyDay(e.target.value)}
+                    >
+                      {[
+                        ["1", "Monday"],
+                        ["2", "Tuesday"],
+                        ["3", "Wednesday"],
+                        ["4", "Thursday"],
+                        ["5", "Friday"],
+                        ["6", "Saturday"],
+                        ["0", "Sunday"],
+                      ].map(([val, label]) => (
+                        <option key={val} value={val}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="schedules-field">
+                    <label className="schedules-field-label">Time of day</label>
+                    <input
+                      className="input"
+                      type="time"
+                      value={weeklyTime}
+                      onChange={(e) => setWeeklyTime(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
+
+              {frequency === "custom" && (
+                <div className="schedules-field">
+                  <label className="schedules-field-label">
+                    Cron expression
+                  </label>
+                  <input
+                    className="input"
+                    type="text"
+                    placeholder="e.g. 0 9 * * 1-5"
+                    value={customCron}
+                    onChange={(e) => setCustomCron(e.target.value)}
+                  />
+                  <div className="schedules-field-hint">
+                    Standard cron format: minute hour day month weekday
+                  </div>
+                </div>
+              )}
               <div className="schedules-field">
                 <label className="schedules-field-label">Prompt</label>
                 <textarea
@@ -188,31 +407,30 @@ function Schedules(): React.JSX.Element {
               </div>
               <div className="schedules-field">
                 <label className="schedules-field-label">Deliver to</label>
-                <input
+                <select
                   className="input"
-                  type="text"
-                  placeholder="local, telegram, discord, signal"
                   value={newDeliver}
                   onChange={(e) => setNewDeliver(e.target.value)}
-                />
+                >
+                  {DELIVER_TARGETS.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
                 <div className="schedules-field-hint">
-                  Where to send the result (default: local)
+                  Where to send the result when the task completes
                 </div>
               </div>
             </div>
             <div className="schedules-modal-footer">
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={() => setShowCreate(false)}
-              >
+              <button className="btn btn-secondary" onClick={closeCreateModal}>
                 Cancel
               </button>
               <button
-                className="btn btn-primary btn-sm"
+                className="btn btn-primary"
                 onClick={handleCreate}
-                disabled={
-                  !newSchedule.trim() || actionInProgress === "creating"
-                }
+                disabled={!isScheduleValid() || actionInProgress === "creating"}
               >
                 {actionInProgress === "creating" ? "Creating..." : "Create"}
               </button>
@@ -273,12 +491,12 @@ function Schedules(): React.JSX.Element {
           </p>
         </div>
         <div className="schedules-header-actions">
-          <button className="btn btn-secondary btn-sm" onClick={loadJobs}>
+          <button className="btn btn-secondary" onClick={loadJobs}>
             <Refresh size={14} />
             Refresh
           </button>
           <button
-            className="btn btn-primary btn-sm"
+            className="btn btn-primary"
             onClick={() => setShowCreate(true)}
           >
             <Plus size={14} />
@@ -303,7 +521,7 @@ function Schedules(): React.JSX.Element {
             Create a scheduled task to run your agent automatically on a timer
           </p>
           <button
-            className="btn btn-primary "
+            className="btn btn-primary"
             style={{ marginTop: 12 }}
             onClick={() => setShowCreate(true)}
           >
@@ -347,7 +565,7 @@ function Schedules(): React.JSX.Element {
                       onClick={() => handleTrigger(job.id)}
                       disabled={actionInProgress === job.id}
                     >
-                      <Refresh size={14} />
+                      <Play size={14} />
                     </button>
                   )}
                   <button

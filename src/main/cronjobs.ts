@@ -1,7 +1,9 @@
-import { existsSync, readFileSync } from "fs";
+import { existsSync } from "fs";
+import { readFile } from "fs/promises";
 import { join } from "path";
 import { execFile } from "child_process";
 import { HERMES_HOME, HERMES_PYTHON, HERMES_SCRIPT } from "./installer";
+import { profileHome } from "./utils";
 
 export interface CronJob {
   id: string;
@@ -20,20 +22,29 @@ export interface CronJob {
   script: string | null;
 }
 
-const JOBS_FILE = join(HERMES_HOME, "cron", "jobs.json");
+function jobsFilePath(profile?: string): string {
+  return join(profileHome(profile), "cron", "jobs.json");
+}
 
 /**
- * Read cron jobs directly from the jobs.json file for fast listing.
+ * Read cron jobs from the jobs.json file (async to avoid blocking the main process).
  */
-export function listCronJobs(includeDisabled = true): CronJob[] {
-  if (!existsSync(JOBS_FILE)) return [];
+export async function listCronJobs(
+  includeDisabled = true,
+  profile?: string,
+): Promise<CronJob[]> {
+  const filePath = jobsFilePath(profile);
+  if (!existsSync(filePath)) return [];
 
   try {
-    const parsed = JSON.parse(readFileSync(JOBS_FILE, "utf-8"));
+    const content = await readFile(filePath, "utf-8");
+    const parsed = JSON.parse(content);
     const raw = Array.isArray(parsed) ? parsed : parsed.jobs || [];
     const jobs: CronJob[] = [];
 
     for (const job of raw) {
+      if (!job.id) continue; // skip malformed entries
+
       const enabled = job.enabled !== false;
       if (!includeDisabled && !enabled) continue;
 
@@ -42,7 +53,7 @@ export function listCronJobs(includeDisabled = true): CronJob[] {
       else if (job.state === "completed") state = "completed";
 
       jobs.push({
-        id: job.id || "",
+        id: job.id,
         name: job.name || "(unnamed)",
         schedule: job.schedule_display || job.schedule?.value || "?",
         prompt: job.prompt || "",
@@ -64,7 +75,8 @@ export function listCronJobs(includeDisabled = true): CronJob[] {
     }
 
     return jobs;
-  } catch {
+  } catch (err) {
+    console.error("[CRON] Failed to read jobs file:", err);
     return [];
   }
 }
@@ -74,11 +86,18 @@ export function listCronJobs(includeDisabled = true): CronJob[] {
  */
 function runCronCommand(
   args: string[],
+  profile?: string,
 ): Promise<{ success: boolean; output: string; error?: string }> {
+  const cliArgs = [HERMES_SCRIPT];
+  if (profile && profile !== "default") {
+    cliArgs.push("-p", profile);
+  }
+  cliArgs.push("cron", ...args);
+
   return new Promise((resolve) => {
     execFile(
       HERMES_PYTHON,
-      [HERMES_SCRIPT, "cron", ...args],
+      cliArgs,
       { cwd: join(HERMES_HOME, "hermes-agent"), timeout: 15000 },
       (err, stdout, stderr) => {
         if (err) {
@@ -100,40 +119,53 @@ export async function createCronJob(
   prompt?: string,
   name?: string,
   deliver?: string,
+  profile?: string,
 ): Promise<{ success: boolean; error?: string }> {
+  // Use -- to prevent prompt from being parsed as a flag
   const args = ["create", schedule];
-  if (prompt) args.push(prompt);
   if (name) args.push("--name", name);
   if (deliver) args.push("--deliver", deliver);
+  if (prompt) {
+    args.push("--");
+    args.push(prompt);
+  }
 
-  const result = await runCronCommand(args);
+  const result = await runCronCommand(args, profile);
   return { success: result.success, error: result.error };
 }
 
 export async function removeCronJob(
   jobId: string,
+  profile?: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const result = await runCronCommand(["remove", jobId]);
+  if (!jobId) return { success: false, error: "Missing job ID" };
+  const result = await runCronCommand(["remove", jobId], profile);
   return { success: result.success, error: result.error };
 }
 
 export async function pauseCronJob(
   jobId: string,
+  profile?: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const result = await runCronCommand(["pause", jobId]);
+  if (!jobId) return { success: false, error: "Missing job ID" };
+  const result = await runCronCommand(["pause", jobId], profile);
   return { success: result.success, error: result.error };
 }
 
 export async function resumeCronJob(
   jobId: string,
+  profile?: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const result = await runCronCommand(["resume", jobId]);
+  if (!jobId) return { success: false, error: "Missing job ID" };
+  const result = await runCronCommand(["resume", jobId], profile);
   return { success: result.success, error: result.error };
 }
 
 export async function triggerCronJob(
   jobId: string,
+  profile?: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const result = await runCronCommand(["run", jobId]);
+  if (!jobId) return { success: false, error: "Missing job ID" };
+  const result = await runCronCommand(["run", jobId], profile);
   return { success: result.success, error: result.error };
 }

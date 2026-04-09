@@ -316,7 +316,10 @@ interface HermesAPI {
   onMenuSearchSessions: (callback: () => void) => () => void;
 
   // Cron Jobs
-  listCronJobs: (includeDisabled?: boolean) => Promise<
+  listCronJobs: (
+    includeDisabled?: boolean,
+    profile?: string,
+  ) => Promise<
     Array<{
       id: string;
       name: string;
@@ -339,11 +342,12 @@ interface HermesAPI {
     prompt?: string,
     name?: string,
     deliver?: string,
+    profile?: string,
   ) => Promise<{ success: boolean; error?: string }>;
-  removeCronJob: (jobId: string) => Promise<{ success: boolean; error?: string }>;
-  pauseCronJob: (jobId: string) => Promise<{ success: boolean; error?: string }>;
-  resumeCronJob: (jobId: string) => Promise<{ success: boolean; error?: string }>;
-  triggerCronJob: (jobId: string) => Promise<{ success: boolean; error?: string }>;
+  removeCronJob: (jobId: string, profile?: string) => Promise<{ success: boolean; error?: string }>;
+  pauseCronJob: (jobId: string, profile?: string) => Promise<{ success: boolean; error?: string }>;
+  resumeCronJob: (jobId: string, profile?: string) => Promise<{ success: boolean; error?: string }>;
+  triggerCronJob: (jobId: string, profile?: string) => Promise<{ success: boolean; error?: string }>;
 
   // Shell
   openExternal: (url: string) => Promise<void>;

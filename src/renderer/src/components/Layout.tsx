@@ -235,7 +235,7 @@ function Layout(): React.JSX.Element {
         {view === "soul" && <Soul profile={activeProfile} />}
         {view === "memory" && <Memory profile={activeProfile} />}
         {view === "tools" && <Tools profile={activeProfile} />}
-        {view === "schedules" && <Schedules />}
+        {view === "schedules" && <Schedules profile={activeProfile} />}
         {view === "gateway" && <Gateway profile={activeProfile} />}
         <div
           style={{
