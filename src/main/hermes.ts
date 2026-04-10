@@ -15,7 +15,13 @@ import { stripAnsi } from "./utils";
 
 const API_URL = "http://127.0.0.1:8642";
 
-const LOCAL_PROVIDERS = new Set(["custom", "lmstudio", "ollama", "vllm", "llamacpp"]);
+const LOCAL_PROVIDERS = new Set([
+  "custom",
+  "lmstudio",
+  "ollama",
+  "vllm",
+  "llamacpp",
+]);
 
 // Map base-URL patterns to the API key env var they need
 const URL_KEY_MAP: Array<{ pattern: RegExp; envKey: string }> = [
@@ -24,7 +30,6 @@ const URL_KEY_MAP: Array<{ pattern: RegExp; envKey: string }> = [
   { pattern: /openai\.com/i, envKey: "OPENAI_API_KEY" },
   { pattern: /huggingface\.co/i, envKey: "HF_TOKEN" },
 ];
-
 
 interface ChatHandle {
   abort: () => void;
@@ -104,7 +109,10 @@ function sendMessageViaApi(
   const messages: Array<{ role: string; content: string }> = [];
   if (history && history.length > 0) {
     for (const msg of history) {
-      messages.push({ role: msg.role === "agent" ? "assistant" : msg.role, content: msg.content });
+      messages.push({
+        role: msg.role === "agent" ? "assistant" : msg.role,
+        content: msg.content,
+      });
     }
   }
   messages.push({ role: "user", content: message });
@@ -113,13 +121,6 @@ function sendMessageViaApi(
     model: mc.model || "hermes-agent",
     messages,
     stream: true,
-  });
-
-  console.log("[hermes-api] Sending to gateway:", {
-    model: mc.model || "hermes-agent",
-    messageCount: messages.length,
-    messages: messages.map((m) => ({ role: m.role, content: m.content.slice(0, 100) })),
-    bodySize: body.length,
   });
 
   const headers: Record<string, string> = {
@@ -136,7 +137,6 @@ function sendMessageViaApi(
   function finish(error?: string): void {
     if (finished) return;
     finished = true;
-    console.log("[hermes-api] Stream finished:", { hasContent, error: error || null, lastError: lastError || null });
     if (error) {
       cb.onError(error);
     } else {
@@ -156,21 +156,31 @@ function sendMessageViaApi(
       { method: "POST", headers: { "Content-Type": "application/json" } },
       (res) => {
         let raw = "";
-        res.on("data", (d) => { raw += d.toString(); });
+        res.on("data", (d) => {
+          raw += d.toString();
+        });
         res.on("end", () => {
           try {
             const parsed = JSON.parse(raw);
             const content = parsed.choices?.[0]?.message?.content || "";
             const errMsg = parsed.error?.message || "";
-            finish(content || errMsg || "No response received from the model. Check your model configuration and API key.");
+            finish(
+              content ||
+                errMsg ||
+                "No response received from the model. Check your model configuration and API key.",
+            );
           } catch {
-            finish("No response received from the model. Check your model configuration and API key.");
+            finish(
+              "No response received from the model. Check your model configuration and API key.",
+            );
           }
         });
       },
     );
     probeReq.on("error", () => {
-      finish("No response received from the model. Check your model configuration and API key.");
+      finish(
+        "No response received from the model. Check your model configuration and API key.",
+      );
     });
     probeReq.write(probeBody);
     probeReq.end();
@@ -247,7 +257,9 @@ function sendMessageViaApi(
             const err = JSON.parse(errBody);
             finish(err.error?.message || `API error ${res.statusCode}`);
           } catch {
-            finish(`API server returned ${res.statusCode}: ${errBody.slice(0, 200)}`);
+            finish(
+              `API server returned ${res.statusCode}: ${errBody.slice(0, 200)}`,
+            );
           }
         });
         return;
@@ -280,11 +292,7 @@ function sendMessageViaApi(
           probeRealError();
           return;
         }
-        finish(
-          hasContent
-            ? undefined
-            : lastError,
-        );
+        finish(hasContent ? undefined : lastError);
       });
 
       res.on("error", (err) => finish(`Stream error: ${err.message}`));
@@ -446,7 +454,11 @@ function sendMessageViaCli(
       return;
     }
     // Forward errors visibly to the chat
-    if (/❌|⚠️|Error|Traceback|error|failed|denied|unauthorized|invalid/i.test(text)) {
+    if (
+      /❌|⚠️|Error|Traceback|error|failed|denied|unauthorized|invalid/i.test(
+        text,
+      )
+    ) {
       hasOutput = true;
       cb.onChunk(text);
     } else {
@@ -600,7 +612,9 @@ function readPidFile(): number | null {
   try {
     const raw = readFileSync(pidFile, "utf-8").trim();
     // PID file can be JSON ({"pid": 1234, ...}) or plain integer
-    const parsed = raw.startsWith("{") ? JSON.parse(raw).pid : parseInt(raw, 10);
+    const parsed = raw.startsWith("{")
+      ? JSON.parse(raw).pid
+      : parseInt(raw, 10);
     return typeof parsed === "number" && !isNaN(parsed) ? parsed : null;
   } catch {
     return null;
