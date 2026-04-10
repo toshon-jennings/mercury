@@ -88,8 +88,9 @@ const hermesAPI = {
     message: string,
     profile?: string,
     resumeSessionId?: string,
+    history?: Array<{ role: string; content: string }>,
   ): Promise<{ response: string; sessionId?: string }> =>
-    ipcRenderer.invoke("send-message", message, profile, resumeSessionId),
+    ipcRenderer.invoke("send-message", message, profile, resumeSessionId, history),
 
   abortChat: (): Promise<void> => ipcRenderer.invoke("abort-chat"),
 

@@ -54,6 +54,7 @@ interface HermesAPI {
     message: string,
     profile?: string,
     resumeSessionId?: string,
+    history?: Array<{ role: string; content: string }>,
   ) => Promise<{ response: string; sessionId?: string }>;
   abortChat: () => Promise<void>;
   onChatChunk: (callback: (chunk: string) => void) => () => void;

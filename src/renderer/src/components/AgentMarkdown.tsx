@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Copy } from "lucide-react";
@@ -75,10 +75,10 @@ function CodeBlock({
     <pre
       style={{
         margin: 0,
-        borderRadius: "0 0 6px 6px",
+        borderRadius: 0,
         fontSize: "13px",
         padding: "12px",
-        background: "#282c34",
+        background: "transparent",
         color: "#abb2bf",
         overflow: "auto",
       }}
@@ -106,9 +106,10 @@ function CodeBlock({
           PreTag="div"
           customStyle={{
             margin: 0,
-            borderRadius: "0 0 6px 6px",
+            borderRadius: 0,
             fontSize: "13px",
             padding: "12px",
+            background: "transparent",
           }}
         >
           {code}
@@ -121,7 +122,7 @@ function CodeBlock({
 }
 
 // Shared Markdown renderer that opens links externally
-function AgentMarkdown({ children }: { children: string }): React.JSX.Element {
+const AgentMarkdown = memo(function AgentMarkdown({ children }: { children: string }): React.JSX.Element {
   return (
     <Markdown
       remarkPlugins={[remarkGfm]}
@@ -165,7 +166,7 @@ function AgentMarkdown({ children }: { children: string }): React.JSX.Element {
       {children}
     </Markdown>
   );
-}
+});
 
 export { AgentMarkdown };
 export default AgentMarkdown;

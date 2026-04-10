@@ -245,7 +245,7 @@ function Layout(): React.JSX.Element {
             overflow: "hidden",
           }}
         >
-          <Settings profile={activeProfile} />
+          <Settings profile={activeProfile} visible={view === "settings"} />
         </div>
       </main>
     </div>

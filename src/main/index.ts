@@ -215,6 +215,10 @@ function setupIPC(): void {
     "set-env",
     (_event, key: string, value: string, profile?: string) => {
       setEnvValue(key, value, profile);
+      // Restart gateway so it picks up the new API key
+      if (isGatewayRunning() && key.endsWith("_API_KEY") || key.endsWith("_TOKEN") || key === "HF_TOKEN") {
+        restartGateway(profile);
+      }
       return true;
     },
   );
@@ -251,10 +255,10 @@ function setupIPC(): void {
       const prev = getModelConfig(profile);
       setModelConfig(provider, model, baseUrl, profile);
 
-      // Restart gateway when provider or endpoint changes so it picks up new config
+      // Restart gateway when provider, model, or endpoint changes so it picks up new config
       if (
         isGatewayRunning() &&
-        (prev.provider !== provider || prev.baseUrl !== baseUrl)
+        (prev.provider !== provider || prev.model !== model || prev.baseUrl !== baseUrl)
       ) {
         restartGateway(profile);
       }
@@ -271,6 +275,7 @@ function setupIPC(): void {
       message: string,
       profile?: string,
       resumeSessionId?: string,
+      history?: Array<{ role: string; content: string }>,
     ) => {
       // Lazy start: ensure gateway is running on first chat
       if (!isGatewayRunning()) {
@@ -317,6 +322,7 @@ function setupIPC(): void {
         },
         profile,
         resumeSessionId,
+        history,
       );
 
       currentChatAbort = handle.abort;

@@ -15,6 +15,17 @@ import { stripAnsi } from "./utils";
 
 const API_URL = "http://127.0.0.1:8642";
 
+const LOCAL_PROVIDERS = new Set(["custom", "lmstudio", "ollama", "vllm", "llamacpp"]);
+
+// Map base-URL patterns to the API key env var they need
+const URL_KEY_MAP: Array<{ pattern: RegExp; envKey: string }> = [
+  { pattern: /openrouter\.ai/i, envKey: "OPENROUTER_API_KEY" },
+  { pattern: /anthropic\.com/i, envKey: "ANTHROPIC_API_KEY" },
+  { pattern: /openai\.com/i, envKey: "OPENAI_API_KEY" },
+  { pattern: /huggingface\.co/i, envKey: "HF_TOKEN" },
+];
+
+
 interface ChatHandle {
   abort: () => void;
 }
@@ -83,34 +94,49 @@ function sendMessageViaApi(
   message: string,
   cb: ChatCallbacks,
   profile?: string,
-  resumeSessionId?: string,
+  _resumeSessionId?: string,
+  history?: Array<{ role: string; content: string }>,
 ): ChatHandle {
   const mc = getModelConfig(profile);
   const controller = new AbortController();
 
+  // Build full conversation from history + current message (standard OpenAI format)
+  const messages: Array<{ role: string; content: string }> = [];
+  if (history && history.length > 0) {
+    for (const msg of history) {
+      messages.push({ role: msg.role === "agent" ? "assistant" : msg.role, content: msg.content });
+    }
+  }
+  messages.push({ role: "user", content: message });
+
   const body = JSON.stringify({
     model: mc.model || "hermes-agent",
-    messages: [{ role: "user", content: message }],
+    messages,
     stream: true,
+  });
+
+  console.log("[hermes-api] Sending to gateway:", {
+    model: mc.model || "hermes-agent",
+    messageCount: messages.length,
+    messages: messages.map((m) => ({ role: m.role, content: m.content.slice(0, 100) })),
+    bodySize: body.length,
   });
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
-  if (resumeSessionId) {
-    headers["X-Hermes-Session-Id"] = resumeSessionId;
-  }
-
-  let sessionId = resumeSessionId || "";
+  let sessionId = _resumeSessionId || "";
   let hasContent = false;
   let finished = false; // guard against double callbacks
+  let lastError = ""; // capture embedded error messages
   // Tool progress pattern: `emoji tool_name` or `emoji description`
   const toolProgressRe = /^`([^\s`]+)\s+([^`]+)`$/;
 
   function finish(error?: string): void {
     if (finished) return;
     finished = true;
+    console.log("[hermes-api] Stream finished:", { hasContent, error: error || null, lastError: lastError || null });
     if (error) {
       cb.onError(error);
     } else {
@@ -118,13 +144,59 @@ function sendMessageViaApi(
     }
   }
 
+  function probeRealError(): void {
+    // When streaming returns empty, make a non-streaming request to surface the real error
+    const probeBody = JSON.stringify({
+      model: mc.model || "hermes-agent",
+      messages: [{ role: "user", content: message }],
+      stream: false,
+    });
+    const probeReq = http.request(
+      `${API_URL}/v1/chat/completions`,
+      { method: "POST", headers: { "Content-Type": "application/json" } },
+      (res) => {
+        let raw = "";
+        res.on("data", (d) => { raw += d.toString(); });
+        res.on("end", () => {
+          try {
+            const parsed = JSON.parse(raw);
+            const content = parsed.choices?.[0]?.message?.content || "";
+            const errMsg = parsed.error?.message || "";
+            finish(content || errMsg || "No response received from the model. Check your model configuration and API key.");
+          } catch {
+            finish("No response received from the model. Check your model configuration and API key.");
+          }
+        });
+      },
+    );
+    probeReq.on("error", () => {
+      finish("No response received from the model. Check your model configuration and API key.");
+    });
+    probeReq.write(probeBody);
+    probeReq.end();
+  }
+
   function processSseData(data: string): boolean {
     if (data === "[DONE]") {
-      finish(hasContent ? undefined : "No response received from the model. Check your model configuration and API key.");
+      if (hasContent) {
+        finish();
+      } else if (lastError) {
+        finish(lastError);
+      } else {
+        // Streaming returned empty — probe non-streaming to get the real error
+        probeRealError();
+      }
       return true; // signals done
     }
     try {
       const parsed = JSON.parse(data);
+
+      // Capture error responses forwarded through SSE
+      if (parsed.error) {
+        lastError = parsed.error.message || JSON.stringify(parsed.error);
+        return false;
+      }
+
       const choice = parsed.choices?.[0];
       const delta = choice?.delta;
 
@@ -204,10 +276,14 @@ function sendMessageViaApi(
           }
         }
         // Signal completion — even when no content was received
+        if (!hasContent && !lastError) {
+          probeRealError();
+          return;
+        }
         finish(
           hasContent
             ? undefined
-            : "No response received from the model. Check your model configuration and API key.",
+            : lastError,
         );
       });
 
@@ -295,23 +371,6 @@ function sendMessageViaCli(
       env[key] = profileEnv[key];
     }
   }
-
-  const LOCAL_PROVIDERS = new Set([
-    "custom",
-    "lmstudio",
-    "ollama",
-    "vllm",
-    "llamacpp",
-  ]);
-
-  // Map base-URL patterns to the API key env var they need
-  const URL_KEY_MAP: Array<{ pattern: RegExp; envKey: string }> = [
-    { pattern: /groq\.com/i, envKey: "GROQ_API_KEY" },
-    { pattern: /openrouter\.ai/i, envKey: "OPENROUTER_API_KEY" },
-    { pattern: /anthropic\.com/i, envKey: "ANTHROPIC_API_KEY" },
-    { pattern: /openai\.com/i, envKey: "OPENAI_API_KEY" },
-    { pattern: /huggingface\.co/i, envKey: "HF_TOKEN" },
-  ];
 
   const isCustomEndpoint = LOCAL_PROVIDERS.has(mc.provider);
   if (isCustomEndpoint && mc.baseUrl) {
@@ -434,6 +493,7 @@ export async function sendMessage(
   cb: ChatCallbacks,
   profile?: string,
   resumeSessionId?: string,
+  history?: Array<{ role: string; content: string }>,
 ): Promise<ChatHandle> {
   ensureInitialized();
   // Check API server availability (cache the result, re-check periodically)
@@ -442,7 +502,7 @@ export async function sendMessage(
   }
 
   if (apiServerAvailable) {
-    return sendMessageViaApi(message, cb, profile, resumeSessionId);
+    return sendMessageViaApi(message, cb, profile, resumeSessionId, history);
   }
 
   // Fallback to CLI
@@ -500,8 +560,6 @@ export function startGateway(profile?: string): boolean {
   };
 
   // Inject ALL profile API keys so the gateway can authenticate with any provider.
-  // Do NOT do URL-based key mapping here — the gateway is long-lived and must
-  // support switching providers at runtime via config.yaml.
   const profileEnv = readEnv(profile);
   for (const [key, value] of Object.entries(profileEnv)) {
     if (value) {

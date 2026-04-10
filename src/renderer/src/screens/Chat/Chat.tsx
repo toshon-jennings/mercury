@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import icon from "../../assets/icon.png";
 import { AgentMarkdown } from "../../components/AgentMarkdown";
 import {
@@ -66,6 +66,55 @@ function HermesAvatar({ size = 30 }: { size?: number }): React.JSX.Element {
 
 export { AgentMarkdown };
 
+const APPROVAL_RE =
+  /⚠️.*dangerous|requires? (your )?approval|\/approve.*\/deny|do you want (me )?to (proceed|continue|run|execute)/i;
+
+interface MessageRowProps {
+  msg: ChatMessage;
+  isLast: boolean;
+  isLoading: boolean;
+  onApprove: () => void;
+  onDeny: () => void;
+}
+
+const MessageRow = memo(function MessageRow({
+  msg,
+  isLast,
+  isLoading,
+  onApprove,
+  onDeny,
+}: MessageRowProps): React.JSX.Element {
+  return (
+    <div className={`chat-message chat-message-${msg.role}`}>
+      {msg.role === "user" ? (
+        <div className="chat-avatar chat-avatar-user">U</div>
+      ) : (
+        <HermesAvatar />
+      )}
+      <div className={`chat-bubble chat-bubble-${msg.role}`}>
+        {msg.role === "agent" ? (
+          <AgentMarkdown>{msg.content}</AgentMarkdown>
+        ) : (
+          msg.content
+        )}
+      </div>
+      {msg.role === "agent" &&
+        !isLoading &&
+        isLast &&
+        APPROVAL_RE.test(msg.content) && (
+          <div className="chat-approval-bar">
+            <button className="chat-approval-btn chat-approve" onClick={onApprove}>
+              Approve
+            </button>
+            <button className="chat-approval-btn chat-deny" onClick={onDeny}>
+              Deny
+            </button>
+          </div>
+        )}
+    </div>
+  );
+});
+
 export interface ChatMessage {
   id: string;
   role: "user" | "agent";
@@ -75,7 +124,7 @@ export interface ChatMessage {
 interface ModelGroup {
   provider: string;
   providerLabel: string;
-  models: { provider: string; model: string; label: string }[];
+  models: { provider: string; model: string; label: string; baseUrl: string }[];
 }
 
 import { PROVIDERS } from "../../constants";
@@ -107,8 +156,10 @@ function Chat({
     totalTokens: number;
   } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isLoadingRef = useRef(false);
+  const userScrolledUpRef = useRef(false);
 
   // Model picker state
   const [currentModel, setCurrentModel] = useState("");
@@ -129,14 +180,32 @@ function Chat({
   isLoadingRef.current = isLoading;
 
   // Filtered slash commands based on current input
-  const filteredSlashCommands = slashMenuOpen
-    ? SLASH_COMMANDS.filter((cmd) =>
-        cmd.name.toLowerCase().startsWith(slashFilter.toLowerCase()),
-      )
-    : [];
+  const filteredSlashCommands = useMemo(
+    () =>
+      slashMenuOpen
+        ? SLASH_COMMANDS.filter((cmd) =>
+            cmd.name.toLowerCase().startsWith(slashFilter.toLowerCase()),
+          )
+        : [],
+    [slashMenuOpen, slashFilter],
+  );
 
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = useCallback((force?: boolean) => {
+    if (!force && userScrolledUpRef.current) return;
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  // Track whether the user has scrolled away from the bottom
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    function handleScroll(): void {
+      const el = container!;
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+      userScrolledUpRef.current = !atBottom;
+    }
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
   }, []);
 
   // Reset hermes session when messages are cleared (new chat)
@@ -169,6 +238,7 @@ function Chat({
         provider: m.provider,
         model: m.model,
         label: m.name,
+        baseUrl: m.baseUrl || "",
       });
     }
     setModelGroups(Array.from(groupMap.values()));
@@ -213,11 +283,11 @@ function Chat({
     active?.scrollIntoView({ block: "nearest" });
   }, [slashSelectedIndex, slashMenuOpen]);
 
-  async function selectModel(provider: string, model: string): Promise<void> {
-    const baseUrl = provider === "custom" ? currentBaseUrl : "";
+  async function selectModel(provider: string, model: string, baseUrl: string): Promise<void> {
     await window.hermesAPI.setModelConfig(provider, model, baseUrl, profile);
     setCurrentModel(model);
     setCurrentProvider(provider);
+    setCurrentBaseUrl(baseUrl);
     setShowModelPicker(false);
     setCustomModelInput("");
   }
@@ -228,6 +298,7 @@ function Chat({
     await selectModel(
       currentProvider === "auto" ? "auto" : currentProvider,
       model,
+      currentBaseUrl,
     );
   }
 
@@ -296,6 +367,21 @@ function Chat({
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
+  // Reset scroll lock when user sends a new message
+  const prevMessageCountRef = useRef(messages.length);
+  useEffect(() => {
+    const prevCount = prevMessageCountRef.current;
+    prevMessageCountRef.current = messages.length;
+    // A new user message was just added — re-engage auto-scroll
+    if (
+      messages.length > prevCount &&
+      messages[messages.length - 1]?.role === "user"
+    ) {
+      userScrolledUpRef.current = false;
+      scrollToBottom(true);
+    }
+  }, [messages, scrollToBottom]);
+
   useEffect(() => {
     if (!isLoading) {
       inputRef.current?.focus();
@@ -355,17 +441,10 @@ function Chat({
         text,
         profile,
         hermesSessionId || undefined,
+        messages.map((m) => ({ role: m.role, content: m.content })),
       );
-    } catch (err) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Something went wrong. Please try again.";
-      setMessages((prev) => [
-        ...prev,
-        { id: `error-${Date.now()}`, role: "agent", content: `Error: ${msg}` },
-      ]);
-      setIsLoading(false);
+    } catch {
+      // Error already handled by onChatError IPC listener — avoid duplicate
     }
   }
 
@@ -385,17 +464,10 @@ function Chat({
         `/btw ${text}`,
         profile,
         hermesSessionId || undefined,
+        messages.map((m) => ({ role: m.role, content: m.content })),
       );
-    } catch (err) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "Something went wrong. Please try again.";
-      setMessages((prev) => [
-        ...prev,
-        { id: `error-${Date.now()}`, role: "agent", content: `Error: ${msg}` },
-      ]);
-      setIsLoading(false);
+    } catch {
+      // Error already handled by onChatError IPC listener — avoid duplicate
     }
   }
 
@@ -437,21 +509,21 @@ function Chat({
   function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>): void {
     const value = e.target.value;
     setInput(value);
+
+    // Defer reflow-triggering resize to next frame
     const target = e.target;
-    target.style.height = "auto";
-    target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
+    requestAnimationFrame(() => {
+      target.style.height = "auto";
+      target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
+    });
 
     // Slash command detection: open menu when input starts with /
-    if (value.startsWith("/")) {
-      const query = value.split(" ")[0]; // only match the command part before space
-      if (!value.includes(" ")) {
-        setSlashMenuOpen(true);
-        setSlashFilter(query);
-        setSlashSelectedIndex(0);
-      } else {
-        setSlashMenuOpen(false);
-      }
-    } else {
+    if (value.startsWith("/") && !value.includes(" ")) {
+      const query = value.split(" ")[0];
+      setSlashMenuOpen(true);
+      setSlashFilter(query);
+      setSlashSelectedIndex(0);
+    } else if (slashMenuOpen) {
       setSlashMenuOpen(false);
     }
   }
@@ -627,14 +699,51 @@ function Chat({
     setToolProgress(null);
   }
 
-  const displayModel = currentModel
-    ? currentModel.split("/").pop() || currentModel
-    : currentProvider === "auto"
-      ? "Auto"
-      : "No model set";
+  const handleApprove = useCallback(() => {
+    setInput("");
+    setIsLoading(true);
+    setMessages((prev) => [
+      ...prev,
+      { id: `user-approve-${Date.now()}`, role: "user", content: "/approve" },
+    ]);
+    const history = messages.map((m) => ({ role: m.role, content: m.content }));
+    window.hermesAPI
+      .sendMessage("/approve", profile, hermesSessionId || undefined, history)
+      .catch(() => setIsLoading(false));
+  }, [profile, hermesSessionId, setMessages, messages]);
 
-  const lastMessageIsAgent =
-    messages.length > 0 && messages[messages.length - 1].role === "agent";
+  const handleDeny = useCallback(() => {
+    setInput("");
+    setIsLoading(true);
+    setMessages((prev) => [
+      ...prev,
+      { id: `user-deny-${Date.now()}`, role: "user", content: "/deny" },
+    ]);
+    const history = messages.map((m) => ({ role: m.role, content: m.content }));
+    window.hermesAPI
+      .sendMessage("/deny", profile, hermesSessionId || undefined, history)
+      .catch(() => setIsLoading(false));
+  }, [profile, hermesSessionId, setMessages, messages]);
+
+  const visibleMessages = useMemo(
+    () => messages.filter((m) => m.content.trim()),
+    [messages],
+  );
+
+  const displayModel = useMemo(
+    () =>
+      currentModel
+        ? currentModel.split("/").pop() || currentModel
+        : currentProvider === "auto"
+          ? "Auto"
+          : "No model set",
+    [currentModel, currentProvider],
+  );
+
+  const lastMessageIsAgent = useMemo(
+    () => messages.length > 0 && messages[messages.length - 1].role === "agent",
+    [messages],
+  );
 
   return (
     <div className="chat-container">
@@ -674,7 +783,7 @@ function Chat({
         </div>
       </div>
 
-      <div className="chat-messages">
+      <div className="chat-messages" ref={messagesContainerRef}>
         {messages.length === 0 ? (
           <div className="chat-empty">
             <div className="chat-empty-icon">
@@ -752,84 +861,15 @@ function Chat({
             </div>
           </div>
         ) : (
-          messages
-            .filter((m) => m.content.trim())
-            .map((msg) => (
-              <div
+          visibleMessages.map((msg, i) => (
+              <MessageRow
                 key={msg.id}
-                className={`chat-message chat-message-${msg.role}`}
-              >
-                {msg.role === "user" ? (
-                  <div className="chat-avatar chat-avatar-user">U</div>
-                ) : (
-                  <HermesAvatar />
-                )}
-
-                <div className={`chat-bubble chat-bubble-${msg.role}`}>
-                  {msg.role === "agent" ? (
-                    <AgentMarkdown>{msg.content}</AgentMarkdown>
-                  ) : (
-                    msg.content
-                  )}
-                </div>
-                {msg.role === "agent" &&
-                  !isLoading &&
-                  msg === messages[messages.length - 1] &&
-                  /⚠️.*dangerous|requires? (your )?approval|\/approve.*\/deny|do you want (me )?to (proceed|continue|run|execute)/i.test(
-                    msg.content,
-                  ) && (
-                    <div className="chat-approval-bar">
-                      <button
-                        className="chat-approval-btn chat-approve"
-                        onClick={() => {
-                          setInput("");
-                          setIsLoading(true);
-                          setMessages((prev) => [
-                            ...prev,
-                            {
-                              id: `user-approve-${Date.now()}`,
-                              role: "user",
-                              content: "/approve",
-                            },
-                          ]);
-                          window.hermesAPI
-                            .sendMessage(
-                              "/approve",
-                              profile,
-                              hermesSessionId || undefined,
-                            )
-                            .catch(() => setIsLoading(false));
-                        }}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        className="chat-approval-btn chat-deny"
-                        onClick={() => {
-                          setInput("");
-                          setIsLoading(true);
-                          setMessages((prev) => [
-                            ...prev,
-                            {
-                              id: `user-deny-${Date.now()}`,
-                              role: "user",
-                              content: "/deny",
-                            },
-                          ]);
-                          window.hermesAPI
-                            .sendMessage(
-                              "/deny",
-                              profile,
-                              hermesSessionId || undefined,
-                            )
-                            .catch(() => setIsLoading(false));
-                        }}
-                      >
-                        Deny
-                      </button>
-                    </div>
-                  )}
-              </div>
+                msg={msg}
+                isLast={i === visibleMessages.length - 1}
+                isLoading={isLoading}
+                onApprove={handleApprove}
+                onDeny={handleDeny}
+              />
             ))
         )}
 
@@ -945,7 +985,7 @@ function Chat({
                     <button
                       key={`${m.provider}:${m.model}`}
                       className={`chat-model-option ${currentModel === m.model && currentProvider === m.provider ? "active" : ""}`}
-                      onClick={() => selectModel(m.provider, m.model)}
+                      onClick={() => selectModel(m.provider, m.model, m.baseUrl)}
                     >
                       <span className="chat-model-option-label">{m.label}</span>
                       <span className="chat-model-option-id">{m.model}</span>

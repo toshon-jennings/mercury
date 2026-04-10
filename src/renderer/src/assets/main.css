@@ -1115,7 +1115,6 @@ body {
   border-radius: 6px;
   overflow: hidden;
   margin: 6px 0 !important;
-  border: 1px solid var(--border);
 }
 
 .chat-code-header {
@@ -1123,8 +1122,7 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 4px 12px;
-  background: #1e1e1e;
-  border-bottom: 1px solid var(--border);
+  background: var(--code-bg);
 }
 
 .chat-code-lang {
@@ -1160,7 +1158,11 @@ body {
 .chat-bubble-agent .chat-code-block div[class*="prism"] {
   margin: 0 !important;
   padding: 12px !important;
-  background: transparent !important;
+  background: var(--code-bg) !important;
+}
+
+.chat-code-block span[class*="token"] {
+  background: none !important;
 }
 
 /* Diff view */

@@ -5,7 +5,7 @@
  * on fresh install. Format:
  *   { name: "Display Name", provider: "provider-key", model: "model-id", baseUrl: "" }
  *
- * Provider keys: openrouter, anthropic, openai, groq, custom
+ * Provider keys: openrouter, anthropic, openai, custom
  * For openrouter models, use the full path (e.g. "anthropic/claude-sonnet-4-20250514")
  * For direct provider models, use the provider's model ID (e.g. "claude-sonnet-4-20250514")
  */

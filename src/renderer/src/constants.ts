@@ -20,7 +20,6 @@ export const PROVIDERS = {
     { value: "openrouter", label: "OpenRouter" },
     { value: "anthropic", label: "Anthropic" },
     { value: "openai", label: "OpenAI" },
-    { value: "groq", label: "Groq" },
     { value: "custom", label: "Local / Custom" },
   ],
 
@@ -28,7 +27,6 @@ export const PROVIDERS = {
     openrouter: "OpenRouter",
     anthropic: "Anthropic",
     openai: "OpenAI",
-    groq: "Groq",
     custom: "Custom",
   } as Record<string, string>,
 
@@ -129,7 +127,7 @@ export const SETTINGS_SECTIONS: SectionDef[] = [
         key: "GROQ_API_KEY",
         label: "Groq API Key",
         type: "password",
-        hint: "Ultra-fast inference (Llama, Mixtral, Gemma)",
+        hint: "Used for voice tools and STT",
       },
       {
         key: "GLM_API_KEY",

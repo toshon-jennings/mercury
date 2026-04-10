@@ -20,7 +20,7 @@ function getCachedOpenClaw(): { found: boolean; path: string | null } | null {
   }
 }
 
-function Settings({ profile }: { profile?: string }): React.JSX.Element {
+function Settings({ profile, visible }: { profile?: string; visible?: boolean }): React.JSX.Element {
   const [env, setEnv] = useState<Record<string, string>>({});
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [hermesHome, setHermesHome] = useState("");
@@ -116,6 +116,21 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
     modelLoaded.current = false;
     loadConfig();
   }, [loadConfig]);
+
+  // Refresh model config when the settings screen becomes visible
+  useEffect(() => {
+    if (!visible) return;
+    (async (): Promise<void> => {
+      const mc = await window.hermesAPI.getModelConfig(profile);
+      modelLoaded.current = false;
+      setModelProvider(mc.provider);
+      setModelName(mc.model);
+      setModelBaseUrl(mc.baseUrl);
+      requestAnimationFrame(() => {
+        modelLoaded.current = true;
+      });
+    })();
+  }, [visible, profile]);
 
   // Auto-save model config when values change (debounced)
   const saveModelConfig = useCallback(async () => {
