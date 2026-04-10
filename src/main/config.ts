@@ -222,6 +222,89 @@ export function getHermesHome(profile?: string): string {
   return profilePaths(profile).home;
 }
 
+// ── Platform enabled/disabled in config.yaml ────────────
+
+const SUPPORTED_PLATFORMS = ["telegram", "discord", "slack", "whatsapp", "signal"];
+
+export function getPlatformEnabled(profile?: string): Record<string, boolean> {
+  const { configFile } = profilePaths(profile);
+  if (!existsSync(configFile)) return {};
+
+  const content = readFileSync(configFile, "utf-8");
+  const result: Record<string, boolean> = {};
+
+  for (const platform of SUPPORTED_PLATFORMS) {
+    // Match "  platform:\n    enabled: true/false" under the platforms: block
+    const re = new RegExp(
+      `^[ \\t]+${platform}:\\s*\\n[ \\t]+enabled:\\s*(true|false)`,
+      "m",
+    );
+    const match = content.match(re);
+    result[platform] = match ? match[1] === "true" : false;
+  }
+
+  return result;
+}
+
+export function setPlatformEnabled(
+  platform: string,
+  enabled: boolean,
+  profile?: string,
+): void {
+  if (!SUPPORTED_PLATFORMS.includes(platform)) return;
+
+  const { configFile } = profilePaths(profile);
+  if (!existsSync(configFile)) return;
+
+  let content = readFileSync(configFile, "utf-8");
+
+  // Check if the platform entry already exists under platforms:
+  const existingRe = new RegExp(
+    `^([ \\t]+${platform}:\\s*\\n[ \\t]+enabled:\\s*)(?:true|false)`,
+    "m",
+  );
+
+  if (existingRe.test(content)) {
+    // Update existing entry
+    content = content.replace(existingRe, `$1${enabled}`);
+  } else {
+    // Append new platform entry after the platforms: block
+    // Find the platforms: line and insert after the last existing platform entry
+    const platformsIdx = content.indexOf("\nplatforms:");
+    if (platformsIdx === -1) {
+      // No platforms section at all — append one
+      content += `\nplatforms:\n  ${platform}:\n    enabled: ${enabled}\n`;
+    } else {
+      // Insert the new platform at the end of the platforms block.
+      // Find the next top-level key (non-indented, non-comment, non-empty line)
+      // after the platforms: line.
+      const afterPlatforms = content.substring(platformsIdx + 1);
+      const lines = afterPlatforms.split("\n");
+      let insertOffset = platformsIdx + 1; // after the \n
+      // Skip the "platforms:" line itself
+      insertOffset += lines[0].length + 1;
+
+      // Skip all indented lines (children of platforms:)
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.trim() === "" || /^\s/.test(line)) {
+          insertOffset += line.length + 1;
+        } else {
+          break;
+        }
+      }
+
+      const entry = `  ${platform}:\n    enabled: ${enabled}\n`;
+      content =
+        content.substring(0, insertOffset) +
+        entry +
+        content.substring(insertOffset);
+    }
+  }
+
+  safeWriteFile(configFile, content);
+}
+
 // ── Credential Pool (auth.json) ──────────────────────────
 
 function authFilePath(): string {

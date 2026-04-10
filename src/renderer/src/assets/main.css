@@ -2054,6 +2054,47 @@ body {
   color: var(--text-muted);
 }
 
+/* Platform cards in Gateway */
+.settings-platform-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.settings-platform-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-platform-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-platform-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.settings-platform-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.settings-platform-fields {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.settings-platform-fields .settings-field:last-child {
+  margin-bottom: 0;
+}
+
 /* Theme select in settings */
 .settings-theme-options {
   display: flex;

@@ -73,6 +73,14 @@ interface HermesAPI {
   stopGateway: () => Promise<boolean>;
   gatewayStatus: () => Promise<boolean>;
 
+  // Platform toggles
+  getPlatformEnabled: (profile?: string) => Promise<Record<string, boolean>>;
+  setPlatformEnabled: (
+    platform: string,
+    enabled: boolean,
+    profile?: string,
+  ) => Promise<boolean>;
+
   // Sessions
   listSessions: (
     limit?: number,

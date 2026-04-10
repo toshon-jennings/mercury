@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { GATEWAY_SECTIONS } from "../../constants";
+import { GATEWAY_SECTIONS, GATEWAY_PLATFORMS } from "../../constants";
 
 function Gateway({ profile }: { profile?: string }): React.JSX.Element {
   const [gatewayRunning, setGatewayRunning] = useState(false);
   const [env, setEnv] = useState<Record<string, string>>({});
+  const [platformEnabled, setPlatformEnabled] = useState<Record<string, boolean>>({});
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
 
@@ -12,6 +13,8 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
     setEnv(envData);
     const gwStatus = await window.hermesAPI.gatewayStatus();
     setGatewayRunning(gwStatus);
+    const platforms = await window.hermesAPI.getPlatformEnabled(profile);
+    setPlatformEnabled(platforms);
   }, [profile]);
 
   useEffect(() => {
@@ -42,6 +45,17 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
     }
   }
 
+  async function togglePlatform(platform: string): Promise<void> {
+    const newValue = !platformEnabled[platform];
+    setPlatformEnabled((prev) => ({ ...prev, [platform]: newValue }));
+    await window.hermesAPI.setPlatformEnabled(platform, newValue, profile);
+    // Re-check gateway status after restart
+    setTimeout(async () => {
+      const status = await window.hermesAPI.gatewayStatus();
+      setGatewayRunning(status);
+    }, 3000);
+  }
+
   async function handleBlur(key: string): Promise<void> {
     const value = env[key] || "";
     await window.hermesAPI.setEnv(key, value, profile);
@@ -61,6 +75,22 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
       return next;
     });
   }
+
+  // Build a set of field keys that belong to platforms (for grouping)
+  const platformFieldKeys = new Set(
+    GATEWAY_PLATFORMS.flatMap((p) => p.fields),
+  );
+
+  // Non-platform fields from GATEWAY_SECTIONS
+  const otherSections = GATEWAY_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => !platformFieldKeys.has(item.key)),
+  })).filter((section) => section.items.length > 0);
+
+  // Map env keys to their field definitions for rendering inside platform cards
+  const fieldDefs = new Map(
+    GATEWAY_SECTIONS.flatMap((s) => s.items).map((f) => [f.key, f]),
+  );
 
   return (
     <div className="settings-container">
@@ -89,7 +119,73 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
         </div>
       </div>
 
-      {GATEWAY_SECTIONS.map((section) => (
+      <div className="settings-section">
+        <div className="settings-section-title">Platforms</div>
+        {GATEWAY_PLATFORMS.map((platform) => (
+          <div key={platform.key} className="settings-platform-card">
+            <div className="settings-platform-header">
+              <div className="settings-platform-info">
+                <span className="settings-platform-label">{platform.label}</span>
+                <span className="settings-platform-desc">{platform.description}</span>
+              </div>
+              <label className="tools-toggle">
+                <input
+                  type="checkbox"
+                  checked={!!platformEnabled[platform.key]}
+                  onChange={() => togglePlatform(platform.key)}
+                />
+                <span className="tools-toggle-track" />
+              </label>
+            </div>
+            {platformEnabled[platform.key] && (
+              <div className="settings-platform-fields">
+                {platform.fields.map((fieldKey) => {
+                  const field = fieldDefs.get(fieldKey);
+                  if (!field) return null;
+                  return (
+                    <div key={field.key} className="settings-field">
+                      <label className="settings-field-label">
+                        {field.label}
+                        {savedKey === field.key && (
+                          <span className="settings-saved">Saved</span>
+                        )}
+                      </label>
+                      <div className="settings-input-row">
+                        <input
+                          className="input"
+                          type={
+                            field.type === "password" &&
+                            !visibleKeys.has(field.key)
+                              ? "password"
+                              : "text"
+                          }
+                          value={env[field.key] || ""}
+                          onChange={(e) =>
+                            handleChange(field.key, e.target.value)
+                          }
+                          onBlur={() => handleBlur(field.key)}
+                          placeholder={`Enter ${field.label.toLowerCase()}`}
+                        />
+                        {field.type === "password" && (
+                          <button
+                            className="btn-ghost settings-toggle-btn"
+                            onClick={() => toggleVisibility(field.key)}
+                          >
+                            {visibleKeys.has(field.key) ? "Hide" : "Show"}
+                          </button>
+                        )}
+                      </div>
+                      <div className="settings-field-hint">{field.hint}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {otherSections.map((section) => (
         <div key={section.title} className="settings-section">
           <div className="settings-section-title">{section.title}</div>
           {section.items.map((field) => (

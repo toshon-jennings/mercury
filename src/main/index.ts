@@ -48,6 +48,8 @@ import {
   setModelConfig,
   getCredentialPool,
   setCredentialPool,
+  getPlatformEnabled,
+  setPlatformEnabled,
 } from "./config";
 import { listSessions, getSessionMessages, searchSessions } from "./sessions";
 import {
@@ -336,6 +338,22 @@ function setupIPC(): void {
     return true;
   });
   ipcMain.handle("gateway-status", () => isGatewayRunning());
+
+  // Platform toggles (config.yaml platforms section)
+  ipcMain.handle("get-platform-enabled", (_event, profile?: string) =>
+    getPlatformEnabled(profile),
+  );
+  ipcMain.handle(
+    "set-platform-enabled",
+    (_event, platform: string, enabled: boolean, profile?: string) => {
+      setPlatformEnabled(platform, enabled, profile);
+      // Restart gateway so it picks up the new platform config
+      if (isGatewayRunning()) {
+        restartGateway(profile);
+      }
+      return true;
+    },
+  );
 
   // Sessions
   ipcMain.handle("list-sessions", (_event, limit?: number, offset?: number) => {

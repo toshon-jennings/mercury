@@ -297,6 +297,34 @@ export const GATEWAY_SECTIONS: SectionDef[] = [
   },
 ];
 
+export interface PlatformDef {
+  key: string;
+  label: string;
+  description: string;
+  fields: string[]; // env keys that belong to this platform
+}
+
+export const GATEWAY_PLATFORMS: PlatformDef[] = [
+  {
+    key: "telegram",
+    label: "Telegram",
+    description: "Connect to Telegram via Bot API",
+    fields: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_ALLOWED_USERS"],
+  },
+  {
+    key: "discord",
+    label: "Discord",
+    description: "Connect to Discord via bot token",
+    fields: ["DISCORD_BOT_TOKEN"],
+  },
+  {
+    key: "slack",
+    label: "Slack",
+    description: "Connect to Slack workspace",
+    fields: ["SLACK_BOT_TOKEN"],
+  },
+];
+
 // ── Install ─────────────────────────────────────────────
 
 export const INSTALL_CMD =
