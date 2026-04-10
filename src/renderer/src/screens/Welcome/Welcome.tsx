@@ -1,6 +1,6 @@
-import icon from "../assets/icon.png";
-import { ArrowRight, Refresh, Copy } from "../assets/icons";
-import { INSTALL_CMD } from "../constants";
+import icon from "../../assets/icon.png";
+import { ArrowRight, Refresh, Copy } from "../../assets/icons";
+import { INSTALL_CMD } from "../../constants";
 
 interface WelcomeProps {
   error: string | null;

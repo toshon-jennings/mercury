@@ -1,17 +1,17 @@
 import { useState, useCallback, useEffect } from "react";
-import Chat, { ChatMessage } from "./Chat";
-import Sessions from "./Sessions";
-import Agents from "./Agents";
-import Settings from "./Settings";
-import Skills from "./Skills";
-import Soul from "./Soul";
-import Memory from "./Memory";
-import Tools from "./Tools";
-import Gateway from "./Gateway";
-import Office from "./Office";
-import Models from "./Models";
-import Schedules from "./Schedules";
-import hermeslogo from "../assets/hermes.png";
+import Chat, { ChatMessage } from "../Chat/Chat";
+import Sessions from "../Sessions/Sessions";
+import Agents from "../Agents/Agents";
+import Settings from "../Settings/Settings";
+import Skills from "../Skills/Skills";
+import Soul from "../Soul/Soul";
+import Memory from "../Memory/Memory";
+import Tools from "../Tools/Tools";
+import Gateway from "../Gateway/Gateway";
+import Office from "../Office/Office";
+import Models from "../Models/Models";
+import Schedules from "../Schedules/Schedules";
+import hermeslogo from "../../assets/hermes.png";
 import {
   ChatBubble,
   Clock,
@@ -26,7 +26,7 @@ import {
   Layers,
   Timer,
   Download,
-} from "../assets/icons";
+} from "../../assets/icons";
 import type { LucideIcon } from "lucide-react";
 
 type View =

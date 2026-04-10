@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { ArrowRight, Copy } from "../assets/icons";
+import { ArrowRight, Copy } from "../../assets/icons";
 
 interface InstallProgress {
   step: number;

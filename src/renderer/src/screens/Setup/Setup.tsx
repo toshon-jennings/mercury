@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { ArrowRight, ExternalLink } from "../assets/icons";
-import { PROVIDERS, LOCAL_PRESETS } from "../constants";
+import { ArrowRight, ExternalLink } from "../../assets/icons";
+import { PROVIDERS, LOCAL_PRESETS } from "../../constants";
 
 function Setup({ onComplete }: { onComplete: () => void }): React.JSX.Element {
   const [selectedProvider, setSelectedProvider] = useState("openrouter");

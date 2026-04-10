@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import splashBg from "../assets/splash.png";
-import splashLogo from "../assets/splashtext.png";
+import splashBg from "../../assets/splash.png";
+import splashLogo from "../../assets/splashtext.png";
 
 interface SplashScreenProps {
   onFinished: () => void;

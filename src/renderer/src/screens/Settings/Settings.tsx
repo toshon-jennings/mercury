@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useTheme } from "./ThemeProvider";
-import { SETTINGS_SECTIONS, PROVIDERS, THEME_OPTIONS } from "../constants";
+import { useTheme } from "../../components/ThemeProvider";
+import { SETTINGS_SECTIONS, PROVIDERS, THEME_OPTIONS } from "../../constants";
 
 // Read cached values from localStorage for instant display
 function getCachedVersion(): string | null {

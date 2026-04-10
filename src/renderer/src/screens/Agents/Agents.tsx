@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash, ChatBubble } from "../assets/icons";
-import icon from "../assets/icon.png";
+import { Plus, Trash, ChatBubble } from "../../assets/icons";
+import icon from "../../assets/icon.png";
 
 interface ProfileInfo {
   name: string;

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, memo } from "react";
-import { Plus, Search, X, ChatBubble } from "../assets/icons";
+import { Plus, Search, X, ChatBubble } from "../../assets/icons";
 
 interface CachedSession {
   id: string;

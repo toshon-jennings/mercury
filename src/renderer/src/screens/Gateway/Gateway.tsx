@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { GATEWAY_SECTIONS } from "../constants";
+import { GATEWAY_SECTIONS } from "../../constants";
 
 function Gateway({ profile }: { profile?: string }): React.JSX.Element {
   const [gatewayRunning, setGatewayRunning] = useState(false);

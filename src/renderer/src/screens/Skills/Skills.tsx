@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, X, Download, Trash, Refresh } from "../assets/icons";
-import { AgentMarkdown } from "./Chat";
+import { Search, X, Download, Trash, Refresh } from "../../assets/icons";
+import { AgentMarkdown } from "../../components/AgentMarkdown";
 
 interface InstalledSkill {
   name: string;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash, Refresh } from "../assets/icons";
+import { Plus, Trash, Refresh } from "../../assets/icons";
 
 interface MemoryEntry {
   index: number;

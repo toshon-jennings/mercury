@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Refresh } from "../assets/icons";
+import { Refresh } from "../../assets/icons";
 
 interface SoulProps {
   profile?: string;

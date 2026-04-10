@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash, Refresh, X, Play, Pause, Zap, Alert } from "../assets/icons";
+import { Plus, Trash, Refresh, X, Play, Pause, Zap, Alert } from "../../assets/icons";
 
 const DELIVER_TARGETS = [
   { value: "local", label: "Local" },

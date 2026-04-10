@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Trash, Search, X } from "../assets/icons";
-import { PROVIDERS } from "../constants";
+import { Plus, Trash, Search, X } from "../../assets/icons";
+import { PROVIDERS } from "../../constants";
 
 interface SavedModel {
   id: string;

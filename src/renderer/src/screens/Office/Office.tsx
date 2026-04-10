@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Refresh, ExternalLink, Settings } from "../assets/icons";
+import { Refresh, ExternalLink, Settings } from "../../assets/icons";
 
 type OfficeState =
   | "checking"
