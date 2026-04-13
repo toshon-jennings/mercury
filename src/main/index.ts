@@ -88,6 +88,7 @@ import {
   resumeCronJob,
   triggerCronJob,
 } from "./cronjobs";
+import { getAppLocale, setAppLocale } from "./locale";
 
 process.on("uncaughtException", (err) => {
   console.error("[MAIN UNCAUGHT]", err);
@@ -209,6 +210,9 @@ function setupIPC(): void {
   });
 
   // Configuration (profile-aware)
+  ipcMain.handle("get-locale", () => getAppLocale());
+  ipcMain.handle("set-locale", (_event, locale: "en") => setAppLocale(locale));
+
   ipcMain.handle("get-env", (_event, profile?: string) => readEnv(profile));
 
   ipcMain.handle(
@@ -216,7 +220,11 @@ function setupIPC(): void {
     (_event, key: string, value: string, profile?: string) => {
       setEnvValue(key, value, profile);
       // Restart gateway so it picks up the new API key
-      if (isGatewayRunning() && key.endsWith("_API_KEY") || key.endsWith("_TOKEN") || key === "HF_TOKEN") {
+      if (
+        (isGatewayRunning() && key.endsWith("_API_KEY")) ||
+        key.endsWith("_TOKEN") ||
+        key === "HF_TOKEN"
+      ) {
         restartGateway(profile);
       }
       return true;
@@ -258,7 +266,9 @@ function setupIPC(): void {
       // Restart gateway when provider, model, or endpoint changes so it picks up new config
       if (
         isGatewayRunning() &&
-        (prev.provider !== provider || prev.model !== model || prev.baseUrl !== baseUrl)
+        (prev.provider !== provider ||
+          prev.model !== model ||
+          prev.baseUrl !== baseUrl)
       ) {
         restartGateway(profile);
       }
@@ -557,15 +567,12 @@ function setupIPC(): void {
   ipcMain.handle("pause-cron-job", (_event, jobId: string, profile?: string) =>
     pauseCronJob(jobId, profile),
   );
-  ipcMain.handle(
-    "resume-cron-job",
-    (_event, jobId: string, profile?: string) =>
-      resumeCronJob(jobId, profile),
+  ipcMain.handle("resume-cron-job", (_event, jobId: string, profile?: string) =>
+    resumeCronJob(jobId, profile),
   );
   ipcMain.handle(
     "trigger-cron-job",
-    (_event, jobId: string, profile?: string) =>
-      triggerCronJob(jobId, profile),
+    (_event, jobId: string, profile?: string) => triggerCronJob(jobId, profile),
   );
 
   // Shell

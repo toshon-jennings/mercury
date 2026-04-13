@@ -33,6 +33,9 @@ interface HermesAPI {
   checkOpenClaw: () => Promise<{ found: boolean; path: string | null }>;
   runClawMigrate: () => Promise<{ success: boolean; error?: string }>;
 
+  getLocale: () => Promise<"en">;
+  setLocale: (locale: "en") => Promise<"en">;
+
   // Configuration (profile-aware)
   getEnv: (profile?: string) => Promise<Record<string, string>>;
   setEnv: (key: string, value: string, profile?: string) => Promise<boolean>;
@@ -353,10 +356,22 @@ interface HermesAPI {
     deliver?: string,
     profile?: string,
   ) => Promise<{ success: boolean; error?: string }>;
-  removeCronJob: (jobId: string, profile?: string) => Promise<{ success: boolean; error?: string }>;
-  pauseCronJob: (jobId: string, profile?: string) => Promise<{ success: boolean; error?: string }>;
-  resumeCronJob: (jobId: string, profile?: string) => Promise<{ success: boolean; error?: string }>;
-  triggerCronJob: (jobId: string, profile?: string) => Promise<{ success: boolean; error?: string }>;
+  removeCronJob: (
+    jobId: string,
+    profile?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  pauseCronJob: (
+    jobId: string,
+    profile?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  resumeCronJob: (
+    jobId: string,
+    profile?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  triggerCronJob: (
+    jobId: string,
+    profile?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
 
   // Shell
   openExternal: (url: string) => Promise<void>;
