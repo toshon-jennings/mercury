@@ -1,5 +1,5 @@
 import { spawn, execSync, execFile } from "child_process";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import { getModelConfig } from "./config";
@@ -34,11 +34,47 @@ export function getEnhancedPath(): string {
     join(home, ".local", "bin"),
     join(home, ".cargo", "bin"),
     join(HERMES_VENV, "bin"),
+    // Node version manager shim directories
+    join(home, ".volta", "bin"),
+    join(home, ".asdf", "shims"),
+    join(home, ".local", "share", "fnm", "aliases", "default", "bin"),
+    join(home, ".fnm", "aliases", "default", "bin"),
+    ...resolveNvmBin(home),
     "/usr/local/bin",
     "/opt/homebrew/bin",
     "/opt/homebrew/sbin",
   ];
   return [...extra, process.env.PATH || ""].join(":");
+}
+
+/** Resolve the active nvm node version's bin directory. */
+function resolveNvmBin(home: string): string[] {
+  const nvmDir = process.env.NVM_DIR || join(home, ".nvm");
+  const versionsDir = join(nvmDir, "versions", "node");
+  if (!existsSync(versionsDir)) return [];
+  try {
+    // Try to read the default alias to find the active version
+    const aliasFile = join(nvmDir, "alias", "default");
+    if (existsSync(aliasFile)) {
+      const alias = readFileSync(aliasFile, "utf-8").trim();
+      // alias can be a full version "v20.11.0" or a partial "20" or "lts/*"
+      if (alias.startsWith("v")) {
+        const bin = join(versionsDir, alias, "bin");
+        if (existsSync(bin)) return [bin];
+      }
+    }
+    // Fallback: pick the latest installed version
+    const versions = (readdirSync(versionsDir) as string[])
+      .filter((d: string) => d.startsWith("v"))
+      .sort()
+      .reverse();
+    if (versions.length > 0) {
+      return [join(versionsDir, versions[0], "bin")];
+    }
+  } catch {
+    /* non-fatal */
+  }
+  return [];
 }
 
 export function checkInstallStatus(): InstallStatus {
