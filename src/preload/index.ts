@@ -92,16 +92,18 @@ const hermesAPI = {
   getConnectionConfig: (): Promise<{
     mode: "local" | "remote";
     remoteUrl: string;
+    apiKey: string;
   }> => ipcRenderer.invoke("get-connection-config"),
 
   setConnectionConfig: (
     mode: "local" | "remote",
     remoteUrl: string,
+    apiKey?: string,
   ): Promise<boolean> =>
-    ipcRenderer.invoke("set-connection-config", mode, remoteUrl),
+    ipcRenderer.invoke("set-connection-config", mode, remoteUrl, apiKey),
 
-  testRemoteConnection: (url: string): Promise<boolean> =>
-    ipcRenderer.invoke("test-remote-connection", url),
+  testRemoteConnection: (url: string, apiKey?: string): Promise<boolean> =>
+    ipcRenderer.invoke("test-remote-connection", url, apiKey),
 
   // Chat
   sendMessage: (

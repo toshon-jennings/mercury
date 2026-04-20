@@ -300,14 +300,21 @@ function setupIPC(): void {
 
   ipcMain.handle(
     "set-connection-config",
-    (_event, mode: "local" | "remote", remoteUrl: string) => {
-      setConnectionConfig({ mode, remoteUrl });
+    (
+      _event,
+      mode: "local" | "remote",
+      remoteUrl: string,
+      apiKey?: string,
+    ) => {
+      setConnectionConfig({ mode, remoteUrl, apiKey: apiKey || "" });
       return true;
     },
   );
 
-  ipcMain.handle("test-remote-connection", (_event, url: string) =>
-    testRemoteConnection(url),
+  ipcMain.handle(
+    "test-remote-connection",
+    (_event, url: string, apiKey?: string) =>
+      testRemoteConnection(url, apiKey),
   );
 
   // Chat — lazy-start gateway on first message

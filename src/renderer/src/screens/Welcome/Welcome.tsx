@@ -22,11 +22,13 @@ function Welcome({
 }: WelcomeProps): React.JSX.Element {
   const [showRemote, setShowRemote] = useState(false);
   const [remoteUrl, setRemoteUrl] = useState("");
+  const [remoteApiKey, setRemoteApiKey] = useState("");
   const [testing, setTesting] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
 
   async function handleConnectRemote(): Promise<void> {
     const url = remoteUrl.trim();
+    const key = remoteApiKey.trim();
     if (!url) {
       setRemoteError("Please enter a URL.");
       return;
@@ -34,12 +36,14 @@ function Welcome({
     setTesting(true);
     setRemoteError(null);
     try {
-      const ok = await window.hermesAPI.testRemoteConnection(url);
+      const ok = await window.hermesAPI.testRemoteConnection(url, key);
       if (ok) {
-        await window.hermesAPI.setConnectionConfig("remote", url);
+        await window.hermesAPI.setConnectionConfig("remote", url, key);
         onRecheck();
       } else {
-        setRemoteError("Could not reach Hermes at this URL. Is it running?");
+        setRemoteError(
+          "Could not reach Hermes at this URL. Check the URL and API key.",
+        );
       }
     } catch {
       setRemoteError("Connection test failed.");
@@ -61,23 +65,41 @@ function Welcome({
 
         <div className="welcome-remote-card">
           <label className="welcome-remote-label">Server URL</label>
-          <div className="welcome-remote-row">
-            <input
-              type="url"
-              className="welcome-remote-input"
-              placeholder="http://192.168.1.100:8642"
-              value={remoteUrl}
-              onChange={(e) => setRemoteUrl(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleConnectRemote();
-              }}
-              autoFocus
-            />
+          <input
+            type="url"
+            className="welcome-remote-input"
+            placeholder="http://192.168.1.100:8642"
+            value={remoteUrl}
+            onChange={(e) => setRemoteUrl(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleConnectRemote();
+            }}
+            autoFocus
+          />
+
+          <label
+            className="welcome-remote-label"
+            style={{ marginTop: 12 }}
+          >
+            API Key (optional)
+          </label>
+          <input
+            type="password"
+            className="welcome-remote-input"
+            placeholder="Bearer token (API_SERVER_KEY)"
+            value={remoteApiKey}
+            onChange={(e) => setRemoteApiKey(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleConnectRemote();
+            }}
+          />
+
+          <div className="welcome-remote-row" style={{ marginTop: 12 }}>
             <button
               className="btn btn-primary"
               onClick={handleConnectRemote}
               disabled={testing}
-              style={{ whiteSpace: "nowrap" }}
+              style={{ whiteSpace: "nowrap", width: "100%" }}
             >
               {testing ? (
                 <>
@@ -91,7 +113,8 @@ function Welcome({
           </div>
           {remoteError && <p className="welcome-remote-error">{remoteError}</p>}
           <p className="welcome-remote-hint">
-            e.g. http://your-server:8642 or via SSH tunnel at localhost:8642
+            Leave the key empty if the server accepts unauthenticated
+            requests (e.g. via SSH tunnel to localhost).
           </p>
         </div>
 

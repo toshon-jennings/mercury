@@ -8,6 +8,7 @@ import { profileHome, escapeRegex, safeWriteFile } from "./utils";
 export interface ConnectionConfig {
   mode: "local" | "remote";
   remoteUrl: string;
+  apiKey: string;
 }
 
 // Lazy getter — avoids circular dependency with installer.ts
@@ -38,6 +39,7 @@ export function getConnectionConfig(): ConnectionConfig {
   return {
     mode: (data.connectionMode as "local" | "remote") || "local",
     remoteUrl: (data.remoteUrl as string) || "",
+    apiKey: (data.remoteApiKey as string) || "",
   };
 }
 
@@ -45,6 +47,7 @@ export function setConnectionConfig(config: ConnectionConfig): void {
   const data = readDesktopConfig();
   data.connectionMode = config.mode;
   data.remoteUrl = config.remoteUrl;
+  data.remoteApiKey = config.apiKey;
   writeDesktopConfig(data);
 }
 

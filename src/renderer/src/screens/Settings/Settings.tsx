@@ -71,6 +71,7 @@ function Settings({
   // Connection mode
   const [connMode, setConnMode] = useState<"local" | "remote">("local");
   const [connRemoteUrl, setConnRemoteUrl] = useState("");
+  const [connApiKey, setConnApiKey] = useState("");
   const [connTesting, setConnTesting] = useState(false);
   const [connStatus, setConnStatus] = useState<string | null>(null);
   const connLoaded = useRef(false);
@@ -123,6 +124,7 @@ function Settings({
     setAppVersion(aVersion);
     setConnMode(conn.mode);
     setConnRemoteUrl(conn.remoteUrl);
+    setConnApiKey(conn.apiKey);
     connLoaded.current = true;
 
     // Allow model auto-save after initial values are set
@@ -296,7 +298,11 @@ function Settings({
   }
 
   async function handleSaveConnection(): Promise<void> {
-    await window.hermesAPI.setConnectionConfig(connMode, connRemoteUrl);
+    await window.hermesAPI.setConnectionConfig(
+      connMode,
+      connRemoteUrl,
+      connApiKey,
+    );
     setConnStatus("Saved");
     setTimeout(() => setConnStatus(null), 2000);
   }
@@ -309,7 +315,10 @@ function Settings({
     }
     setConnTesting(true);
     setConnStatus(null);
-    const ok = await window.hermesAPI.testRemoteConnection(url);
+    const ok = await window.hermesAPI.testRemoteConnection(
+      url,
+      connApiKey.trim(),
+    );
     setConnTesting(false);
     setConnStatus(ok ? "Connected successfully!" : "Could not reach server");
   }
@@ -317,7 +326,8 @@ function Settings({
   async function handleSwitchToLocal(): Promise<void> {
     setConnMode("local");
     setConnRemoteUrl("");
-    await window.hermesAPI.setConnectionConfig("local", "");
+    setConnApiKey("");
+    await window.hermesAPI.setConnectionConfig("local", "", "");
     setConnStatus("Switched to local mode");
     setTimeout(() => setConnStatus(null), 2000);
   }
@@ -587,6 +597,21 @@ function Settings({
                 /v1/chat/completions)
               </div>
             </div>
+            <div className="settings-field">
+              <label className="settings-field-label">API Key</label>
+              <input
+                className="input"
+                type="password"
+                value={connApiKey}
+                onChange={(e) => setConnApiKey(e.target.value)}
+                placeholder="Bearer token (API_SERVER_KEY)"
+                onBlur={handleSaveConnection}
+              />
+              <div className="settings-field-hint">
+                Matches API_SERVER_KEY on the remote host. Leave empty if the
+                server accepts unauthenticated requests.
+              </div>
+            </div>
             <div className="settings-hermes-actions">
               <button
                 className="btn btn-secondary"
@@ -740,6 +765,20 @@ function Settings({
         </div>
       </div>
 
+      {connMode === "remote" && (
+        <div className="settings-section">
+          <div className="settings-section-title">Server Configuration</div>
+          <div className="settings-field-hint">
+            You&apos;re connected to a remote Hermes server. Model selection,
+            provider API keys, and credentials are managed on the server&apos;s{" "}
+            <code>~/.hermes/.env</code> and <code>config.yaml</code>. Edit them
+            on the host (e.g. <code>docker exec -it hermes vi /opt/data/.env</code>)
+            and restart the container.
+          </div>
+        </div>
+      )}
+
+      {connMode === "local" && (
       <div className="settings-section">
         <div className="settings-section-title">
           Model
@@ -806,7 +845,9 @@ function Settings({
           </div>
         )}
       </div>
+      )}
 
+      {connMode === "local" && (
       <div className="settings-section">
         <div className="settings-section-title">Credential Pool</div>
         <div className="settings-field">
@@ -886,6 +927,7 @@ function Settings({
           )}
         </div>
       </div>
+      )}
 
       <div className="settings-section">
         <div className="settings-section-title">Data</div>
@@ -991,44 +1033,45 @@ function Settings({
         )}
       </div>
 
-      {SETTINGS_SECTIONS.map((section) => (
-        <div key={section.title} className="settings-section">
-          <div className="settings-section-title">{section.title}</div>
-          {section.items.map((field) => (
-            <div key={field.key} className="settings-field">
-              <label className="settings-field-label">
-                {field.label}
-                {savedKey === field.key && (
-                  <span className="settings-saved">Saved</span>
-                )}
-              </label>
-              <div className="settings-input-row">
-                <input
-                  className="input"
-                  type={
-                    field.type === "password" && !visibleKeys.has(field.key)
-                      ? "password"
-                      : "text"
-                  }
-                  value={env[field.key] || ""}
-                  onChange={(e) => handleChange(field.key, e.target.value)}
-                  onBlur={() => handleBlur(field.key)}
-                  placeholder={`Enter ${field.label.toLowerCase()}`}
-                />
-                {field.type === "password" && (
-                  <button
-                    className="btn-ghost settings-toggle-btn"
-                    onClick={() => toggleVisibility(field.key)}
-                  >
-                    {visibleKeys.has(field.key) ? "Hide" : "Show"}
-                  </button>
-                )}
+      {connMode === "local" &&
+        SETTINGS_SECTIONS.map((section) => (
+          <div key={section.title} className="settings-section">
+            <div className="settings-section-title">{section.title}</div>
+            {section.items.map((field) => (
+              <div key={field.key} className="settings-field">
+                <label className="settings-field-label">
+                  {field.label}
+                  {savedKey === field.key && (
+                    <span className="settings-saved">Saved</span>
+                  )}
+                </label>
+                <div className="settings-input-row">
+                  <input
+                    className="input"
+                    type={
+                      field.type === "password" && !visibleKeys.has(field.key)
+                        ? "password"
+                        : "text"
+                    }
+                    value={env[field.key] || ""}
+                    onChange={(e) => handleChange(field.key, e.target.value)}
+                    onBlur={() => handleBlur(field.key)}
+                    placeholder={`Enter ${field.label.toLowerCase()}`}
+                  />
+                  {field.type === "password" && (
+                    <button
+                      className="btn-ghost settings-toggle-btn"
+                      onClick={() => toggleVisibility(field.key)}
+                    >
+                      {visibleKeys.has(field.key) ? "Hide" : "Show"}
+                    </button>
+                  )}
+                </div>
+                <div className="settings-field-hint">{field.hint}</div>
               </div>
-              <div className="settings-field-hint">{field.hint}</div>
-            </div>
-          ))}
-        </div>
-      ))}
+            ))}
+          </div>
+        ))}
     </div>
   );
 }

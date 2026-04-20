@@ -22,7 +22,10 @@ function App(): React.JSX.Element {
 
       // Remote mode: verify the remote server is reachable
       if (conn.mode === "remote" && conn.remoteUrl) {
-        const ok = await window.hermesAPI.testRemoteConnection(conn.remoteUrl);
+        const ok = await window.hermesAPI.testRemoteConnection(
+          conn.remoteUrl,
+          conn.apiKey,
+        );
         if (ok) {
           setNextScreen("main");
         } else {
