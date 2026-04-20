@@ -1,4 +1,11 @@
-import { app, shell, BrowserWindow, ipcMain, Menu } from "electron";
+import {
+  app,
+  shell,
+  BrowserWindow,
+  ipcMain,
+  Menu,
+  Notification,
+} from "electron";
 import { join } from "path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import type { AppUpdater } from "electron-updater";
@@ -12,6 +19,12 @@ import {
   runHermesUpdate,
   checkOpenClawExists,
   runClawMigrate,
+  runHermesBackup,
+  runHermesImport,
+  runHermesDump,
+  listMcpServers,
+  discoverMemoryProviders,
+  readLogs,
   InstallProgress,
 } from "./installer";
 import {
@@ -22,6 +35,7 @@ import {
   isRemoteMode,
   testRemoteConnection,
   stopHealthPolling,
+  restartGateway,
 } from "./hermes";
 import {
   getClaw3dStatus,
@@ -51,6 +65,8 @@ import {
   setCredentialPool,
   getConnectionConfig,
   setConnectionConfig,
+  getPlatformEnabled,
+  setPlatformEnabled,
 } from "./config";
 import { listSessions, getSessionMessages, searchSessions } from "./sessions";
 import {
@@ -81,6 +97,15 @@ import {
   installSkill,
   uninstallSkill,
 } from "./skills";
+import {
+  listCronJobs,
+  createCronJob,
+  removeCronJob,
+  pauseCronJob,
+  resumeCronJob,
+  triggerCronJob,
+} from "./cronjobs";
+import { getAppLocale, setAppLocale } from "./locale";
 
 process.on("uncaughtException", (err) => {
   console.error("[MAIN UNCAUGHT]", err);
@@ -202,12 +227,23 @@ function setupIPC(): void {
   });
 
   // Configuration (profile-aware)
+  ipcMain.handle("get-locale", () => getAppLocale());
+  ipcMain.handle("set-locale", (_event, locale: "en") => setAppLocale(locale));
+
   ipcMain.handle("get-env", (_event, profile?: string) => readEnv(profile));
 
   ipcMain.handle(
     "set-env",
     (_event, key: string, value: string, profile?: string) => {
       setEnvValue(key, value, profile);
+      // Restart gateway so it picks up the new API key
+      if (
+        (isGatewayRunning() && key.endsWith("_API_KEY")) ||
+        key.endsWith("_TOKEN") ||
+        key === "HF_TOKEN"
+      ) {
+        restartGateway(profile);
+      }
       return true;
     },
   );
@@ -241,7 +277,19 @@ function setupIPC(): void {
       baseUrl: string,
       profile?: string,
     ) => {
+      const prev = getModelConfig(profile);
       setModelConfig(provider, model, baseUrl, profile);
+
+      // Restart gateway when provider, model, or endpoint changes so it picks up new config
+      if (
+        isGatewayRunning() &&
+        (prev.provider !== provider ||
+          prev.model !== model ||
+          prev.baseUrl !== baseUrl)
+      ) {
+        restartGateway(profile);
+      }
+
       return true;
     },
   );
@@ -270,10 +318,10 @@ function setupIPC(): void {
       message: string,
       profile?: string,
       resumeSessionId?: string,
+      history?: Array<{ role: string; content: string }>,
     ) => {
-      // Lazy start: ensure gateway is running on first chat (skip in remote mode)
       if (!isRemoteMode() && !isGatewayRunning()) {
-        startGateway();
+        startGateway(profile);
       }
 
       if (currentChatAbort) {
@@ -281,6 +329,7 @@ function setupIPC(): void {
       }
 
       let fullResponse = "";
+      const chatStartTime = Date.now();
       let resolveChat: (v: { response: string; sessionId?: string }) => void;
       let rejectChat: (reason?: unknown) => void;
       const promise = new Promise<{ response: string; sessionId?: string }>(
@@ -301,11 +350,33 @@ function setupIPC(): void {
             currentChatAbort = null;
             event.sender.send("chat-done", sessionId || "");
             resolveChat({ response: fullResponse, sessionId });
+            // Desktop notification when window is not focused and response took >10s
+            if (
+              mainWindow &&
+              !mainWindow.isFocused() &&
+              Date.now() - chatStartTime > 10000
+            ) {
+              const preview = fullResponse
+                .replace(/[#*_`~\n]+/g, " ")
+                .trim()
+                .slice(0, 80);
+              new Notification({
+                title: "Hermes Agent",
+                body: preview || "Response ready",
+              }).show();
+            }
           },
           onError: (error) => {
             currentChatAbort = null;
             event.sender.send("chat-error", error);
             rejectChat(new Error(error));
+            // Notify on error too if window not focused
+            if (mainWindow && !mainWindow.isFocused()) {
+              new Notification({
+                title: "Hermes Agent — Error",
+                body: error.slice(0, 100),
+              }).show();
+            }
           },
           onToolProgress: (tool) => {
             event.sender.send("chat-tool-progress", tool);
@@ -316,6 +387,7 @@ function setupIPC(): void {
         },
         profile,
         resumeSessionId,
+        history,
       );
 
       currentChatAbort = handle.abort;
@@ -337,6 +409,22 @@ function setupIPC(): void {
     return true;
   });
   ipcMain.handle("gateway-status", () => isGatewayRunning());
+
+  // Platform toggles (config.yaml platforms section)
+  ipcMain.handle("get-platform-enabled", (_event, profile?: string) =>
+    getPlatformEnabled(profile),
+  );
+  ipcMain.handle(
+    "set-platform-enabled",
+    (_event, platform: string, enabled: boolean, profile?: string) => {
+      setPlatformEnabled(platform, enabled, profile);
+      // Restart gateway so it picks up the new platform config
+      if (isGatewayRunning()) {
+        restartGateway(profile);
+      }
+      return true;
+    },
+  );
 
   // Sessions
   ipcMain.handle("list-sessions", (_event, limit?: number, offset?: number) => {
@@ -511,10 +599,69 @@ function setupIPC(): void {
     return true;
   });
 
+  // Cron Jobs
+  ipcMain.handle(
+    "list-cron-jobs",
+    (_event, includeDisabled?: boolean, profile?: string) =>
+      listCronJobs(includeDisabled, profile),
+  );
+  ipcMain.handle(
+    "create-cron-job",
+    (
+      _event,
+      schedule: string,
+      prompt?: string,
+      name?: string,
+      deliver?: string,
+      profile?: string,
+    ) => createCronJob(schedule, prompt, name, deliver, profile),
+  );
+  ipcMain.handle("remove-cron-job", (_event, jobId: string, profile?: string) =>
+    removeCronJob(jobId, profile),
+  );
+  ipcMain.handle("pause-cron-job", (_event, jobId: string, profile?: string) =>
+    pauseCronJob(jobId, profile),
+  );
+  ipcMain.handle("resume-cron-job", (_event, jobId: string, profile?: string) =>
+    resumeCronJob(jobId, profile),
+  );
+  ipcMain.handle(
+    "trigger-cron-job",
+    (_event, jobId: string, profile?: string) => triggerCronJob(jobId, profile),
+  );
+
   // Shell
   ipcMain.handle("open-external", (_event, url: string) => {
     shell.openExternal(url);
   });
+
+  // Backup / Import
+  ipcMain.handle("run-hermes-backup", (_event, profile?: string) =>
+    runHermesBackup(profile),
+  );
+  ipcMain.handle(
+    "run-hermes-import",
+    (_event, archivePath: string, profile?: string) =>
+      runHermesImport(archivePath, profile),
+  );
+
+  // Debug dump
+  ipcMain.handle("run-hermes-dump", () => runHermesDump());
+
+  // MCP servers
+  ipcMain.handle("list-mcp-servers", (_event, profile?: string) =>
+    listMcpServers(profile),
+  );
+
+  // Memory providers
+  ipcMain.handle("discover-memory-providers", (_event, profile?: string) =>
+    discoverMemoryProviders(profile),
+  );
+
+  // Log viewer
+  ipcMain.handle("read-logs", (_event, logFile?: string, lines?: number) =>
+    readLogs(logFile, lines),
+  );
 }
 
 function buildMenu(): void {

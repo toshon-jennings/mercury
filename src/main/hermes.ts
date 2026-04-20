@@ -28,6 +28,22 @@ export function isRemoteMode(): boolean {
   return getConnectionConfig().mode === "remote";
 }
 
+const LOCAL_PROVIDERS = new Set([
+  "custom",
+  "lmstudio",
+  "ollama",
+  "vllm",
+  "llamacpp",
+]);
+
+// Map base-URL patterns to the API key env var they need
+const URL_KEY_MAP: Array<{ pattern: RegExp; envKey: string }> = [
+  { pattern: /openrouter\.ai/i, envKey: "OPENROUTER_API_KEY" },
+  { pattern: /anthropic\.com/i, envKey: "ANTHROPIC_API_KEY" },
+  { pattern: /openai\.com/i, envKey: "OPENAI_API_KEY" },
+  { pattern: /huggingface\.co/i, envKey: "HF_TOKEN" },
+];
+
 interface ChatHandle {
   abort: () => void;
 }
@@ -91,6 +107,9 @@ export interface ChatCallbacks {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
+    cost?: number;
+    rateLimitRemaining?: number;
+    rateLimitReset?: number;
   }) => void;
 }
 
@@ -98,14 +117,27 @@ function sendMessageViaApi(
   message: string,
   cb: ChatCallbacks,
   profile?: string,
-  resumeSessionId?: string,
+  _resumeSessionId?: string,
+  history?: Array<{ role: string; content: string }>,
 ): ChatHandle {
   const mc = getModelConfig(profile);
   const controller = new AbortController();
 
+  // Build full conversation from history + current message (standard OpenAI format)
+  const messages: Array<{ role: string; content: string }> = [];
+  if (history && history.length > 0) {
+    for (const msg of history) {
+      messages.push({
+        role: msg.role === "agent" ? "assistant" : msg.role,
+        content: msg.content,
+      });
+    }
+  }
+  messages.push({ role: "user", content: message });
+
   const body = JSON.stringify({
     model: mc.model || "hermes-agent",
-    messages: [{ role: "user", content: message }],
+    messages,
     stream: true,
   });
 
@@ -113,37 +145,118 @@ function sendMessageViaApi(
     "Content-Type": "application/json",
   };
 
-  if (resumeSessionId) {
-    headers["X-Hermes-Session-Id"] = resumeSessionId;
-  }
-
-  let sessionId = resumeSessionId || "";
+  let sessionId = _resumeSessionId || "";
   let hasContent = false;
+  let finished = false; // guard against double callbacks
+  let lastError = ""; // capture embedded error messages
   // Tool progress pattern: `emoji tool_name` or `emoji description`
   const toolProgressRe = /^`([^\s`]+)\s+([^`]+)`$/;
 
+  function finish(error?: string): void {
+    if (finished) return;
+    finished = true;
+    if (error) {
+      cb.onError(error);
+    } else {
+      cb.onDone(sessionId || undefined);
+    }
+  }
+
+  function probeRealError(): void {
+    // When streaming returns empty, make a non-streaming request to surface the real error
+    const probeBody = JSON.stringify({
+      model: mc.model || "hermes-agent",
+      messages: [{ role: "user", content: message }],
+      stream: false,
+    });
+    const probeReq = http.request(
+      `${API_URL}/v1/chat/completions`,
+      { method: "POST", headers: { "Content-Type": "application/json" } },
+      (res) => {
+        let raw = "";
+        res.on("data", (d) => {
+          raw += d.toString();
+        });
+        res.on("end", () => {
+          try {
+            const parsed = JSON.parse(raw);
+            const content = parsed.choices?.[0]?.message?.content || "";
+            const errMsg = parsed.error?.message || "";
+            finish(
+              content ||
+                errMsg ||
+                "No response received from the model. Check your model configuration and API key.",
+            );
+          } catch {
+            finish(
+              "No response received from the model. Check your model configuration and API key.",
+            );
+          }
+        });
+      },
+    );
+    probeReq.on("error", () => {
+      finish(
+        "No response received from the model. Check your model configuration and API key.",
+      );
+    });
+    probeReq.write(probeBody);
+    probeReq.end();
+  }
+
+  /** Handle a custom SSE event (non-data lines with `event:` prefix). */
+  function processCustomEvent(eventType: string, data: string): void {
+    if (eventType === "hermes.tool.progress" && cb.onToolProgress) {
+      try {
+        const payload = JSON.parse(data);
+        const label = payload.label || payload.tool || "";
+        const emoji = payload.emoji || "";
+        cb.onToolProgress(emoji ? `${emoji} ${label}` : label);
+      } catch {
+        /* malformed — skip */
+      }
+    }
+  }
+
   function processSseData(data: string): boolean {
     if (data === "[DONE]") {
-      cb.onDone(sessionId || undefined);
+      if (hasContent) {
+        finish();
+      } else if (lastError) {
+        finish(lastError);
+      } else {
+        // Streaming returned empty — probe non-streaming to get the real error
+        probeRealError();
+      }
       return true; // signals done
     }
     try {
       const parsed = JSON.parse(data);
+
+      // Capture error responses forwarded through SSE
+      if (parsed.error) {
+        lastError = parsed.error.message || JSON.stringify(parsed.error);
+        return false;
+      }
+
       const choice = parsed.choices?.[0];
       const delta = choice?.delta;
 
-      // Extract usage from final chunk
+      // Extract usage from final chunk (with optional cost + rate limit info)
       if (parsed.usage && cb.onUsage) {
         cb.onUsage({
           promptTokens: parsed.usage.prompt_tokens || 0,
           completionTokens: parsed.usage.completion_tokens || 0,
           totalTokens: parsed.usage.total_tokens || 0,
+          cost: parsed.usage.cost,
+          rateLimitRemaining: parsed.usage.rate_limit_remaining,
+          rateLimitReset: parsed.usage.rate_limit_reset,
         });
       }
 
       if (delta?.content) {
         const content = delta.content.trim();
-        // Detect tool progress lines: `🔍 search_web`
+        // Legacy: Detect tool progress lines injected into content: `🔍 search_web`
         const match = toolProgressRe.exec(content);
         if (match && cb.onToolProgress) {
           cb.onToolProgress(`${match[1]} ${match[2]}`);
@@ -179,9 +292,11 @@ function sendMessageViaApi(
         res.on("end", () => {
           try {
             const err = JSON.parse(errBody);
-            cb.onError(err.error?.message || `API error ${res.statusCode}`);
+            finish(err.error?.message || `API error ${res.statusCode}`);
           } catch {
-            cb.onError(`API server returned ${res.statusCode}`);
+            finish(
+              `API server returned ${res.statusCode}: ${errBody.slice(0, 200)}`,
+            );
           }
         });
         return;
@@ -189,36 +304,57 @@ function sendMessageViaApi(
 
       let buffer = "";
 
+      /** Parse an SSE block which may contain `event:` and `data:` lines. */
+      function processSseBlock(block: string): boolean {
+        let eventType = "";
+        let dataLine = "";
+        for (const line of block.split("\n")) {
+          if (line.startsWith("event: ")) {
+            eventType = line.slice(7).trim();
+          } else if (line.startsWith("data: ")) {
+            dataLine = line.slice(6);
+          }
+        }
+        if (!dataLine) return false;
+        if (eventType) {
+          // Custom event (e.g. hermes.tool.progress) — never signals [DONE]
+          processCustomEvent(eventType, dataLine);
+          return false;
+        }
+        return processSseData(dataLine);
+      }
+
       res.on("data", (chunk: Buffer) => {
         buffer += chunk.toString();
         const parts = buffer.split("\n\n");
         buffer = parts.pop() || "";
 
         for (const part of parts) {
-          for (const line of part.split("\n")) {
-            if (!line.startsWith("data: ")) continue;
-            if (processSseData(line.slice(6))) return;
-          }
+          if (processSseBlock(part)) return;
         }
       });
 
       res.on("end", () => {
         if (buffer.trim()) {
-          for (const line of buffer.split("\n")) {
-            if (!line.startsWith("data: ")) continue;
-            if (processSseData(line.slice(6))) return;
+          for (const part of buffer.split("\n\n")) {
+            if (processSseBlock(part)) return;
           }
         }
-        if (hasContent) cb.onDone(sessionId || undefined);
+        // Signal completion — even when no content was received
+        if (!hasContent && !lastError) {
+          probeRealError();
+          return;
+        }
+        finish(hasContent ? undefined : lastError);
       });
 
-      res.on("error", (err) => cb.onError(`Stream error: ${err.message}`));
+      res.on("error", (err) => finish(`Stream error: ${err.message}`));
     },
   );
 
   req.on("error", (err) => {
     if (err.name === "AbortError") return;
-    cb.onError(`API request failed: ${err.message}`);
+    finish(`API request failed: ${err.message}`);
   });
 
   req.write(body);
@@ -268,23 +404,57 @@ function sendMessageViaCli(
     PYTHONUNBUFFERED: "1",
   };
 
-  const PROVIDER_KEY_MAP: Record<string, string> = {
-    custom: "OPENAI_API_KEY",
-    lmstudio: "",
-    ollama: "",
-    vllm: "",
-    llamacpp: "",
-  };
+  // Inject all API keys from the profile .env so the CLI can access them
+  const KNOWN_API_KEYS = [
+    "OPENROUTER_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GROQ_API_KEY",
+    "GLM_API_KEY",
+    "KIMI_API_KEY",
+    "MINIMAX_API_KEY",
+    "MINIMAX_CN_API_KEY",
+    "HF_TOKEN",
+    "EXA_API_KEY",
+    "PARALLEL_API_KEY",
+    "TAVILY_API_KEY",
+    "FIRECRAWL_API_KEY",
+    "FAL_KEY",
+    "HONCHO_API_KEY",
+    "BROWSERBASE_API_KEY",
+    "BROWSERBASE_PROJECT_ID",
+    "VOICE_TOOLS_OPENAI_KEY",
+    "TINKER_API_KEY",
+    "WANDB_API_KEY",
+  ];
+  for (const key of KNOWN_API_KEYS) {
+    if (profileEnv[key] && !env[key]) {
+      env[key] = profileEnv[key];
+    }
+  }
 
-  const isCustomEndpoint = mc.provider in PROVIDER_KEY_MAP;
+  const isCustomEndpoint = LOCAL_PROVIDERS.has(mc.provider);
   if (isCustomEndpoint && mc.baseUrl) {
     env.HERMES_INFERENCE_PROVIDER = "custom";
     env.OPENAI_BASE_URL = mc.baseUrl.replace(/\/+$/, "");
-    const keyEnvVar = PROVIDER_KEY_MAP[mc.provider];
-    const resolvedKey = keyEnvVar
-      ? profileEnv[keyEnvVar] || env[keyEnvVar] || ""
-      : "no-key-required";
+
+    // Resolve the right API key: check URL-specific key first, then OPENAI_API_KEY
+    let resolvedKey = "";
+    for (const { pattern, envKey } of URL_KEY_MAP) {
+      if (pattern.test(mc.baseUrl)) {
+        resolvedKey = profileEnv[envKey] || env[envKey] || "";
+        break;
+      }
+    }
+    if (!resolvedKey) {
+      resolvedKey = profileEnv.OPENAI_API_KEY || env.OPENAI_API_KEY || "";
+    }
+    // Local servers (localhost/127.0.0.1) don't need a real key
+    if (!resolvedKey && /localhost|127\.0\.0\.1/i.test(mc.baseUrl)) {
+      resolvedKey = "no-key-required";
+    }
     env.OPENAI_API_KEY = resolvedKey || "no-key-required";
+
     delete env.OPENROUTER_API_KEY;
     delete env.ANTHROPIC_API_KEY;
     delete env.ANTHROPIC_TOKEN;
@@ -326,17 +496,27 @@ function sendMessageViaCli(
 
   proc.stdout?.on("data", processOutput);
 
+  let stderrBuffer = "";
   proc.stderr?.on("data", (data: Buffer) => {
     const text = stripAnsi(data.toString());
     if (
-      text.trim() &&
-      !text.includes("UserWarning") &&
-      !text.includes("FutureWarning")
+      !text.trim() ||
+      text.includes("UserWarning") ||
+      text.includes("FutureWarning")
     ) {
-      if (/❌|⚠️|Error|Traceback/.test(text)) {
-        hasOutput = true;
-        cb.onChunk(text);
-      }
+      return;
+    }
+    // Forward errors visibly to the chat
+    if (
+      /❌|⚠️|Error|Traceback|error|failed|denied|unauthorized|invalid/i.test(
+        text,
+      )
+    ) {
+      hasOutput = true;
+      cb.onChunk(text);
+    } else {
+      // Buffer other stderr for reporting on non-zero exit
+      stderrBuffer += text;
     }
   });
 
@@ -344,7 +524,12 @@ function sendMessageViaCli(
     if (code === 0 || hasOutput) {
       cb.onDone(capturedSessionId || undefined);
     } else {
-      cb.onError(`Hermes exited with code ${code}`);
+      const detail = stderrBuffer.trim();
+      cb.onError(
+        detail
+          ? `Hermes exited with code ${code}: ${detail}`
+          : `Hermes exited with code ${code}. Check your model configuration and API key.`,
+      );
     }
   });
 
@@ -373,6 +558,7 @@ export async function sendMessage(
   cb: ChatCallbacks,
   profile?: string,
   resumeSessionId?: string,
+  history?: Array<{ role: string; content: string }>,
 ): Promise<ChatHandle> {
   ensureInitialized();
 
@@ -387,7 +573,7 @@ export async function sendMessage(
   }
 
   if (apiServerAvailable) {
-    return sendMessageViaApi(message, cb, profile, resumeSessionId);
+    return sendMessageViaApi(message, cb, profile, resumeSessionId, history);
   }
 
   // Fallback to CLI
@@ -433,19 +619,30 @@ export function stopHealthPolling(): void {
 let gatewayProcess: ChildProcess | null = null;
 let gatewayStartedByApp = false;
 
-export function startGateway(): boolean {
+export function startGateway(profile?: string): boolean {
   ensureInitialized();
   if (isGatewayRunning()) return false;
 
+  // Build gateway env with profile API keys
+  const gatewayEnv: Record<string, string> = {
+    ...(process.env as Record<string, string>),
+    PATH: getEnhancedPath(),
+    HOME: homedir(),
+    HERMES_HOME: HERMES_HOME,
+    API_SERVER_ENABLED: "true", // Ensure API server starts with gateway
+  };
+
+  // Inject ALL profile API keys so the gateway can authenticate with any provider.
+  const profileEnv = readEnv(profile);
+  for (const [key, value] of Object.entries(profileEnv)) {
+    if (value) {
+      gatewayEnv[key] = value;
+    }
+  }
+
   gatewayProcess = spawn(HERMES_PYTHON, [HERMES_SCRIPT, "gateway"], {
     cwd: HERMES_REPO,
-    env: {
-      ...process.env,
-      PATH: getEnhancedPath(),
-      HOME: homedir(),
-      HERMES_HOME: HERMES_HOME,
-      API_SERVER_ENABLED: "true", // Ensure API server starts with gateway
-    },
+    env: gatewayEnv,
     stdio: "ignore",
     detached: true,
   });
@@ -476,7 +673,9 @@ function readPidFile(): number | null {
   try {
     const raw = readFileSync(pidFile, "utf-8").trim();
     // PID file can be JSON ({"pid": 1234, ...}) or plain integer
-    const parsed = raw.startsWith("{") ? JSON.parse(raw).pid : parseInt(raw, 10);
+    const parsed = raw.startsWith("{")
+      ? JSON.parse(raw).pid
+      : parseInt(raw, 10);
     return typeof parsed === "number" && !isNaN(parsed) ? parsed : null;
   } catch {
     return null;
@@ -532,4 +731,12 @@ export function testRemoteConnection(url: string): Promise<boolean> {
       resolve(false);
     });
   });
+}
+
+export function restartGateway(profile?: string): void {
+  if (!gatewayStartedByApp && !isGatewayRunning()) return;
+  stopGateway(true);
+  setTimeout(() => {
+    startGateway(profile);
+  }, 500);
 }

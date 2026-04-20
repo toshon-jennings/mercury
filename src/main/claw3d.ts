@@ -1,8 +1,8 @@
 import { spawn, ChildProcess, execSync } from "child_process";
 import {
   existsSync,
-  writeFileSync,
   readFileSync,
+  readdirSync,
   unlinkSync,
   mkdirSync,
 } from "fs";
@@ -10,7 +10,7 @@ import { join } from "path";
 import { homedir } from "os";
 import { createConnection } from "net";
 import { getEnhancedPath, HERMES_HOME } from "./installer";
-import { stripAnsi } from "./utils";
+import { stripAnsi, safeWriteFile } from "./utils";
 
 const HERMES_OFFICE_REPO = "https://github.com/fathah/hermes-office";
 const HERMES_OFFICE_DIR = join(HERMES_HOME, "hermes-office");
@@ -39,7 +39,7 @@ function getSavedPort(): number {
 }
 
 export function setClaw3dPort(port: number): void {
-  writeFileSync(PORT_FILE, String(port), "utf-8");
+  safeWriteFile(PORT_FILE, String(port));
   // Re-write .env with updated port
   writeClaw3dSettings();
 }
@@ -58,7 +58,7 @@ function getSavedWsUrl(): string {
 }
 
 export function setClaw3dWsUrl(url: string): void {
-  writeFileSync(WS_URL_FILE, url, "utf-8");
+  safeWriteFile(WS_URL_FILE, url);
   // Also update the settings.json so Claw3D picks it up
   writeClaw3dSettings(url);
 }
@@ -93,7 +93,7 @@ function writeClaw3dSettings(wsUrl?: string): void {
       url,
       token: "",
     };
-    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), "utf-8");
+    safeWriteFile(settingsPath, JSON.stringify(settings, null, 2));
   } catch {
     /* non-fatal */
   }
@@ -115,7 +115,7 @@ function writeClaw3dSettings(wsUrl?: string): void {
         `HERMES_AGENT_NAME=Hermes`,
         "",
       ].join("\n");
-      writeFileSync(envPath, envContent, "utf-8");
+      safeWriteFile(envPath, envContent);
     }
   } catch {
     /* non-fatal */
@@ -180,7 +180,7 @@ function readPid(file: string): number | null {
 }
 
 function writePid(file: string, pid: number): void {
-  writeFileSync(file, String(pid), "utf-8");
+  safeWriteFile(file, String(pid));
 }
 
 function cleanupPid(file: string): void {
@@ -234,8 +234,36 @@ let _cachedNpmPath: string | null = null;
 function findNpm(): string {
   if (_cachedNpmPath) return _cachedNpmPath;
 
-  // Try common locations first (no process spawn)
-  const candidates = ["/usr/local/bin/npm", "/opt/homebrew/bin/npm"];
+  const home = homedir();
+
+  // Try common locations first (no process spawn).
+  // Includes nvm, volta, fnm, and system paths.
+  const candidates = [
+    join(home, ".volta", "bin", "npm"),
+    join(home, ".asdf", "shims", "npm"),
+    join(home, ".local", "share", "fnm", "aliases", "default", "bin", "npm"),
+    join(home, ".fnm", "aliases", "default", "bin", "npm"),
+    "/usr/local/bin/npm",
+    "/opt/homebrew/bin/npm",
+  ];
+
+  // Discover nvm npm dynamically (active version)
+  const nvmDir = process.env.NVM_DIR || join(home, ".nvm");
+  const nvmVersions = join(nvmDir, "versions", "node");
+  if (existsSync(nvmVersions)) {
+    try {
+      const versions = readdirSync(nvmVersions)
+        .filter((d: string) => d.startsWith("v"))
+        .sort()
+        .reverse();
+      for (const v of versions) {
+        candidates.unshift(join(nvmVersions, v, "bin", "npm"));
+      }
+    } catch {
+      /* non-fatal */
+    }
+  }
+
   for (const c of candidates) {
     if (existsSync(c)) {
       _cachedNpmPath = c;

@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { ThemeProvider } from "./components/ThemeProvider";
 import ErrorBoundary from "./components/ErrorBoundary";
-import Welcome from "./components/Welcome";
-import Install from "./components/Install";
-import Setup from "./components/Setup";
-import Layout from "./components/Layout";
-import SplashScreen from "./components/SplashScreen";
+import Welcome from "./screens/Welcome/Welcome";
+import Install from "./screens/Install/Install";
+import Setup from "./screens/Setup/Setup";
+import Layout from "./screens/Layout/Layout";
+import SplashScreen from "./screens/SplashScreen/SplashScreen";
 
 type Screen = "splash" | "welcome" | "installing" | "setup" | "main";
 

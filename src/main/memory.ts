@@ -1,13 +1,7 @@
-import {
-  existsSync,
-  readFileSync,
-  writeFileSync,
-  statSync,
-  mkdirSync,
-} from "fs";
-import { join, dirname } from "path";
+import { existsSync, readFileSync, statSync } from "fs";
+import { join } from "path";
 import Database from "better-sqlite3";
-import { profileHome } from "./utils";
+import { profileHome, safeWriteFile } from "./utils";
 
 const ENTRY_DELIMITER = "\n§\n";
 const MEMORY_CHAR_LIMIT = 2200;
@@ -78,11 +72,8 @@ function serializeEntries(entries: MemoryEntry[]): string {
   return entries.map((e) => e.content).join(ENTRY_DELIMITER);
 }
 
-function writeFileSafe(filePath: string, content: string): void {
-  const dir = dirname(filePath);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(filePath, content, "utf-8");
-}
+// Use shared safeWriteFile from utils
+const writeFileSafe = safeWriteFile;
 
 function getSessionStats(profile?: string): {
   totalSessions: number;

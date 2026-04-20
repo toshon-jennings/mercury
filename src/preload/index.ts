@@ -54,6 +54,10 @@ const hermesAPI = {
   runClawMigrate: (): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke("run-claw-migrate"),
 
+  getLocale: (): Promise<"en"> => ipcRenderer.invoke("get-locale"),
+  setLocale: (locale: "en"): Promise<"en"> =>
+    ipcRenderer.invoke("set-locale", locale),
+
   // Configuration (profile-aware)
   getEnv: (profile?: string): Promise<Record<string, string>> =>
     ipcRenderer.invoke("get-env", profile),
@@ -104,8 +108,15 @@ const hermesAPI = {
     message: string,
     profile?: string,
     resumeSessionId?: string,
+    history?: Array<{ role: string; content: string }>,
   ): Promise<{ response: string; sessionId?: string }> =>
-    ipcRenderer.invoke("send-message", message, profile, resumeSessionId),
+    ipcRenderer.invoke(
+      "send-message",
+      message,
+      profile,
+      resumeSessionId,
+      history,
+    ),
 
   abortChat: (): Promise<void> => ipcRenderer.invoke("abort-chat"),
 
@@ -137,6 +148,9 @@ const hermesAPI = {
       promptTokens: number;
       completionTokens: number;
       totalTokens: number;
+      cost?: number;
+      rateLimitRemaining?: number;
+      rateLimitReset?: number;
     }) => void,
   ): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, usage: unknown): void =>
@@ -145,6 +159,9 @@ const hermesAPI = {
           promptTokens: number;
           completionTokens: number;
           totalTokens: number;
+          cost?: number;
+          rateLimitRemaining?: number;
+          rateLimitReset?: number;
         },
       );
     ipcRenderer.on("chat-usage", handler);
@@ -162,6 +179,16 @@ const hermesAPI = {
   startGateway: (): Promise<boolean> => ipcRenderer.invoke("start-gateway"),
   stopGateway: (): Promise<boolean> => ipcRenderer.invoke("stop-gateway"),
   gatewayStatus: (): Promise<boolean> => ipcRenderer.invoke("gateway-status"),
+
+  // Platform toggles
+  getPlatformEnabled: (profile?: string): Promise<Record<string, boolean>> =>
+    ipcRenderer.invoke("get-platform-enabled", profile),
+  setPlatformEnabled: (
+    platform: string,
+    enabled: boolean,
+    profile?: string,
+  ): Promise<boolean> =>
+    ipcRenderer.invoke("set-platform-enabled", platform, enabled, profile),
 
   // Sessions
   listSessions: (
@@ -493,9 +520,114 @@ const hermesAPI = {
     return () => ipcRenderer.removeListener("menu-search-sessions", handler);
   },
 
+  // Cron Jobs
+  listCronJobs: (
+    includeDisabled?: boolean,
+    profile?: string,
+  ): Promise<
+    Array<{
+      id: string;
+      name: string;
+      schedule: string;
+      prompt: string;
+      state: "active" | "paused" | "completed";
+      enabled: boolean;
+      next_run_at: string | null;
+      last_run_at: string | null;
+      last_status: string | null;
+      last_error: string | null;
+      repeat: { times: number | null; completed: number } | null;
+      deliver: string[];
+      skills: string[];
+      script: string | null;
+    }>
+  > => ipcRenderer.invoke("list-cron-jobs", includeDisabled, profile),
+
+  createCronJob: (
+    schedule: string,
+    prompt?: string,
+    name?: string,
+    deliver?: string,
+    profile?: string,
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke(
+      "create-cron-job",
+      schedule,
+      prompt,
+      name,
+      deliver,
+      profile,
+    ),
+
+  removeCronJob: (
+    jobId: string,
+    profile?: string,
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke("remove-cron-job", jobId, profile),
+
+  pauseCronJob: (
+    jobId: string,
+    profile?: string,
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke("pause-cron-job", jobId, profile),
+
+  resumeCronJob: (
+    jobId: string,
+    profile?: string,
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke("resume-cron-job", jobId, profile),
+
+  triggerCronJob: (
+    jobId: string,
+    profile?: string,
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke("trigger-cron-job", jobId, profile),
+
   // Shell
   openExternal: (url: string): Promise<void> =>
     ipcRenderer.invoke("open-external", url),
+
+  // Backup / Import
+  runHermesBackup: (
+    profile?: string,
+  ): Promise<{ success: boolean; path?: string; error?: string }> =>
+    ipcRenderer.invoke("run-hermes-backup", profile),
+
+  runHermesImport: (
+    archivePath: string,
+    profile?: string,
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke("run-hermes-import", archivePath, profile),
+
+  // Debug dump
+  runHermesDump: (): Promise<string> => ipcRenderer.invoke("run-hermes-dump"),
+
+  // Memory providers
+  discoverMemoryProviders: (
+    profile?: string,
+  ): Promise<
+    Array<{
+      name: string;
+      description: string;
+      installed: boolean;
+      active: boolean;
+      envVars: string[];
+    }>
+  > => ipcRenderer.invoke("discover-memory-providers", profile),
+
+  // MCP servers
+  listMcpServers: (
+    profile?: string,
+  ): Promise<
+    Array<{ name: string; type: string; enabled: boolean; detail: string }>
+  > => ipcRenderer.invoke("list-mcp-servers", profile),
+
+  // Log viewer
+  readLogs: (
+    logFile?: string,
+    lines?: number,
+  ): Promise<{ content: string; path: string }> =>
+    ipcRenderer.invoke("read-logs", logFile, lines),
 };
 
 if (process.contextIsolated) {

@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { HERMES_HOME } from "./installer";
+import { safeWriteFile } from "./utils";
 import Database from "better-sqlite3";
 
 const CACHE_DIR = join(HERMES_HOME, "desktop");
@@ -62,10 +63,7 @@ function readCache(): CacheData {
 
 function writeCache(data: CacheData): void {
   try {
-    if (!existsSync(CACHE_DIR)) {
-      mkdirSync(CACHE_DIR, { recursive: true });
-    }
-    writeFileSync(CACHE_FILE, JSON.stringify(data), "utf-8");
+    safeWriteFile(CACHE_FILE, JSON.stringify(data));
   } catch {
     // non-fatal
   }

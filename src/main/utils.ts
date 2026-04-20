@@ -1,4 +1,5 @@
-import { join } from "path";
+import { join, dirname } from "path";
+import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { HERMES_HOME } from "./installer";
 
 /**
@@ -30,4 +31,14 @@ export function profileHome(profile?: string): string {
  */
 export function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Write a file, creating parent directories if they don't exist.
+ * Prevents ENOENT crashes when ~/.hermes has been deleted or doesn't exist yet.
+ */
+export function safeWriteFile(filePath: string, content: string): void {
+  const dir = dirname(filePath);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(filePath, content, "utf-8");
 }

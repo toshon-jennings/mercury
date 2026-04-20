@@ -24,3 +24,8 @@ pnpm-debug.log*
 # Electron packaging artifacts
 release/
 .claude/worktrees
+
+# Tauri
+**/src-tauri/target/
+**/src-tauri/gen/
+**/src-tauri/WixTools/

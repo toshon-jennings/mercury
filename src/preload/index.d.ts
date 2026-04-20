@@ -30,8 +30,11 @@ interface HermesAPI {
   runHermesUpdate: () => Promise<{ success: boolean; error?: string }>;
 
   // OpenClaw migration
-  checkOpenClaw: () => Promise<{ found: boolean; path: string | null }>;
+  checkOpenClaw: () => Promise<{ found: boolean; path: string | null }>; 
   runClawMigrate: () => Promise<{ success: boolean; error?: string }>;
+
+  getLocale: () => Promise<"en">;
+  setLocale: (locale: "en") => Promise<"en">;
 
   // Configuration (profile-aware)
   getEnv: (profile?: string) => Promise<Record<string, string>>;
@@ -66,6 +69,7 @@ interface HermesAPI {
     message: string,
     profile?: string,
     resumeSessionId?: string,
+    history?: Array<{ role: string; content: string }>,
   ) => Promise<{ response: string; sessionId?: string }>;
   abortChat: () => Promise<void>;
   onChatChunk: (callback: (chunk: string) => void) => () => void;
@@ -76,6 +80,9 @@ interface HermesAPI {
       promptTokens: number;
       completionTokens: number;
       totalTokens: number;
+      cost?: number;
+      rateLimitRemaining?: number;
+      rateLimitReset?: number;
     }) => void,
   ) => () => void;
   onChatError: (callback: (error: string) => void) => () => void;
@@ -84,6 +91,14 @@ interface HermesAPI {
   startGateway: () => Promise<boolean>;
   stopGateway: () => Promise<boolean>;
   gatewayStatus: () => Promise<boolean>;
+
+  // Platform toggles
+  getPlatformEnabled: (profile?: string) => Promise<Record<string, boolean>>;
+  setPlatformEnabled: (
+    platform: string,
+    enabled: boolean,
+    profile?: string,
+  ) => Promise<boolean>;
 
   // Sessions
   listSessions: (
@@ -327,8 +342,90 @@ interface HermesAPI {
   onMenuNewChat: (callback: () => void) => () => void;
   onMenuSearchSessions: (callback: () => void) => () => void;
 
+  // Cron Jobs
+  listCronJobs: (
+    includeDisabled?: boolean,
+    profile?: string,
+  ) => Promise<
+    Array<{
+      id: string;
+      name: string;
+      schedule: string;
+      prompt: string;
+      state: "active" | "paused" | "completed";
+      enabled: boolean;
+      next_run_at: string | null;
+      last_run_at: string | null;
+      last_status: string | null;
+      last_error: string | null;
+      repeat: { times: number | null; completed: number } | null;
+      deliver: string[];
+      skills: string[];
+      script: string | null;
+    }>
+  >;
+  createCronJob: (
+    schedule: string,
+    prompt?: string,
+    name?: string,
+    deliver?: string,
+    profile?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  removeCronJob: (
+    jobId: string,
+    profile?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  pauseCronJob: (
+    jobId: string,
+    profile?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  resumeCronJob: (
+    jobId: string,
+    profile?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+  triggerCronJob: (
+    jobId: string,
+    profile?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+
   // Shell
   openExternal: (url: string) => Promise<void>;
+
+  // Backup / Import
+  runHermesBackup: (
+    profile?: string,
+  ) => Promise<{ success: boolean; path?: string; error?: string }>;
+  runHermesImport: (
+    archivePath: string,
+    profile?: string,
+  ) => Promise<{ success: boolean; error?: string }>;
+
+  // Debug dump
+  runHermesDump: () => Promise<string>;
+
+  // Memory providers
+  discoverMemoryProviders: (profile?: string) => Promise<
+    Array<{
+      name: string;
+      description: string;
+      installed: boolean;
+      active: boolean;
+      envVars: string[];
+    }>
+  >;
+
+  // MCP servers
+  listMcpServers: (
+    profile?: string,
+  ) => Promise<
+    Array<{ name: string; type: string; enabled: boolean; detail: string }>
+  >;
+
+  // Log viewer
+  readLogs: (
+    logFile?: string,
+    lines?: number,
+  ) => Promise<{ content: string; path: string }>;
 }
 
 declare global {
