@@ -765,6 +765,20 @@ function Settings({
         </div>
       </div>
 
+      {connMode === "remote" && (
+        <div className="settings-section">
+          <div className="settings-section-title">Server Configuration</div>
+          <div className="settings-field-hint">
+            You&apos;re connected to a remote Hermes server. Model selection,
+            provider API keys, and credentials are managed on the server&apos;s{" "}
+            <code>~/.hermes/.env</code> and <code>config.yaml</code>. Edit them
+            on the host (e.g. <code>docker exec -it hermes vi /opt/data/.env</code>)
+            and restart the container.
+          </div>
+        </div>
+      )}
+
+      {connMode === "local" && (
       <div className="settings-section">
         <div className="settings-section-title">
           Model
@@ -831,7 +845,9 @@ function Settings({
           </div>
         )}
       </div>
+      )}
 
+      {connMode === "local" && (
       <div className="settings-section">
         <div className="settings-section-title">Credential Pool</div>
         <div className="settings-field">
@@ -911,6 +927,7 @@ function Settings({
           )}
         </div>
       </div>
+      )}
 
       <div className="settings-section">
         <div className="settings-section-title">Data</div>
@@ -1016,44 +1033,45 @@ function Settings({
         )}
       </div>
 
-      {SETTINGS_SECTIONS.map((section) => (
-        <div key={section.title} className="settings-section">
-          <div className="settings-section-title">{section.title}</div>
-          {section.items.map((field) => (
-            <div key={field.key} className="settings-field">
-              <label className="settings-field-label">
-                {field.label}
-                {savedKey === field.key && (
-                  <span className="settings-saved">Saved</span>
-                )}
-              </label>
-              <div className="settings-input-row">
-                <input
-                  className="input"
-                  type={
-                    field.type === "password" && !visibleKeys.has(field.key)
-                      ? "password"
-                      : "text"
-                  }
-                  value={env[field.key] || ""}
-                  onChange={(e) => handleChange(field.key, e.target.value)}
-                  onBlur={() => handleBlur(field.key)}
-                  placeholder={`Enter ${field.label.toLowerCase()}`}
-                />
-                {field.type === "password" && (
-                  <button
-                    className="btn-ghost settings-toggle-btn"
-                    onClick={() => toggleVisibility(field.key)}
-                  >
-                    {visibleKeys.has(field.key) ? "Hide" : "Show"}
-                  </button>
-                )}
+      {connMode === "local" &&
+        SETTINGS_SECTIONS.map((section) => (
+          <div key={section.title} className="settings-section">
+            <div className="settings-section-title">{section.title}</div>
+            {section.items.map((field) => (
+              <div key={field.key} className="settings-field">
+                <label className="settings-field-label">
+                  {field.label}
+                  {savedKey === field.key && (
+                    <span className="settings-saved">Saved</span>
+                  )}
+                </label>
+                <div className="settings-input-row">
+                  <input
+                    className="input"
+                    type={
+                      field.type === "password" && !visibleKeys.has(field.key)
+                        ? "password"
+                        : "text"
+                    }
+                    value={env[field.key] || ""}
+                    onChange={(e) => handleChange(field.key, e.target.value)}
+                    onBlur={() => handleBlur(field.key)}
+                    placeholder={`Enter ${field.label.toLowerCase()}`}
+                  />
+                  {field.type === "password" && (
+                    <button
+                      className="btn-ghost settings-toggle-btn"
+                      onClick={() => toggleVisibility(field.key)}
+                    >
+                      {visibleKeys.has(field.key) ? "Hide" : "Show"}
+                    </button>
+                  )}
+                </div>
+                <div className="settings-field-hint">{field.hint}</div>
               </div>
-              <div className="settings-field-hint">{field.hint}</div>
-            </div>
-          ))}
-        </div>
-      ))}
+            ))}
+          </div>
+        ))}
     </div>
   );
 }
