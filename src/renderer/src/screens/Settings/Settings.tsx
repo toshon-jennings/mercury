@@ -71,6 +71,7 @@ function Settings({
   // Connection mode
   const [connMode, setConnMode] = useState<"local" | "remote">("local");
   const [connRemoteUrl, setConnRemoteUrl] = useState("");
+  const [connApiKey, setConnApiKey] = useState("");
   const [connTesting, setConnTesting] = useState(false);
   const [connStatus, setConnStatus] = useState<string | null>(null);
   const connLoaded = useRef(false);
@@ -123,6 +124,7 @@ function Settings({
     setAppVersion(aVersion);
     setConnMode(conn.mode);
     setConnRemoteUrl(conn.remoteUrl);
+    setConnApiKey(conn.apiKey);
     connLoaded.current = true;
 
     // Allow model auto-save after initial values are set
@@ -296,7 +298,11 @@ function Settings({
   }
 
   async function handleSaveConnection(): Promise<void> {
-    await window.hermesAPI.setConnectionConfig(connMode, connRemoteUrl);
+    await window.hermesAPI.setConnectionConfig(
+      connMode,
+      connRemoteUrl,
+      connApiKey,
+    );
     setConnStatus("Saved");
     setTimeout(() => setConnStatus(null), 2000);
   }
@@ -309,7 +315,10 @@ function Settings({
     }
     setConnTesting(true);
     setConnStatus(null);
-    const ok = await window.hermesAPI.testRemoteConnection(url);
+    const ok = await window.hermesAPI.testRemoteConnection(
+      url,
+      connApiKey.trim(),
+    );
     setConnTesting(false);
     setConnStatus(ok ? "Connected successfully!" : "Could not reach server");
   }
@@ -317,7 +326,8 @@ function Settings({
   async function handleSwitchToLocal(): Promise<void> {
     setConnMode("local");
     setConnRemoteUrl("");
-    await window.hermesAPI.setConnectionConfig("local", "");
+    setConnApiKey("");
+    await window.hermesAPI.setConnectionConfig("local", "", "");
     setConnStatus("Switched to local mode");
     setTimeout(() => setConnStatus(null), 2000);
   }
@@ -585,6 +595,21 @@ function Settings({
               <div className="settings-field-hint">
                 The Hermes API server URL (must expose /health and
                 /v1/chat/completions)
+              </div>
+            </div>
+            <div className="settings-field">
+              <label className="settings-field-label">API Key</label>
+              <input
+                className="input"
+                type="password"
+                value={connApiKey}
+                onChange={(e) => setConnApiKey(e.target.value)}
+                placeholder="Bearer token (API_SERVER_KEY)"
+                onBlur={handleSaveConnection}
+              />
+              <div className="settings-field-hint">
+                Matches API_SERVER_KEY on the remote host. Leave empty if the
+                server accepts unauthenticated requests.
               </div>
             </div>
             <div className="settings-hermes-actions">

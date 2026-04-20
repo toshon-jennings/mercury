@@ -28,6 +28,14 @@ export function isRemoteMode(): boolean {
   return getConnectionConfig().mode === "remote";
 }
 
+function getRemoteAuthHeader(): Record<string, string> {
+  const conn = getConnectionConfig();
+  if (conn.mode === "remote" && conn.apiKey) {
+    return { Authorization: `Bearer ${conn.apiKey}` };
+  }
+  return {};
+}
+
 const LOCAL_PROVIDERS = new Set([
   "custom",
   "lmstudio",
@@ -55,16 +63,21 @@ interface ChatHandle {
 function isApiServerReady(): Promise<boolean> {
   return new Promise((resolve) => {
     const url = `${getApiUrl()}/health`;
-    const getter = url.startsWith("https") ? https.get : http.get;
-    const req = getter(url, { timeout: 1500 }, (res) => {
-      resolve(res.statusCode === 200);
-      res.resume();
-    });
+    const mod = url.startsWith("https") ? https : http;
+    const req = mod.request(
+      url,
+      { method: "GET", timeout: 1500, headers: getRemoteAuthHeader() },
+      (res) => {
+        resolve(res.statusCode === 200);
+        res.resume();
+      },
+    );
     req.on("error", () => resolve(false));
     req.on("timeout", () => {
       req.destroy();
       resolve(false);
     });
+    req.end();
   });
 }
 
@@ -143,6 +156,7 @@ function sendMessageViaApi(
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    ...getRemoteAuthHeader(),
   };
 
   let sessionId = _resumeSessionId || "";
@@ -169,9 +183,17 @@ function sendMessageViaApi(
       messages: [{ role: "user", content: message }],
       stream: false,
     });
-    const probeReq = http.request(
-      `${getApiUrl()}/v1/chat/completions`,
-      { method: "POST", headers: { "Content-Type": "application/json" } },
+    const probeUrl = `${getApiUrl()}/v1/chat/completions`;
+    const probeMod = probeUrl.startsWith("https") ? https : http;
+    const probeReq = probeMod.request(
+      probeUrl,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getRemoteAuthHeader(),
+        },
+      },
       (res) => {
         let raw = "";
         res.on("data", (d) => {
@@ -717,19 +739,29 @@ export function isApiReady(): boolean {
   return apiServerAvailable === true;
 }
 
-export function testRemoteConnection(url: string): Promise<boolean> {
+export function testRemoteConnection(
+  url: string,
+  apiKey?: string,
+): Promise<boolean> {
   return new Promise((resolve) => {
     const target = `${url.replace(/\/+$/, "")}/health`;
-    const getter = target.startsWith("https") ? https.get : http.get;
-    const req = getter(target, { timeout: 5000 }, (res) => {
-      resolve(res.statusCode === 200);
-      res.resume();
-    });
+    const mod = target.startsWith("https") ? https : http;
+    const headers: Record<string, string> = {};
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+    const req = mod.request(
+      target,
+      { method: "GET", timeout: 5000, headers },
+      (res) => {
+        resolve(res.statusCode === 200);
+        res.resume();
+      },
+    );
     req.on("error", () => resolve(false));
     req.on("timeout", () => {
       req.destroy();
       resolve(false);
     });
+    req.end();
   });
 }
 
