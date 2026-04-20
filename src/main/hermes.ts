@@ -170,7 +170,7 @@ function sendMessageViaApi(
       stream: false,
     });
     const probeReq = http.request(
-      `${API_URL}/v1/chat/completions`,
+      `${getApiUrl()}/v1/chat/completions`,
       { method: "POST", headers: { "Content-Type": "application/json" } },
       (res) => {
         let raw = "";
