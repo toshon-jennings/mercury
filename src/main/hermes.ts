@@ -3,6 +3,7 @@ import { existsSync, readFileSync, appendFileSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import http from "http";
+import https from "https";
 import {
   HERMES_HOME,
   HERMES_REPO,
@@ -10,10 +11,22 @@ import {
   HERMES_SCRIPT,
   getEnhancedPath,
 } from "./installer";
-import { getModelConfig, readEnv } from "./config";
+import { getModelConfig, readEnv, getConnectionConfig } from "./config";
 import { stripAnsi } from "./utils";
 
-const API_URL = "http://127.0.0.1:8642";
+const LOCAL_API_URL = "http://127.0.0.1:8642";
+
+function getApiUrl(): string {
+  const conn = getConnectionConfig();
+  if (conn.mode === "remote" && conn.remoteUrl) {
+    return conn.remoteUrl.replace(/\/+$/, "");
+  }
+  return LOCAL_API_URL;
+}
+
+export function isRemoteMode(): boolean {
+  return getConnectionConfig().mode === "remote";
+}
 
 const LOCAL_PROVIDERS = new Set([
   "custom",
@@ -41,7 +54,9 @@ interface ChatHandle {
 
 function isApiServerReady(): Promise<boolean> {
   return new Promise((resolve) => {
-    const req = http.get(`${API_URL}/health`, { timeout: 1500 }, (res) => {
+    const url = `${getApiUrl()}/health`;
+    const getter = url.startsWith("https") ? https.get : http.get;
+    const req = getter(url, { timeout: 1500 }, (res) => {
       resolve(res.statusCode === 200);
       res.resume();
     });
@@ -155,7 +170,7 @@ function sendMessageViaApi(
       stream: false,
     });
     const probeReq = http.request(
-      `${API_URL}/v1/chat/completions`,
+      `${getApiUrl()}/v1/chat/completions`,
       { method: "POST", headers: { "Content-Type": "application/json" } },
       (res) => {
         let raw = "";
@@ -256,8 +271,10 @@ function sendMessageViaApi(
     return false;
   }
 
-  const req = http.request(
-    `${API_URL}/v1/chat/completions`,
+  const chatUrl = `${getApiUrl()}/v1/chat/completions`;
+  const requester = chatUrl.startsWith("https") ? https.request : http.request;
+  const req = requester(
+    chatUrl,
     {
       method: "POST",
       headers,
@@ -544,6 +561,12 @@ export async function sendMessage(
   history?: Array<{ role: string; content: string }>,
 ): Promise<ChatHandle> {
   ensureInitialized();
+
+  // Remote mode: always use API, no CLI fallback
+  if (isRemoteMode()) {
+    return sendMessageViaApi(message, cb, profile, resumeSessionId);
+  }
+
   // Check API server availability (cache the result, re-check periodically)
   if (apiServerAvailable === null || apiServerAvailable === false) {
     apiServerAvailable = await isApiServerReady();
@@ -564,7 +587,9 @@ let _healthCheckInterval: ReturnType<typeof setInterval> | null = null;
 function ensureInitialized(): void {
   if (_initialized) return;
   _initialized = true;
-  ensureApiServerConfig();
+  if (!isRemoteMode()) {
+    ensureApiServerConfig();
+  }
   startHealthPolling();
 }
 
@@ -692,14 +717,25 @@ export function isApiReady(): boolean {
   return apiServerAvailable === true;
 }
 
-/**
- * Restart the gateway so it picks up new model/provider config.
- * Only restarts if the gateway was started by this app.
- */
+export function testRemoteConnection(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const target = `${url.replace(/\/+$/, "")}/health`;
+    const getter = target.startsWith("https") ? https.get : http.get;
+    const req = getter(target, { timeout: 5000 }, (res) => {
+      resolve(res.statusCode === 200);
+      res.resume();
+    });
+    req.on("error", () => resolve(false));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(false);
+    });
+  });
+}
+
 export function restartGateway(profile?: string): void {
   if (!gatewayStartedByApp && !isGatewayRunning()) return;
   stopGateway(true);
-  // Small delay to let the old process die before starting a new one
   setTimeout(() => {
     startGateway(profile);
   }, 500);

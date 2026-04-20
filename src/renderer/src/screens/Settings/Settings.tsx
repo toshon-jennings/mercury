@@ -68,6 +68,13 @@ function Settings({
   const modelLoaded = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Connection mode
+  const [connMode, setConnMode] = useState<"local" | "remote">("local");
+  const [connRemoteUrl, setConnRemoteUrl] = useState("");
+  const [connTesting, setConnTesting] = useState(false);
+  const [connStatus, setConnStatus] = useState<string | null>(null);
+  const connLoaded = useRef(false);
+
   // Credential pool state
   const [credPool, setCredPool] = useState<
     Record<string, Array<{ key: string; label: string }>>
@@ -99,12 +106,13 @@ function Settings({
 
   const loadConfig = useCallback(async (): Promise<void> => {
     // Load fast config first (cached in main process)
-    const [envData, home, mc, pool, aVersion] = await Promise.all([
+    const [envData, home, mc, pool, aVersion, conn] = await Promise.all([
       window.hermesAPI.getEnv(profile),
       window.hermesAPI.getHermesHome(profile),
       window.hermesAPI.getModelConfig(profile),
       window.hermesAPI.getCredentialPool(),
       window.hermesAPI.getAppVersion(),
+      window.hermesAPI.getConnectionConfig(),
     ]);
     setEnv(envData);
     setHermesHome(home);
@@ -113,6 +121,9 @@ function Settings({
     setModelBaseUrl(mc.baseUrl);
     setCredPool(pool);
     setAppVersion(aVersion);
+    setConnMode(conn.mode);
+    setConnRemoteUrl(conn.remoteUrl);
+    connLoaded.current = true;
 
     // Allow model auto-save after initial values are set
     requestAnimationFrame(() => {
@@ -284,6 +295,33 @@ function Settings({
     setMigrationDismissed(true);
   }
 
+  async function handleSaveConnection(): Promise<void> {
+    await window.hermesAPI.setConnectionConfig(connMode, connRemoteUrl);
+    setConnStatus("Saved");
+    setTimeout(() => setConnStatus(null), 2000);
+  }
+
+  async function handleTestConnection(): Promise<void> {
+    const url = connRemoteUrl.trim();
+    if (!url) {
+      setConnStatus("Please enter a URL");
+      return;
+    }
+    setConnTesting(true);
+    setConnStatus(null);
+    const ok = await window.hermesAPI.testRemoteConnection(url);
+    setConnTesting(false);
+    setConnStatus(ok ? "Connected successfully!" : "Could not reach server");
+  }
+
+  async function handleSwitchToLocal(): Promise<void> {
+    setConnMode("local");
+    setConnRemoteUrl("");
+    await window.hermesAPI.setConnectionConfig("local", "");
+    setConnStatus("Switched to local mode");
+    setTimeout(() => setConnStatus(null), 2000);
+  }
+
   async function handleBackup(): Promise<void> {
     setBackingUp(true);
     setBackupResult(null);
@@ -297,7 +335,6 @@ function Settings({
   }
 
   async function handleImport(): Promise<void> {
-    // Use a file input to select the archive
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".tar.gz,.tgz,.zip";
@@ -306,7 +343,6 @@ function Settings({
       if (!file) return;
       setImporting(true);
       setImportResult(null);
-      // Electron extends File with a `path` property (full filesystem path)
       const filePath = (file as File & { path: string }).path;
       const result = await window.hermesAPI.runHermesImport(filePath, profile);
       setImporting(false);
@@ -496,6 +532,78 @@ function Settings({
             <pre className="settings-hermes-doctor">{dumpOutput}</pre>
           )}
         </div>
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-section-title">
+          Connection
+          {connStatus && (
+            <span className="settings-saved" style={{ marginLeft: 8 }}>
+              {connStatus}
+            </span>
+          )}
+        </div>
+
+        <div className="settings-field">
+          <label className="settings-field-label">Mode</label>
+          <div className="settings-theme-options">
+            <button
+              className={`settings-theme-option ${connMode === "local" ? "active" : ""}`}
+              onClick={() => {
+                setConnMode("local");
+                if (connLoaded.current) handleSwitchToLocal();
+              }}
+            >
+              Local
+            </button>
+            <button
+              className={`settings-theme-option ${connMode === "remote" ? "active" : ""}`}
+              onClick={() => setConnMode("remote")}
+            >
+              Remote
+            </button>
+          </div>
+          <div className="settings-field-hint">
+            {connMode === "local"
+              ? "Using Hermes installed on this device"
+              : "Connect to a Hermes API server on your network or cloud"}
+          </div>
+        </div>
+
+        {connMode === "remote" && (
+          <>
+            <div className="settings-field">
+              <label className="settings-field-label">Remote URL</label>
+              <input
+                className="input"
+                type="url"
+                value={connRemoteUrl}
+                onChange={(e) => setConnRemoteUrl(e.target.value)}
+                placeholder="http://192.168.1.100:8642"
+                onBlur={handleSaveConnection}
+              />
+              <div className="settings-field-hint">
+                The Hermes API server URL (must expose /health and
+                /v1/chat/completions)
+              </div>
+            </div>
+            <div className="settings-hermes-actions">
+              <button
+                className="btn btn-secondary"
+                onClick={handleTestConnection}
+                disabled={connTesting}
+              >
+                {connTesting ? "Testing..." : "Test Connection"}
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveConnection}
+              >
+                Save
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {openclawFound && !migrationDismissed && (

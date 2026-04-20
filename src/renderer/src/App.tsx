@@ -16,26 +16,41 @@ function App(): React.JSX.Element {
   const [splashDone, setSplashDone] = useState(false);
   const isMac = window.electron?.process?.platform === "darwin";
 
-  const runInstallCheck = useCallback(() => {
-    window.hermesAPI
-      .checkInstall()
-      .then((status) => {
-        if (!status.installed) {
-          setNextScreen("welcome");
-        } else if (!status.verified) {
+  const runInstallCheck = useCallback(async () => {
+    try {
+      const conn = await window.hermesAPI.getConnectionConfig();
+
+      // Remote mode: verify the remote server is reachable
+      if (conn.mode === "remote" && conn.remoteUrl) {
+        const ok = await window.hermesAPI.testRemoteConnection(conn.remoteUrl);
+        if (ok) {
+          setNextScreen("main");
+        } else {
           setInstallError(
-            "Hermes is installed but appears to be broken. Try reinstalling to fix it.",
+            `Cannot reach remote Hermes at ${conn.remoteUrl}. Check the URL or switch to local mode.`,
           );
           setNextScreen("welcome");
-        } else if (!status.hasApiKey) {
-          setNextScreen("setup");
-        } else {
-          setNextScreen("main");
         }
-      })
-      .catch(() => {
+        return;
+      }
+
+      // Local mode: normal install check
+      const status = await window.hermesAPI.checkInstall();
+      if (!status.installed) {
         setNextScreen("welcome");
-      });
+      } else if (!status.verified) {
+        setInstallError(
+          "Hermes is installed but appears to be broken. Try reinstalling to fix it.",
+        );
+        setNextScreen("welcome");
+      } else if (!status.hasApiKey) {
+        setNextScreen("setup");
+      } else {
+        setNextScreen("main");
+      }
+    } catch {
+      setNextScreen("welcome");
+    }
   }, []);
 
   // Run install check during splash

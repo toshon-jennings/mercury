@@ -1,7 +1,52 @@
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { HERMES_HOME } from "./installer";
 import { profileHome, escapeRegex, safeWriteFile } from "./utils";
+
+// ── Connection Config (local vs remote) ─────────────────
+
+export interface ConnectionConfig {
+  mode: "local" | "remote";
+  remoteUrl: string;
+}
+
+// Lazy getter — avoids circular dependency with installer.ts
+// (HERMES_HOME may not be assigned yet when this module first loads)
+function desktopConfigFile(): string {
+  return join(HERMES_HOME, "desktop.json");
+}
+
+function readDesktopConfig(): Record<string, unknown> {
+  try {
+    const f = desktopConfigFile();
+    if (!existsSync(f)) return {};
+    return JSON.parse(readFileSync(f, "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+function writeDesktopConfig(data: Record<string, unknown>): void {
+  if (!existsSync(HERMES_HOME)) {
+    mkdirSync(HERMES_HOME, { recursive: true });
+  }
+  writeFileSync(desktopConfigFile(), JSON.stringify(data, null, 2), "utf-8");
+}
+
+export function getConnectionConfig(): ConnectionConfig {
+  const data = readDesktopConfig();
+  return {
+    mode: (data.connectionMode as "local" | "remote") || "local",
+    remoteUrl: (data.remoteUrl as string) || "",
+  };
+}
+
+export function setConnectionConfig(config: ConnectionConfig): void {
+  const data = readDesktopConfig();
+  data.connectionMode = config.mode;
+  data.remoteUrl = config.remoteUrl;
+  writeDesktopConfig(data);
+}
 
 // ── In-memory cache with TTL ─────────────────────────────
 const CACHE_TTL = 5000; // 5 seconds

@@ -2,7 +2,7 @@ import { spawn, execSync, execFile } from "child_process";
 import { existsSync, readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
-import { getModelConfig } from "./config";
+import { getModelConfig, getConnectionConfig } from "./config";
 import { stripAnsi } from "./utils";
 
 export const HERMES_HOME = join(homedir(), ".hermes");
@@ -78,6 +78,12 @@ function resolveNvmBin(home: string): string[] {
 }
 
 export function checkInstallStatus(): InstallStatus {
+  // Remote mode: skip local checks entirely
+  const conn = getConnectionConfig();
+  if (conn.mode === "remote" && conn.remoteUrl) {
+    return { installed: true, configured: true, hasApiKey: true, verified: true };
+  }
+
   const installed = existsSync(HERMES_PYTHON) && existsSync(HERMES_SCRIPT);
   const configured = existsSync(HERMES_ENV_FILE);
   let hasApiKey = false;
