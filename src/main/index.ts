@@ -868,6 +868,10 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   stopHealthPolling();
+  if (currentChatAbort) {
+    currentChatAbort();
+    currentChatAbort = null;
+  }
   stopGateway();
   stopClaw3d();
 });
