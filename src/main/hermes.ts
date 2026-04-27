@@ -1,5 +1,5 @@
 import { ChildProcess, spawn } from "child_process";
-import { existsSync, readFileSync, appendFileSync } from "fs";
+import { existsSync, readFileSync, appendFileSync, unlinkSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
 import http from "http";
@@ -717,6 +717,17 @@ export function stopGateway(force = false): void {
       process.kill(pid, "SIGTERM");
     } catch {
       // already dead
+    }
+  }
+  // Always clear the PID file once we've signalled it. Leaving a stale PID
+  // around means the next isGatewayRunning() / stopGateway() call can hit
+  // an unrelated process that the OS has since assigned the same PID.
+  const pidFile = join(HERMES_HOME, "gateway.pid");
+  if (existsSync(pidFile)) {
+    try {
+      unlinkSync(pidFile);
+    } catch {
+      // best-effort; will be overwritten on next gateway start
     }
   }
   gatewayStartedByApp = false;
