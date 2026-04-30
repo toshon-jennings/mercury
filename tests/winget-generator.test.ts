@@ -22,7 +22,7 @@ afterEach(() => {
   rmSync(TEST_DIR, { recursive: true, force: true });
 });
 
-function setupTemplates(rootDir: string) {
+function setupTemplates(rootDir: string): void {
   const buildDir = join(rootDir, "build", "winget");
   mkdirSync(buildDir, { recursive: true });
   writeFileSync(
@@ -33,7 +33,10 @@ function setupTemplates(rootDir: string) {
     join(buildDir, "Locale.en-US.template.yaml"),
     "Version: {{VERSION}}\nNotes: {{RELEASE_NOTES_URL}}\n",
   );
-  writeFileSync(join(buildDir, "Version.template.yaml"), "Version: {{VERSION}}\n");
+  writeFileSync(
+    join(buildDir, "Version.template.yaml"),
+    "Version: {{VERSION}}\n",
+  );
 }
 
 describe("generateWingetManifests", () => {
@@ -62,9 +65,15 @@ describe("generateWingetManifests", () => {
       "HermesDesktop",
       "9.9.9",
     );
-    expect(existsSync(join(outDir, "NousResearch.HermesDesktop.installer.yaml"))).toBe(true);
-    expect(existsSync(join(outDir, "NousResearch.HermesDesktop.locale.en-US.yaml"))).toBe(true);
-    expect(existsSync(join(outDir, "NousResearch.HermesDesktop.yaml"))).toBe(true);
+    expect(
+      existsSync(join(outDir, "NousResearch.HermesDesktop.installer.yaml")),
+    ).toBe(true);
+    expect(
+      existsSync(join(outDir, "NousResearch.HermesDesktop.locale.en-US.yaml")),
+    ).toBe(true);
+    expect(existsSync(join(outDir, "NousResearch.HermesDesktop.yaml"))).toBe(
+      true,
+    );
   });
 
   it("replaces all placeholders in the installer manifest", () => {

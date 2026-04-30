@@ -12,7 +12,13 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export function generateWingetManifests({ rootDir, version, name, publishOwner }) {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function generateWingetManifests({
+  rootDir,
+  version,
+  name,
+  publishOwner,
+}) {
   const exePath = join(rootDir, "dist", `${name}-${version}-setup.exe`);
   if (!existsSync(exePath)) {
     throw new Error(
@@ -26,10 +32,8 @@ export function generateWingetManifests({ rootDir, version, name, publishOwner }
     .digest("hex")
     .toUpperCase();
   const releaseDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  const installerUrl =
-    `https://github.com/${publishOwner}/hermes-desktop/releases/download/v${version}/${name}-${version}-setup.exe`;
-  const releaseNotesUrl =
-    `https://github.com/${publishOwner}/hermes-desktop/releases/tag/v${version}`;
+  const installerUrl = `https://github.com/${publishOwner}/hermes-desktop/releases/download/v${version}/${name}-${version}-setup.exe`;
+  const releaseNotesUrl = `https://github.com/${publishOwner}/hermes-desktop/releases/tag/v${version}`;
 
   const replacements = {
     VERSION: version,
@@ -39,6 +43,7 @@ export function generateWingetManifests({ rootDir, version, name, publishOwner }
     RELEASE_NOTES_URL: releaseNotesUrl,
   };
 
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   const fillTemplate = (str) =>
     Object.entries(replacements).reduce(
       (acc, [key, value]) => acc.replaceAll(`{{${key}}}`, value),
@@ -66,7 +71,10 @@ export function generateWingetManifests({ rootDir, version, name, publishOwner }
 
   const files = [
     ["Installer.template.yaml", "NousResearch.HermesDesktop.installer.yaml"],
-    ["Locale.en-US.template.yaml", "NousResearch.HermesDesktop.locale.en-US.yaml"],
+    [
+      "Locale.en-US.template.yaml",
+      "NousResearch.HermesDesktop.locale.en-US.yaml",
+    ],
     ["Version.template.yaml", "NousResearch.HermesDesktop.yaml"],
   ];
 
