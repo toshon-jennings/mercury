@@ -12,6 +12,7 @@ import type { AppUpdater } from "electron-updater";
 import icon from "../../resources/icon.png?asset";
 import {
   checkInstallStatus,
+  verifyInstall,
   runInstall,
   getHermesVersion,
   clearVersionCache,
@@ -184,6 +185,8 @@ function setupIPC(): void {
     return checkInstallStatus();
   });
 
+  ipcMain.handle("verify-install", () => verifyInstall());
+
   ipcMain.handle("start-install", async (event) => {
     try {
       await runInstall((progress: InstallProgress) => {
@@ -302,12 +305,7 @@ function setupIPC(): void {
 
   ipcMain.handle(
     "set-connection-config",
-    (
-      _event,
-      mode: "local" | "remote",
-      remoteUrl: string,
-      apiKey?: string,
-    ) => {
+    (_event, mode: "local" | "remote", remoteUrl: string, apiKey?: string) => {
       setConnectionConfig({ mode, remoteUrl, apiKey: apiKey || "" });
       return true;
     },
@@ -315,8 +313,7 @@ function setupIPC(): void {
 
   ipcMain.handle(
     "test-remote-connection",
-    (_event, url: string, apiKey?: string) =>
-      testRemoteConnection(url, apiKey),
+    (_event, url: string, apiKey?: string) => testRemoteConnection(url, apiKey),
   );
 
   // Chat — lazy-start gateway on first message

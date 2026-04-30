@@ -81,32 +81,22 @@ export function checkInstallStatus(): InstallStatus {
   // Remote mode: skip local checks entirely
   const conn = getConnectionConfig();
   if (conn.mode === "remote" && conn.remoteUrl) {
-    return { installed: true, configured: true, hasApiKey: true, verified: true };
+    return {
+      installed: true,
+      configured: true,
+      hasApiKey: true,
+      verified: true,
+    };
   }
 
+  // Fast path: file existence is enough to gate the UI. The deep
+  // `python --version` check used to run here adds 1–10s of cold-start
+  // latency, so it now lives in `verifyInstall()` and is invoked lazily
+  // by the renderer after the main UI is mounted.
   const installed = existsSync(HERMES_PYTHON) && existsSync(HERMES_SCRIPT);
   const configured = existsSync(HERMES_ENV_FILE);
   let hasApiKey = false;
-  let verified = false;
-
-  if (installed) {
-    try {
-      execSync(`"${HERMES_PYTHON}" "${HERMES_SCRIPT}" --version`, {
-        cwd: HERMES_REPO,
-        env: {
-          ...process.env,
-          PATH: getEnhancedPath(),
-          HOME: homedir(),
-          HERMES_HOME,
-        },
-        stdio: "ignore",
-        timeout: 15000,
-      });
-      verified = true;
-    } catch {
-      verified = false;
-    }
-  }
+  const verified = installed;
 
   // Local/custom providers don't need an API key
   try {
@@ -143,6 +133,39 @@ export function checkInstallStatus(): InstallStatus {
   }
 
   return { installed, configured, hasApiKey, verified };
+}
+
+// Lazy background verification: actually invoke Python to confirm the
+// install runs. Called from the renderer after the UI is already up.
+let _verifyCache: { ok: boolean; ts: number } | null = null;
+const VERIFY_TTL_MS = 5 * 60 * 1000;
+
+export async function verifyInstall(): Promise<boolean> {
+  if (!existsSync(HERMES_PYTHON) || !existsSync(HERMES_SCRIPT)) return false;
+  if (_verifyCache && Date.now() - _verifyCache.ts < VERIFY_TTL_MS) {
+    return _verifyCache.ok;
+  }
+  return new Promise((resolve) => {
+    execFile(
+      HERMES_PYTHON,
+      [HERMES_SCRIPT, "--version"],
+      {
+        cwd: HERMES_REPO,
+        env: {
+          ...process.env,
+          PATH: getEnhancedPath(),
+          HOME: homedir(),
+          HERMES_HOME,
+        },
+        timeout: 15000,
+      },
+      (error) => {
+        const ok = !error;
+        _verifyCache = { ok, ts: Date.now() };
+        resolve(ok);
+      },
+    );
+  });
 }
 
 // Cached version to avoid re-running the Python process
@@ -648,20 +671,17 @@ export function discoverMemoryProviders(
     { description: string; envVars: string[]; pip?: string }
   > = {
     honcho: {
-      description:
-        "memory.providers.honcho",
+      description: "memory.providers.honcho",
       envVars: ["HONCHO_API_KEY"],
       pip: "honcho-ai",
     },
     hindsight: {
-      description:
-        "memory.providers.hindsight",
+      description: "memory.providers.hindsight",
       envVars: ["HINDSIGHT_API_KEY", "HINDSIGHT_API_URL", "HINDSIGHT_BANK_ID"],
       pip: "hindsight-client",
     },
     mem0: {
-      description:
-        "memory.providers.mem0",
+      description: "memory.providers.mem0",
       envVars: ["MEM0_API_KEY"],
       pip: "mem0ai",
     },
@@ -670,24 +690,20 @@ export function discoverMemoryProviders(
       envVars: ["RETAINDB_API_KEY"],
     },
     supermemory: {
-      description:
-        "memory.providers.supermemory",
+      description: "memory.providers.supermemory",
       envVars: ["SUPERMEMORY_API_KEY"],
       pip: "supermemory",
     },
     holographic: {
-      description:
-        "memory.providers.holographic",
+      description: "memory.providers.holographic",
       envVars: [],
     },
     openviking: {
-      description:
-        "memory.providers.openviking",
+      description: "memory.providers.openviking",
       envVars: ["OPENVIKING_ENDPOINT", "OPENVIKING_API_KEY"],
     },
     byterover: {
-      description:
-        "memory.providers.byterover",
+      description: "memory.providers.byterover",
       envVars: ["BRV_API_KEY"],
     },
   };
