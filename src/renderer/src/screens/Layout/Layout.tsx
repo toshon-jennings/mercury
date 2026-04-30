@@ -11,6 +11,7 @@ import Gateway from "../Gateway/Gateway";
 import Office from "../Office/Office";
 import Models from "../Models/Models";
 import Schedules from "../Schedules/Schedules";
+import RemoteNotice from "../../components/RemoteNotice";
 import hermeslogo from "../../assets/hermes.png";
 import {
   ChatBubble,
@@ -28,6 +29,7 @@ import {
   Download,
 } from "../../assets/icons";
 import type { LucideIcon } from "lucide-react";
+import { useI18n } from "../../components/useI18n";
 
 type View =
   | "chat"
@@ -43,28 +45,36 @@ type View =
   | "gateway"
   | "settings";
 
-const NAV_ITEMS: { view: View; icon: LucideIcon; label: string }[] = [
-  { view: "chat", icon: ChatBubble, label: "Chat" },
-  { view: "sessions", icon: Clock, label: "Sessions" },
-  { view: "agents", icon: Users, label: "Profiles" },
-  { view: "office", icon: Building, label: "Office" },
-  { view: "models", icon: Layers, label: "Models" },
-  { view: "skills", icon: Puzzle, label: "Skills" },
-  { view: "soul", icon: Sparkles, label: "Persona" },
-  { view: "memory", icon: Brain, label: "Memory" },
-  { view: "tools", icon: Wrench, label: "Tools" },
-  { view: "schedules", icon: Timer, label: "Schedules" },
-  { view: "gateway", icon: Signal, label: "Gateway" },
-  { view: "settings", icon: SettingsIcon, label: "Settings" },
+const NAV_ITEMS: { view: View; icon: LucideIcon; labelKey: string }[] = [
+  { view: "chat", icon: ChatBubble, labelKey: "navigation.chat" },
+  { view: "sessions", icon: Clock, labelKey: "navigation.sessions" },
+  { view: "agents", icon: Users, labelKey: "navigation.agents" },
+  { view: "office", icon: Building, labelKey: "navigation.office" },
+  { view: "models", icon: Layers, labelKey: "navigation.models" },
+  { view: "skills", icon: Puzzle, labelKey: "navigation.skills" },
+  { view: "soul", icon: Sparkles, labelKey: "navigation.soul" },
+  { view: "memory", icon: Brain, labelKey: "navigation.memory" },
+  { view: "tools", icon: Wrench, labelKey: "navigation.tools" },
+  { view: "schedules", icon: Timer, labelKey: "navigation.schedules" },
+  { view: "gateway", icon: Signal, labelKey: "navigation.gateway" },
+  { view: "settings", icon: SettingsIcon, labelKey: "navigation.settings" },
 ];
 
 function Layout(): React.JSX.Element {
+  const { t } = useI18n();
   const [view, setView] = useState<View>("chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [activeProfile, setActiveProfile] = useState("default");
   // Lazy mount: only render Office after first visit, then keep mounted
   const [officeVisited, setOfficeVisited] = useState(false);
+  // Remote mode — many screens show "not available" instead of empty data
+  const [remoteMode, setRemoteMode] = useState(false);
+
+  // Re-check remote mode on tab switch (picks up Settings changes)
+  useEffect(() => {
+    window.hermesAPI.isRemoteMode().then(setRemoteMode);
+  }, [view]);
 
   // Auto-update state
   const [updateVersion, setUpdateVersion] = useState<string | null>(null);
@@ -150,7 +160,7 @@ function Layout(): React.JSX.Element {
         </div>
 
         <nav className="sidebar-nav">
-          {NAV_ITEMS.map(({ view: v, icon: Icon, label }) => (
+          {NAV_ITEMS.map(({ view: v, icon: Icon, labelKey }) => (
             <button
               key={v}
               className={`sidebar-nav-item ${view === v ? "active" : ""}`}
@@ -160,7 +170,7 @@ function Layout(): React.JSX.Element {
               }}
             >
               <Icon size={16} />
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </nav>
@@ -170,16 +180,22 @@ function Layout(): React.JSX.Element {
             <button className="sidebar-update-btn" onClick={handleUpdate}>
               <Download size={13} />
               {updateState === "available" && (
-                <span>Update v{updateVersion}</span>
+                <span>
+                  {t("common.updateAvailable", { version: updateVersion })}
+                </span>
               )}
               {updateState === "downloading" && (
-                <span>Downloading {downloadPercent}%</span>
+                <span>
+                  {t("common.downloading", { percent: downloadPercent })}
+                </span>
               )}
-              {updateState === "ready" && <span>Restart to update</span>}
+              {updateState === "ready" && (
+                <span>{t("common.restartToUpdate")}</span>
+              )}
             </button>
           )}
           <div className="sidebar-footer-text">
-            {activeProfile === "default" ? "Hermes Agent" : activeProfile}
+            {activeProfile === "default" ? t("common.appName") : activeProfile}
           </div>
         </div>
       </aside>
@@ -201,23 +217,29 @@ function Layout(): React.JSX.Element {
             onNewChat={handleNewChat}
           />
         </div>
-        {view === "sessions" && (
-          <Sessions
-            onResumeSession={handleResumeSession}
-            onNewChat={handleNewChat}
-            currentSessionId={currentSessionId}
-          />
-        )}
-        {view === "agents" && (
-          <Agents
-            activeProfile={activeProfile}
-            onSelectProfile={handleSelectProfile}
-            onChatWith={(name: string) => {
-              handleSelectProfile(name);
-              setView("chat");
-            }}
-          />
-        )}
+        {view === "sessions" &&
+          (remoteMode ? (
+            <RemoteNotice feature="Sessions" />
+          ) : (
+            <Sessions
+              onResumeSession={handleResumeSession}
+              onNewChat={handleNewChat}
+              currentSessionId={currentSessionId}
+            />
+          ))}
+        {view === "agents" &&
+          (remoteMode ? (
+            <RemoteNotice feature="Profiles" />
+          ) : (
+            <Agents
+              activeProfile={activeProfile}
+              onSelectProfile={handleSelectProfile}
+              onChatWith={(name: string) => {
+                handleSelectProfile(name);
+                setView("chat");
+              }}
+            />
+          ))}
         {officeVisited && (
           <div
             style={{
@@ -231,12 +253,42 @@ function Layout(): React.JSX.Element {
           </div>
         )}
         {view === "models" && <Models />}
-        {view === "skills" && <Skills profile={activeProfile} />}
-        {view === "soul" && <Soul profile={activeProfile} />}
-        {view === "memory" && <Memory profile={activeProfile} />}
-        {view === "tools" && <Tools profile={activeProfile} />}
-        {view === "schedules" && <Schedules profile={activeProfile} />}
-        {view === "gateway" && <Gateway profile={activeProfile} />}
+        {view === "skills" &&
+          (remoteMode ? (
+            <RemoteNotice feature="Skills" />
+          ) : (
+            <Skills profile={activeProfile} />
+          ))}
+        {view === "soul" &&
+          (remoteMode ? (
+            <RemoteNotice feature="Persona" />
+          ) : (
+            <Soul profile={activeProfile} />
+          ))}
+        {view === "memory" &&
+          (remoteMode ? (
+            <RemoteNotice feature="Memory" />
+          ) : (
+            <Memory profile={activeProfile} />
+          ))}
+        {view === "tools" &&
+          (remoteMode ? (
+            <RemoteNotice feature="Tools" />
+          ) : (
+            <Tools profile={activeProfile} />
+          ))}
+        {view === "schedules" &&
+          (remoteMode ? (
+            <RemoteNotice feature="Schedules" />
+          ) : (
+            <Schedules profile={activeProfile} />
+          ))}
+        {view === "gateway" &&
+          (remoteMode ? (
+            <RemoteNotice feature="Gateway" />
+          ) : (
+            <Gateway profile={activeProfile} />
+          ))}
         <div
           style={{
             display: view === "settings" ? "flex" : "none",

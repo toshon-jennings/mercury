@@ -6,37 +6,55 @@ import Install from "./screens/Install/Install";
 import Setup from "./screens/Setup/Setup";
 import Layout from "./screens/Layout/Layout";
 import SplashScreen from "./screens/SplashScreen/SplashScreen";
+import { useI18n } from "./components/useI18n";
 
 type Screen = "splash" | "welcome" | "installing" | "setup" | "main";
 
 function App(): React.JSX.Element {
+  const { t } = useI18n();
   const [screen, setScreen] = useState<Screen>("splash");
   const [installError, setInstallError] = useState<string | null>(null);
   const [nextScreen, setNextScreen] = useState<Screen | null>(null);
   const [splashDone, setSplashDone] = useState(false);
   const isMac = window.electron?.process?.platform === "darwin";
 
-  const runInstallCheck = useCallback(() => {
-    window.hermesAPI
-      .checkInstall()
-      .then((status) => {
-        if (!status.installed) {
-          setNextScreen("welcome");
-        } else if (!status.verified) {
+  const runInstallCheck = useCallback(async () => {
+    try {
+      const conn = await window.hermesAPI.getConnectionConfig();
+
+      // Remote mode: verify the remote server is reachable
+      if (conn.mode === "remote" && conn.remoteUrl) {
+        const ok = await window.hermesAPI.testRemoteConnection(
+          conn.remoteUrl,
+          conn.apiKey,
+        );
+        if (ok) {
+          setNextScreen("main");
+        } else {
           setInstallError(
-            "Hermes is installed but appears to be broken. Try reinstalling to fix it.",
+            `Cannot reach remote Hermes at ${conn.remoteUrl}. Check the URL or switch to local mode.`,
           );
           setNextScreen("welcome");
-        } else if (!status.hasApiKey) {
-          setNextScreen("setup");
-        } else {
-          setNextScreen("main");
         }
-      })
-      .catch(() => {
+        return;
+      }
+
+      // Local mode: normal install check
+      const status = await window.hermesAPI.checkInstall();
+      if (!status.installed) {
         setNextScreen("welcome");
-      });
-  }, []);
+      } else if (!status.verified) {
+        setInstallError(t("errors.installBroken"));
+        setNextScreen("welcome");
+      } else if (!status.hasApiKey) {
+        setNextScreen("setup");
+      } else {
+        setNextScreen("main");
+      }
+    } catch {
+      setNextScreen("welcome");
+    }
+  }, [t]);
 
   // Run install check during splash
   useEffect(() => {

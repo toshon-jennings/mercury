@@ -32,6 +32,8 @@ import {
   startGateway,
   stopGateway,
   isGatewayRunning,
+  isRemoteMode,
+  testRemoteConnection,
   stopHealthPolling,
   restartGateway,
 } from "./hermes";
@@ -61,6 +63,8 @@ import {
   setModelConfig,
   getCredentialPool,
   setCredentialPool,
+  getConnectionConfig,
+  setConnectionConfig,
   getPlatformEnabled,
   setPlatformEnabled,
 } from "./config";
@@ -224,7 +228,9 @@ function setupIPC(): void {
 
   // Configuration (profile-aware)
   ipcMain.handle("get-locale", () => getAppLocale());
-  ipcMain.handle("set-locale", (_event, locale: "en") => setAppLocale(locale));
+  ipcMain.handle("set-locale", (_event, locale: "en" | "zh-CN") =>
+    setAppLocale(locale),
+  );
 
   ipcMain.handle("get-env", (_event, profile?: string) => readEnv(profile));
 
@@ -290,6 +296,29 @@ function setupIPC(): void {
     },
   );
 
+  // Connection mode (local vs remote)
+  ipcMain.handle("is-remote-mode", () => isRemoteMode());
+  ipcMain.handle("get-connection-config", () => getConnectionConfig());
+
+  ipcMain.handle(
+    "set-connection-config",
+    (
+      _event,
+      mode: "local" | "remote",
+      remoteUrl: string,
+      apiKey?: string,
+    ) => {
+      setConnectionConfig({ mode, remoteUrl, apiKey: apiKey || "" });
+      return true;
+    },
+  );
+
+  ipcMain.handle(
+    "test-remote-connection",
+    (_event, url: string, apiKey?: string) =>
+      testRemoteConnection(url, apiKey),
+  );
+
   // Chat — lazy-start gateway on first message
   ipcMain.handle(
     "send-message",
@@ -300,8 +329,7 @@ function setupIPC(): void {
       resumeSessionId?: string,
       history?: Array<{ role: string; content: string }>,
     ) => {
-      // Lazy start: ensure gateway is running on first chat
-      if (!isGatewayRunning()) {
+      if (!isRemoteMode() && !isGatewayRunning()) {
         startGateway(profile);
       }
 
@@ -842,6 +870,10 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   stopHealthPolling();
+  if (currentChatAbort) {
+    currentChatAbort();
+    currentChatAbort = null;
+  }
   stopGateway();
   stopClaw3d();
 });

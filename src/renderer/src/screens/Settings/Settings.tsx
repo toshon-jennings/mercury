@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "../../components/ThemeProvider";
 import { SETTINGS_SECTIONS, PROVIDERS, THEME_OPTIONS } from "../../constants";
+import { useI18n } from "../../components/useI18n";
 import { Download, Upload, FileText } from "lucide-react";
 
 // Read cached values from localStorage for instant display
@@ -28,6 +29,7 @@ function Settings({
   profile?: string;
   visible?: boolean;
 }): React.JSX.Element {
+  const { t } = useI18n();
   const [env, setEnv] = useState<Record<string, string>>({});
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [hermesHome, setHermesHome] = useState("");
@@ -43,6 +45,9 @@ function Settings({
   const [doctorRunning, setDoctorRunning] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [updateResult, setUpdateResult] = useState<string | null>(null);
+  const [updateResultType, setUpdateResultType] = useState<
+    "success" | "error" | null
+  >(null);
 
   // OpenClaw migration — initialize from localStorage cache
   const cachedClaw = getCachedOpenClaw();
@@ -58,6 +63,9 @@ function Settings({
   const [migrating, setMigrating] = useState(false);
   const [migrationLog, setMigrationLog] = useState("");
   const [migrationResult, setMigrationResult] = useState<string | null>(null);
+  const [migrationResultType, setMigrationResultType] = useState<
+    "success" | "error" | null
+  >(null);
   const migrationLogRef = useRef<HTMLPreElement>(null);
 
   // Model config
@@ -67,6 +75,14 @@ function Settings({
   const [modelSaved, setModelSaved] = useState(false);
   const modelLoaded = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Connection mode
+  const [connMode, setConnMode] = useState<"local" | "remote">("local");
+  const [connRemoteUrl, setConnRemoteUrl] = useState("");
+  const [connApiKey, setConnApiKey] = useState("");
+  const [connTesting, setConnTesting] = useState(false);
+  const [connStatus, setConnStatus] = useState<string | null>(null);
+  const connLoaded = useRef(false);
 
   // Credential pool state
   const [credPool, setCredPool] = useState<
@@ -99,12 +115,13 @@ function Settings({
 
   const loadConfig = useCallback(async (): Promise<void> => {
     // Load fast config first (cached in main process)
-    const [envData, home, mc, pool, aVersion] = await Promise.all([
+    const [envData, home, mc, pool, aVersion, conn] = await Promise.all([
       window.hermesAPI.getEnv(profile),
       window.hermesAPI.getHermesHome(profile),
       window.hermesAPI.getModelConfig(profile),
       window.hermesAPI.getCredentialPool(),
       window.hermesAPI.getAppVersion(),
+      window.hermesAPI.getConnectionConfig(),
     ]);
     setEnv(envData);
     setHermesHome(home);
@@ -113,6 +130,10 @@ function Settings({
     setModelBaseUrl(mc.baseUrl);
     setCredPool(pool);
     setAppVersion(aVersion);
+    setConnMode(conn.mode);
+    setConnRemoteUrl(conn.remoteUrl);
+    setConnApiKey(conn.apiKey);
+    connLoaded.current = true;
 
     // Allow model auto-save after initial values are set
     requestAnimationFrame(() => {
@@ -265,16 +286,17 @@ function Settings({
       const result = await window.hermesAPI.runClawMigrate();
       cleanup();
       if (result.success) {
-        setMigrationResult(
-          "Migration complete! Your config, keys, and data have been imported.",
-        );
+        setMigrationResult(t("settings.migrationComplete"));
+        setMigrationResultType("success");
         setOpenclawFound(false);
       } else {
-        setMigrationResult(result.error || "Migration failed.");
+        setMigrationResult(result.error || t("settings.migrationFailed"));
+        setMigrationResultType("error");
       }
     } catch (err) {
       cleanup();
-      setMigrationResult((err as Error).message || "Migration failed.");
+      setMigrationResult((err as Error).message || t("settings.migrationFailed"));
+      setMigrationResultType("error");
     }
     setMigrating(false);
   }
@@ -282,6 +304,41 @@ function Settings({
   function handleDismissMigration(): void {
     localStorage.setItem("hermes-openclaw-dismissed", "true");
     setMigrationDismissed(true);
+  }
+
+  async function handleSaveConnection(): Promise<void> {
+    await window.hermesAPI.setConnectionConfig(
+      connMode,
+      connRemoteUrl,
+      connApiKey,
+    );
+    setConnStatus("Saved");
+    setTimeout(() => setConnStatus(null), 2000);
+  }
+
+  async function handleTestConnection(): Promise<void> {
+    const url = connRemoteUrl.trim();
+    if (!url) {
+      setConnStatus("Please enter a URL");
+      return;
+    }
+    setConnTesting(true);
+    setConnStatus(null);
+    const ok = await window.hermesAPI.testRemoteConnection(
+      url,
+      connApiKey.trim(),
+    );
+    setConnTesting(false);
+    setConnStatus(ok ? "Connected successfully!" : "Could not reach server");
+  }
+
+  async function handleSwitchToLocal(): Promise<void> {
+    setConnMode("local");
+    setConnRemoteUrl("");
+    setConnApiKey("");
+    await window.hermesAPI.setConnectionConfig("local", "", "");
+    setConnStatus(t("settings.switchedToLocal"));
+    setTimeout(() => setConnStatus(null), 2000);
   }
 
   async function handleBackup(): Promise<void> {
@@ -297,7 +354,6 @@ function Settings({
   }
 
   async function handleImport(): Promise<void> {
-    // Use a file input to select the archive
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".tar.gz,.tgz,.zip";
@@ -306,14 +362,13 @@ function Settings({
       if (!file) return;
       setImporting(true);
       setImportResult(null);
-      // Electron extends File with a `path` property (full filesystem path)
       const filePath = (file as File & { path: string }).path;
       const result = await window.hermesAPI.runHermesImport(filePath, profile);
       setImporting(false);
       if (result.success) {
-        setImportResult("Import complete! Restart the app to apply changes.");
+        setImportResult(t("settings.migrationComplete"));
       } else {
-        setImportResult(result.error || "Import failed.");
+        setImportResult(result.error || t("settings.migrationFailed"));
       }
     };
     input.click();
@@ -353,10 +408,12 @@ function Settings({
     const result = await window.hermesAPI.runHermesUpdate();
     setUpdating(false);
     if (result.success) {
-      setUpdateResult("Updated successfully!");
+      setUpdateResult(t("settings.updateSuccess"));
+      setUpdateResultType("success");
       refreshVersion();
     } else {
-      setUpdateResult(result.error || "Update failed.");
+      setUpdateResult(result.error || t("settings.updateFailed"));
+      setUpdateResultType("error");
     }
   }
 
@@ -377,24 +434,32 @@ function Settings({
 
   return (
     <div className="settings-container">
-      <h1 className="settings-header">Settings</h1>
+      <h1 className="settings-header">{t("settings.title")}</h1>
 
       <div className="settings-section">
-        <div className="settings-section-title">Hermes Agent</div>
+        <div className="settings-section-title">
+          {t("settings.sections.hermesAgent")}
+        </div>
         <div className="settings-hermes-info">
           <div className="settings-hermes-row">
             <div className="settings-hermes-detail">
-              <span className="settings-hermes-label">Engine</span>
+              <span className="settings-hermes-label">
+                {t("common.engine")}
+              </span>
               {hermesVersion === null ? (
                 <span className="skeleton skeleton-sm" />
               ) : (
                 <span className="settings-hermes-value">
-                  {parsedVersion ? `v${parsedVersion.version}` : "Not detected"}
+                  {parsedVersion
+                    ? `v${parsedVersion.version}`
+                    : t("settings.notDetected")}
                 </span>
               )}
             </div>
             <div className="settings-hermes-detail">
-              <span className="settings-hermes-label">Released</span>
+              <span className="settings-hermes-label">
+                {t("common.released")}
+              </span>
               {hermesVersion === null ? (
                 <span className="skeleton skeleton-sm" />
               ) : (
@@ -404,11 +469,15 @@ function Settings({
               )}
             </div>
             <div className="settings-hermes-detail">
-              <span className="settings-hermes-label">Desktop</span>
+              <span className="settings-hermes-label">
+                {t("common.desktop")}
+              </span>
               {!appVersion ? (
                 <span className="skeleton skeleton-sm" />
               ) : (
-                <span className="settings-hermes-value">v{appVersion}</span>
+                <span className="settings-hermes-value">
+                  {t("settings.version", { version: appVersion })}
+                </span>
               )}
             </div>
             <div className="settings-hermes-detail">
@@ -432,7 +501,7 @@ function Settings({
               )}
             </div>
             <div className="settings-hermes-detail">
-              <span className="settings-hermes-label">Home</span>
+              <span className="settings-hermes-label">{t("common.home")}</span>
               {!hermesHome ? (
                 <span className="skeleton skeleton-md" />
               ) : (
@@ -454,11 +523,11 @@ function Settings({
                 onClick={handleUpdateHermes}
                 disabled={updating}
               >
-                {updating ? "Updating..." : "Update Engine"}
+                {updating ? t("settings.updating") : t("settings.updateEngine")}
               </button>
             ) : (
               <button className="btn btn-secondary" disabled>
-                Up to date
+                {t("settings.latestVersion")}
               </button>
             )}
             <button
@@ -466,7 +535,7 @@ function Settings({
               onClick={handleDoctor}
               disabled={doctorRunning}
             >
-              {doctorRunning ? "Running..." : "Run Doctor"}
+              {doctorRunning ? t("settings.runningDiagnosis") : t("settings.runDiagnosis")}
             </button>
             <button
               className="btn btn-secondary"
@@ -479,12 +548,12 @@ function Settings({
               }}
               disabled={dumpRunning}
             >
-              {dumpRunning ? "Running..." : "Debug Dump"}
+              {dumpRunning ? t("settings.running") : t("settings.debugDump")}
             </button>
           </div>
           {updateResult && (
             <div
-              className={`settings-hermes-result ${updateResult.includes("success") ? "success" : "error"}`}
+              className={`settings-hermes-result ${updateResultType || "error"}`}
             >
               {updateResult}
             </div>
@@ -498,22 +567,104 @@ function Settings({
         </div>
       </div>
 
+      <div className="settings-section">
+        <div className="settings-section-title">
+          {t("settings.connectionSection")}
+          {connStatus && (
+            <span className="settings-saved" style={{ marginLeft: 8 }}>
+              {connStatus}
+            </span>
+          )}
+        </div>
+
+        <div className="settings-field">
+          <label className="settings-field-label">{t("settings.connectionMode")}</label>
+          <div className="settings-theme-options">
+            <button
+              className={`settings-theme-option ${connMode === "local" ? "active" : ""}`}
+              onClick={() => {
+                setConnMode("local");
+                if (connLoaded.current) handleSwitchToLocal();
+              }}
+            >
+              {t("settings.modeLocal")}
+            </button>
+            <button
+              className={`settings-theme-option ${connMode === "remote" ? "active" : ""}`}
+              onClick={() => setConnMode("remote")}
+            >
+              {t("settings.modeRemote")}
+            </button>
+          </div>
+          <div className="settings-field-hint">
+            {connMode === "local"
+              ? t("settings.modeLocalHint")
+              : t("settings.modeRemoteHint")}
+          </div>
+        </div>
+
+        {connMode === "remote" && (
+          <>
+            <div className="settings-field">
+              <label className="settings-field-label">{t("settings.remoteUrl")}</label>
+              <input
+                className="input"
+                type="url"
+                value={connRemoteUrl}
+                onChange={(e) => setConnRemoteUrl(e.target.value)}
+                placeholder="http://192.168.1.100:8642"
+                onBlur={handleSaveConnection}
+              />
+              <div className="settings-field-hint">
+                {t("settings.remoteUrlHint")}
+              </div>
+            </div>
+            <div className="settings-field">
+              <label className="settings-field-label">{t("settings.remoteApiKey")}</label>
+              <input
+                className="input"
+                type="password"
+                value={connApiKey}
+                onChange={(e) => setConnApiKey(e.target.value)}
+                placeholder={t("settings.remoteApiKey")}
+                onBlur={handleSaveConnection}
+              />
+              <div className="settings-field-hint">
+                {t("settings.remoteApiKeyHint")}
+              </div>
+            </div>
+            <div className="settings-hermes-actions">
+              <button
+                className="btn btn-secondary"
+                onClick={handleTestConnection}
+                disabled={connTesting}
+              >
+                {connTesting ? t("settings.testingConnection") : t("settings.testConnection")}
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveConnection}
+              >
+                {t("settings.save")}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
       {openclawFound && !migrationDismissed && (
         <div className="settings-migration-banner">
           <div className="settings-migration-header">
             <div>
               <div className="settings-migration-title">
-                OpenClaw Installation Detected
+                {t("settings.migrationDetected")}
               </div>
-              <div className="settings-migration-desc">
-                Found at <code>{openclawPath}</code>. You can migrate your
-                config, API keys, sessions, and skills to Hermes.
-              </div>
+              <div className="settings-migration-desc" dangerouslySetInnerHTML={{ __html: t("settings.migrationDesc", { path: openclawPath || "" }) }} />
             </div>
             <button
               className="btn-ghost settings-migration-dismiss"
               onClick={handleDismissMigration}
-              title="Don't show again"
+              title={t("settings.migrationDismiss")}
             >
               &times;
             </button>
@@ -525,7 +676,7 @@ function Settings({
           )}
           {migrationResult && (
             <div
-              className={`settings-hermes-result ${migrationResult.includes("complete") ? "success" : "error"}`}
+              className={`settings-hermes-result ${migrationResultType || "error"}`}
             >
               {migrationResult}
             </div>
@@ -536,22 +687,26 @@ function Settings({
               onClick={handleMigrate}
               disabled={migrating}
             >
-              {migrating ? "Migrating..." : "Migrate to Hermes"}
+              {migrating ? t("settings.migrating") : t("settings.migrateToHermes")}
             </button>
             <button
               className="btn btn-secondary "
               onClick={handleDismissMigration}
             >
-              Skip
+              {t("settings.skip")}
             </button>
           </div>
         </div>
       )}
 
       <div className="settings-section">
-        <div className="settings-section-title">Appearance</div>
+        <div className="settings-section-title">
+          {t("settings.sections.appearance")}
+        </div>
         <div className="settings-field">
-          <label className="settings-field-label">Theme</label>
+          <label className="settings-field-label">
+            {t("settings.theme.label")}
+          </label>
           <div className="settings-theme-options">
             {THEME_OPTIONS.map((opt) => (
               <button
@@ -559,28 +714,30 @@ function Settings({
                 className={`settings-theme-option ${theme === opt.value ? "active" : ""}`}
                 onClick={() => setTheme(opt.value)}
               >
-                {opt.label}
+                {opt.value === "system"
+                  ? t("settings.theme.system")
+                  : opt.value === "light"
+                    ? t("settings.theme.light")
+                    : t("settings.theme.dark")}
               </button>
             ))}
           </div>
-          <div className="settings-field-hint">
-            Choose your preferred appearance
-          </div>
+          <div className="settings-field-hint">{t("settings.appearanceHint")}</div>
         </div>
       </div>
 
       <div className="settings-section">
         <div className="settings-section-title">
-          Network
+          {t("settings.networkSection")}
           {networkSaved && (
             <span className="settings-saved" style={{ marginLeft: 8 }}>
-              Saved
+              {t("settings.saved")}
             </span>
           )}
         </div>
         <div className="settings-field">
           <label className="settings-field-label">
-            Force IPv4
+            {t("settings.forceIpv4")}
             <label
               className="tools-toggle"
               style={{ marginLeft: 12, verticalAlign: "middle" }}
@@ -604,11 +761,11 @@ function Settings({
             </label>
           </label>
           <div className="settings-field-hint">
-            Disable IPv6 to fix connection timeout issues on some networks
+            {t("settings.forceIpv4Hint")}
           </div>
         </div>
         <div className="settings-field">
-          <label className="settings-field-label">HTTP Proxy</label>
+          <label className="settings-field-label">{t("settings.httpProxy")}</label>
           <input
             className="input"
             type="text"
@@ -623,27 +780,34 @@ function Settings({
               setNetworkSaved(true);
               setTimeout(() => setNetworkSaved(false), 2000);
             }}
-            placeholder="e.g. socks5://127.0.0.1:1080 or http://proxy:8080"
+            placeholder={t("settings.proxyPlaceholder")}
           />
           <div className="settings-field-hint">
-            SOCKS or HTTP proxy for all outgoing connections (leave blank for
-            auto-detect)
+            {t("settings.httpProxyHint")}
           </div>
         </div>
       </div>
 
+      {connMode === "remote" && (
+        <div className="settings-section">
+          <div className="settings-section-title">{t("settings.serverConfigTitle")}</div>
+          <div className="settings-field-hint" dangerouslySetInnerHTML={{ __html: t("settings.serverConfigHint") }} />
+        </div>
+      )}
+
+      {connMode === "local" && (
       <div className="settings-section">
         <div className="settings-section-title">
-          Model
+          {t("common.model")}
           {modelSaved && (
             <span className="settings-saved" style={{ marginLeft: 8 }}>
-              Saved
+              {t("common.saved")}
             </span>
           )}
         </div>
 
         <div className="settings-field">
-          <label className="settings-field-label">Provider</label>
+          <label className="settings-field-label">{t("common.provider")}</label>
           <select
             className="input settings-select"
             value={modelProvider}
@@ -657,54 +821,57 @@ function Settings({
           >
             {PROVIDERS.options.map((opt) => (
               <option key={opt.value} value={opt.value}>
-                {opt.label}
+                {t(opt.label)}
               </option>
             ))}
           </select>
           <div className="settings-field-hint">
             {isCustomProvider
-              ? "Use any OpenAI-compatible endpoint (LM Studio, Ollama, vLLM, etc.)"
-              : "Select your inference provider, or auto-detect from API keys"}
+              ? t("settings.customProviderHint")
+              : t("settings.providerHint")}
           </div>
         </div>
 
         <div className="settings-field">
-          <label className="settings-field-label">Model</label>
+          <label className="settings-field-label">{t("common.model")}</label>
           <input
             className="input"
             type="text"
             value={modelName}
             onChange={(e) => setModelName(e.target.value)}
-            placeholder="e.g. anthropic/claude-opus-4.6"
+            placeholder={t("settings.modelNamePlaceholder")}
           />
           <div className="settings-field-hint">
-            Default model name (leave blank for provider default)
+            {t("settings.modelHint")}
           </div>
         </div>
 
         {isCustomProvider && (
           <div className="settings-field">
-            <label className="settings-field-label">Base URL</label>
+            <label className="settings-field-label">
+              {t("common.baseUrl")}
+            </label>
             <input
               className="input"
               type="text"
               value={modelBaseUrl}
               onChange={(e) => setModelBaseUrl(e.target.value)}
-              placeholder="http://localhost:1234/v1"
+              placeholder={t("settings.modelBaseUrlPlaceholder")}
             />
-            <div className="settings-field-hint">
-              OpenAI-compatible API endpoint
-            </div>
+            <div className="settings-field-hint">{t("settings.customBaseUrlHint")}</div>
           </div>
         )}
       </div>
+      )}
 
+      {connMode === "local" && (
       <div className="settings-section">
-        <div className="settings-section-title">Credential Pool</div>
+        <div className="settings-section-title">
+          {t("settings.sections.credentialPool")}
+        </div>
         <div className="settings-field">
           <div className="settings-field-hint" style={{ marginBottom: 10 }}>
-            Add multiple API keys per provider for automatic rotation and load
-            balancing. Hermes will cycle through them.
+            {t("settings.poolHint")}
           </div>
           <div className="settings-pool-add">
             <select
@@ -713,12 +880,12 @@ function Settings({
               onChange={(e) => setPoolProvider(e.target.value)}
               style={{ width: 140 }}
             >
-              <option value="">Provider</option>
+              <option value="">{t("common.provider")}</option>
               {PROVIDERS.options
                 .filter((p) => p.value !== "auto")
                 .map((p) => (
                   <option key={p.value} value={p.value}>
-                    {p.label}
+                    {t(p.label)}
                   </option>
                 ))}
             </select>
@@ -727,7 +894,7 @@ function Settings({
               type="password"
               value={poolNewKey}
               onChange={(e) => setPoolNewKey(e.target.value)}
-              placeholder="API key"
+              placeholder={t("settings.apiKeyPlaceholder")}
               style={{ flex: 1 }}
             />
             <input
@@ -735,7 +902,7 @@ function Settings({
               type="text"
               value={poolNewLabel}
               onChange={(e) => setPoolNewLabel(e.target.value)}
-              placeholder="Label (optional)"
+              placeholder={t("settings.labelPlaceholder", { optional: t("common.optional") })}
               style={{ width: 120 }}
             />
             <button
@@ -743,7 +910,7 @@ function Settings({
               onClick={handleAddPoolKey}
               disabled={!poolProvider || !poolNewKey.trim()}
             >
-              Add
+              {t("settings.add")}
             </button>
           </div>
           {Object.entries(credPool).map(
@@ -752,24 +919,25 @@ function Settings({
                 <div key={provider} className="settings-pool-group">
                   <div className="settings-pool-provider">
                     {PROVIDERS.options.find((p) => p.value === provider)
-                      ?.label || provider}
+                      ? t(PROVIDERS.options.find((p) => p.value === provider)!.label)
+                      : provider}
                   </div>
                   {entries.map((entry, idx) => (
                     <div key={idx} className="settings-pool-entry">
                       <span className="settings-pool-label">
-                        {entry.label || `Key ${idx + 1}`}
+                        {entry.label || `${t("settings.keyLabel")} ${idx + 1}`}
                       </span>
                       <span className="settings-pool-key">
                         {entry.key
                           ? `${entry.key.slice(0, 8)}...${entry.key.slice(-4)}`
-                          : "(empty)"}
+                          : t("settings.empty")}
                       </span>
                       <button
                         className="btn-ghost"
                         style={{ color: "var(--error)", fontSize: 11 }}
                         onClick={() => handleRemovePoolKey(provider, idx)}
                       >
-                        Remove
+                        {t("settings.remove")}
                       </button>
                     </div>
                   ))}
@@ -778,13 +946,13 @@ function Settings({
           )}
         </div>
       </div>
+      )}
 
       <div className="settings-section">
-        <div className="settings-section-title">Data</div>
+        <div className="settings-section-title">{t("settings.dataSection")}</div>
         <div className="settings-field">
           <div className="settings-field-hint" style={{ marginBottom: 10 }}>
-            Export or import your Hermes configuration, sessions, skills, and
-            memory.
+            {t("settings.dataHint")}
           </div>
           <div className="settings-hermes-actions">
             <button
@@ -793,7 +961,7 @@ function Settings({
               disabled={backingUp}
             >
               <Download size={14} style={{ marginRight: 6 }} />
-              {backingUp ? "Backing up..." : "Export Backup"}
+              {backingUp ? t("settings.backingUp") : t("settings.exportBackup")}
             </button>
             <button
               className="btn btn-secondary"
@@ -801,7 +969,7 @@ function Settings({
               disabled={importing}
             >
               <Upload size={14} style={{ marginRight: 6 }} />
-              {importing ? "Importing..." : "Import Backup"}
+              {importing ? t("settings.importing") : t("settings.importBackup")}
             </button>
           </div>
           {backupResult && (
@@ -837,7 +1005,7 @@ function Settings({
               size={14}
               style={{ marginRight: 6, verticalAlign: "middle" }}
             />
-            Logs {logsExpanded ? "▾" : "▸"}
+            {t("settings.logsSection")} {logsExpanded ? "▾" : "▸"}
           </span>
         </div>
         {logsExpanded && (
@@ -859,7 +1027,7 @@ function Settings({
                 </button>
               ))}
               <button className="btn btn-sm btn-secondary" onClick={loadLogs}>
-                Refresh
+                {t("settings.refresh")}
               </button>
             </div>
             {logPath && (
@@ -877,50 +1045,53 @@ function Settings({
                 wordBreak: "break-all",
               }}
             >
-              {logContent || "(empty)"}
+              {logContent || t("settings.emptyLog")}
             </pre>
           </div>
         )}
       </div>
 
-      {SETTINGS_SECTIONS.map((section) => (
-        <div key={section.title} className="settings-section">
-          <div className="settings-section-title">{section.title}</div>
-          {section.items.map((field) => (
-            <div key={field.key} className="settings-field">
-              <label className="settings-field-label">
-                {field.label}
-                {savedKey === field.key && (
-                  <span className="settings-saved">Saved</span>
-                )}
-              </label>
-              <div className="settings-input-row">
-                <input
-                  className="input"
-                  type={
-                    field.type === "password" && !visibleKeys.has(field.key)
-                      ? "password"
-                      : "text"
-                  }
-                  value={env[field.key] || ""}
-                  onChange={(e) => handleChange(field.key, e.target.value)}
-                  onBlur={() => handleBlur(field.key)}
-                  placeholder={`Enter ${field.label.toLowerCase()}`}
-                />
-                {field.type === "password" && (
-                  <button
-                    className="btn-ghost settings-toggle-btn"
-                    onClick={() => toggleVisibility(field.key)}
-                  >
-                    {visibleKeys.has(field.key) ? "Hide" : "Show"}
-                  </button>
-                )}
+      {connMode === "local" &&
+        SETTINGS_SECTIONS.map((section) => (
+          <div key={section.title} className="settings-section">
+            <div className="settings-section-title">{t(section.title)}</div>
+            {section.items.map((field) => (
+              <div key={field.key} className="settings-field">
+                <label className="settings-field-label">
+                  {t(field.label)}
+                  {savedKey === field.key && (
+                    <span className="settings-saved">{t("common.saved")}</span>
+                  )}
+                </label>
+                <div className="settings-input-row">
+                  <input
+                    className="input"
+                    type={
+                      field.type === "password" && !visibleKeys.has(field.key)
+                        ? "password"
+                        : "text"
+                    }
+                    value={env[field.key] || ""}
+                    onChange={(e) => handleChange(field.key, e.target.value)}
+                    onBlur={() => handleBlur(field.key)}
+                    placeholder={t(field.label)}
+                  />
+                  {field.type === "password" && (
+                    <button
+                      className="btn-ghost settings-toggle-btn"
+                      onClick={() => toggleVisibility(field.key)}
+                    >
+                      {visibleKeys.has(field.key)
+                        ? t("common.hide")
+                        : t("common.show")}
+                    </button>
+                  )}
+                </div>
+                <div className="settings-field-hint">{t(field.hint)}</div>
               </div>
-              <div className="settings-field-hint">{field.hint}</div>
-            </div>
-          ))}
-        </div>
-      ))}
+            ))}
+          </div>
+        ))}
     </div>
   );
 }

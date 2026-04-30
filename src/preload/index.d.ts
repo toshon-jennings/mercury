@@ -33,8 +33,8 @@ interface HermesAPI {
   checkOpenClaw: () => Promise<{ found: boolean; path: string | null }>; 
   runClawMigrate: () => Promise<{ success: boolean; error?: string }>;
 
-  getLocale: () => Promise<"en">;
-  setLocale: (locale: "en") => Promise<"en">;
+  getLocale: () => Promise<"en" | "zh-CN">;
+  setLocale: (locale: "en" | "zh-CN") => Promise<"en" | "zh-CN">;
 
   // Configuration (profile-aware)
   getEnv: (profile?: string) => Promise<Record<string, string>>;
@@ -51,6 +51,20 @@ interface HermesAPI {
     baseUrl: string,
     profile?: string,
   ) => Promise<boolean>;
+
+  // Connection mode (local vs remote)
+  isRemoteMode: () => Promise<boolean>;
+  getConnectionConfig: () => Promise<{
+    mode: "local" | "remote";
+    remoteUrl: string;
+    apiKey: string;
+  }>;
+  setConnectionConfig: (
+    mode: "local" | "remote",
+    remoteUrl: string,
+    apiKey?: string,
+  ) => Promise<boolean>;
+  testRemoteConnection: (url: string, apiKey?: string) => Promise<boolean>;
 
   // Chat
   sendMessage: (
