@@ -149,4 +149,23 @@ describe("generateWingetManifests", () => {
       }),
     ).toThrow(/installer not found/i);
   });
+
+  it("throws a clear error when the templates directory is missing", () => {
+    // Do NOT call setupTemplates — the templates directory should not exist.
+    const distDir = join(TEST_DIR, "dist");
+    mkdirSync(distDir, { recursive: true });
+    writeFileSync(
+      join(distDir, "hermes-desktop-9.9.9-setup.exe"),
+      "fake-installer-bytes",
+    );
+
+    expect(() =>
+      generateWingetManifests({
+        rootDir: TEST_DIR,
+        version: "9.9.9",
+        name: "hermes-desktop",
+        publishOwner: "fathah",
+      }),
+    ).toThrow(/templates not found/i);
+  });
 });

@@ -46,6 +46,12 @@ export function generateWingetManifests({ rootDir, version, name, publishOwner }
     );
 
   const templateDir = join(rootDir, "build", "winget");
+  if (!existsSync(templateDir)) {
+    throw new Error(
+      `Winget templates not found at ${templateDir}. ` +
+        `This script must be run from the repo root.`,
+    );
+  }
   const outDir = join(
     rootDir,
     "dist",
