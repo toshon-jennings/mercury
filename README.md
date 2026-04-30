@@ -23,10 +23,35 @@ Instead of managing the CLI by hand, the app walks through install, provider set
 
 Download the latest build from the [Releases](https://github.com/fathah/hermes-desktop/releases/) page.
 
-| Platform | File                  |
-| -------- | --------------------- |
-| macOS    | `.dmg`                |
-| Linux    | `.AppImage` or `.deb` |
+| Platform        | File                              |
+| --------------- | --------------------------------- |
+| macOS           | `.dmg`                            |
+| Linux (any)     | `.AppImage`                       |
+| Linux (Debian)  | `.deb`                            |
+| Linux (Fedora)  | `.rpm`                            |
+| Windows         | `.exe` (NSIS installer)           |
+
+### Windows (winget)
+
+Once the manifest has been accepted into [`microsoft/winget-pkgs`](https://github.com/microsoft/winget-pkgs), you can install with:
+
+```powershell
+winget install NousResearch.HermesDesktop
+```
+
+Until then, download the `.exe` from the Releases page.
+
+> **Windows users:** The installer is not code-signed. Windows SmartScreen will warn on first launch — click "More info" → "Run anyway".
+
+### Fedora (RPM)
+
+```bash
+sudo dnf install ./hermes-desktop-<version>.rpm
+```
+
+> **Fedora users:** The `.rpm` is not GPG-signed. If your system enforces signature checking, append `--nogpgcheck` to the install command. Auto-update is not supported for `.rpm` builds (limitation of `electron-updater`); reinstall the new `.rpm` to update.
+
+### macOS
 
 > **macOS users:** The app is not code-signed or notarized. macOS will block it on first launch. To fix this, run the following after installing:
 >
