@@ -2,8 +2,10 @@ import { spawn, execSync, execFile } from "child_process";
 import { existsSync, readFileSync, readdirSync } from "fs";
 import { join } from "path";
 import { homedir } from "os";
+import type { BrowserWindow } from "electron";
 import { getModelConfig, getConnectionConfig } from "./config";
 import { stripAnsi } from "./utils";
+import { setupAskpass, AskpassHandle } from "./askpass";
 
 export const HERMES_HOME =
   process.env.HERMES_HOME?.trim() || join(homedir(), ".hermes");
@@ -430,6 +432,7 @@ const STAGE_MARKERS: { pattern: RegExp; step: number; title: string }[] = [
 
 export async function runInstall(
   onProgress: (progress: InstallProgress) => void,
+  parentWindow?: BrowserWindow | null,
 ): Promise<void> {
   const totalSteps = 7;
   let log = "";
@@ -459,64 +462,83 @@ export async function runInstall(
 
   emit("Running official Hermes install script...\n");
 
-  return new Promise((resolve, reject) => {
-    const home = homedir();
+  // Bridge any sudo prompts from install.sh to a GUI password dialog.
+  // Windows has no sudo, so skip the bridge there.
+  let askpass: AskpassHandle | null = null;
+  if (process.platform !== "win32") {
+    try {
+      askpass = await setupAskpass(parentWindow ?? null);
+    } catch (err) {
+      emit(
+        `\n[askpass] Could not set up GUI password bridge: ${(err as Error).message}\n`,
+      );
+    }
+  }
 
-    // Source the user's shell profile to get the same PATH as their terminal,
-    // then run the official install script. Electron apps launched from Finder
-    // don't inherit the terminal environment.
-    const shellProfile = getShellProfile(home);
-    const installCmd = [
-      shellProfile ? `source "${shellProfile}" 2>/dev/null;` : "",
-      "curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash -s -- --skip-setup",
-    ].join(" ");
+  try {
+    return await new Promise<void>((resolve, reject) => {
+      const home = homedir();
 
-    const proc = spawn("bash", ["-c", installCmd], {
-      cwd: home,
-      env: {
-        ...process.env,
-        PATH: getEnhancedPath(),
-        HOME: home,
-        TERM: "dumb",
-      },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+      // Source the user's shell profile to get the same PATH as their terminal,
+      // then run the official install script. Electron apps launched from Finder
+      // don't inherit the terminal environment.
+      const shellProfile = getShellProfile(home);
+      const installCmd = [
+        shellProfile ? `source "${shellProfile}" 2>/dev/null;` : "",
+        "curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash -s -- --skip-setup",
+      ].join(" ");
 
-    proc.stdout?.on("data", (data: Buffer) => {
-      emit(stripAnsi(data.toString()));
-    });
+      const basePath = getEnhancedPath();
+      const proc = spawn("bash", ["-c", installCmd], {
+        cwd: home,
+        env: {
+          ...process.env,
+          PATH: askpass ? `${askpass.pathPrepend}:${basePath}` : basePath,
+          HOME: home,
+          TERM: "dumb",
+          ...(askpass?.env ?? {}),
+        },
+        stdio: ["ignore", "pipe", "pipe"],
+      });
 
-    proc.stderr?.on("data", (data: Buffer) => {
-      emit(stripAnsi(data.toString()));
-    });
+      proc.stdout?.on("data", (data: Buffer) => {
+        emit(stripAnsi(data.toString()));
+      });
 
-    proc.on("close", (code) => {
-      if (code === 0) {
-        emit("\nInstallation complete!\n");
-        resolve();
-      } else {
-        // The install script can exit non-zero due to benign issues
-        // (e.g. git stash pop failure on already-clean repo).
-        // If Hermes is actually installed and working, treat as success.
-        if (existsSync(HERMES_PYTHON) && existsSync(HERMES_SCRIPT)) {
-          emit(
-            "\nInstall script exited with warnings, but Hermes is installed successfully.\n",
-          );
+      proc.stderr?.on("data", (data: Buffer) => {
+        emit(stripAnsi(data.toString()));
+      });
+
+      proc.on("close", (code) => {
+        if (code === 0) {
+          emit("\nInstallation complete!\n");
           resolve();
         } else {
-          reject(
-            new Error(
-              `Installation failed (exit code ${code}). You can try installing via terminal instead.`,
-            ),
-          );
+          // The install script can exit non-zero due to benign issues
+          // (e.g. git stash pop failure on already-clean repo).
+          // If Hermes is actually installed and working, treat as success.
+          if (existsSync(HERMES_PYTHON) && existsSync(HERMES_SCRIPT)) {
+            emit(
+              "\nInstall script exited with warnings, but Hermes is installed successfully.\n",
+            );
+            resolve();
+          } else {
+            reject(
+              new Error(
+                `Installation failed (exit code ${code}). You can try installing via terminal instead.`,
+              ),
+            );
+          }
         }
-      }
-    });
+      });
 
-    proc.on("error", (err) => {
-      reject(new Error(`Failed to start installer: ${err.message}`));
+      proc.on("error", (err) => {
+        reject(new Error(`Failed to start installer: ${err.message}`));
+      });
     });
-  });
+  } finally {
+    askpass?.cleanup();
+  }
 }
 
 // ────────────────────────────────────────────────────
