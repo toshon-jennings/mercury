@@ -89,17 +89,9 @@ function Setup({ onComplete }: { onComplete: () => void }): React.JSX.Element {
               setError("");
             }}
           >
-            <div className="setup-provider-name">
-              {t(`setup.providerCards.${p.id}.name`)}
-            </div>
-            <div className="setup-provider-desc">
-              {t(`setup.providerCards.${p.id}.desc`)}
-            </div>
-            {p.tag && (
-              <div className="setup-provider-tag">
-                {t(`setup.providerCards.${p.id}.tag`)}
-              </div>
-            )}
+            <div className="setup-provider-name">{t(p.name)}</div>
+            <div className="setup-provider-desc">{t(p.desc)}</div>
+            {p.tag && <div className="setup-provider-tag">{t(p.tag)}</div>}
           </button>
         ))}
       </div>
@@ -206,9 +198,7 @@ function Setup({ onComplete }: { onComplete: () => void }): React.JSX.Element {
         ) : (
           <>
             <label className="setup-label">
-              {t("setup.apiKeyLabel", {
-                provider: t(`setup.providerCards.${provider.id}.name`),
-              })}
+              {t("setup.apiKeyLabel", { provider: t(provider.name) })}
             </label>
             <div className="setup-input-group">
               <input

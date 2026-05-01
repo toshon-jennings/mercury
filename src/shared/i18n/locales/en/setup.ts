@@ -8,7 +8,7 @@ export default {
     local: {
       name: "Local / OpenAI-Compatible",
       desc: "LM Studio, Ollama, Groq, DeepSeek, Together…",
-      tag: "Any OpenAI-compatible API",
+      tag: "",
     },
   },
   localPresets: {
