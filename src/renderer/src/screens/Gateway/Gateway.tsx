@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { GATEWAY_SECTIONS, GATEWAY_PLATFORMS } from "../../constants";
 import { useI18n } from "../../components/useI18n";
 
@@ -11,6 +11,8 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
   >({});
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
+  const gatewayStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const platformStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadConfig = useCallback(async (): Promise<void> => {
     const envData = await window.hermesAPI.getEnv(profile);
@@ -35,28 +37,36 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
   }, []);
 
   async function toggleGateway(): Promise<void> {
+    if (gatewayStatusTimeoutRef.current) {
+      clearTimeout(gatewayStatusTimeoutRef.current);
+      gatewayStatusTimeoutRef.current = null;
+    }
     if (gatewayRunning) {
       await window.hermesAPI.stopGateway();
       setGatewayRunning(false);
     } else {
       const started = await window.hermesAPI.startGateway();
       setGatewayRunning(started);
-      // Re-check status after a short delay to confirm it stayed up
-      setTimeout(async () => {
+      gatewayStatusTimeoutRef.current = setTimeout(async () => {
         const status = await window.hermesAPI.gatewayStatus();
         setGatewayRunning(status);
+        gatewayStatusTimeoutRef.current = null;
       }, 2000);
     }
   }
 
   async function togglePlatform(platform: string): Promise<void> {
+    if (platformStatusTimeoutRef.current) {
+      clearTimeout(platformStatusTimeoutRef.current);
+      platformStatusTimeoutRef.current = null;
+    }
     const newValue = !platformEnabled[platform];
     setPlatformEnabled((prev) => ({ ...prev, [platform]: newValue }));
     await window.hermesAPI.setPlatformEnabled(platform, newValue, profile);
-    // Re-check gateway status after restart
-    setTimeout(async () => {
+    platformStatusTimeoutRef.current = setTimeout(async () => {
       const status = await window.hermesAPI.gatewayStatus();
       setGatewayRunning(status);
+      platformStatusTimeoutRef.current = null;
     }, 3000);
   }
 
