@@ -68,6 +68,7 @@ sudo dnf install ./hermes-desktop-<version>.rpm
 ## Features
 
 - **Guided first-run install** for Hermes Agent with progress tracking and dependency resolution
+- **Local or remote backend** — run Hermes locally on `127.0.0.1:8642`, or connect the desktop app to a remote Hermes API server with URL + API key
 - **Multi-provider support** — OpenRouter, Anthropic, OpenAI, Google (Gemini), xAI (Grok), Nous Portal, Qwen, MiniMax, Hugging Face, Groq, and local OpenAI-compatible endpoints (LM Studio, Ollama, vLLM, llama.cpp)
 - **Streaming chat UI** with SSE streaming, tool progress indicators, markdown rendering, and syntax highlighting
 - **Token usage tracking** — live prompt/completion token counts and cost display in the chat footer, plus a `/usage` slash command
@@ -108,13 +109,14 @@ sudo dnf install ./hermes-desktop-<version>.rpm
 
 On first launch, the app:
 
-1. Checks whether Hermes is already installed in `~/.hermes`.
-2. If not installed, runs the official Hermes installer with dependency resolution (Git, uv, Python 3.11+).
-3. Prompts for an API provider or local model endpoint.
-4. Saves provider config and API keys through Hermes config files.
-5. Launches the main workspace once setup is complete.
+1. Asks whether you want to run Hermes **locally** or connect to a **remote** Hermes API server.
+2. **Local mode:** checks whether Hermes is already installed in `~/.hermes`; if not, runs the official Hermes installer with dependency resolution (Git, uv, Python 3.11+).
+3. **Remote mode:** prompts for the remote API URL and API key, validates the connection, and skips local install.
+4. Prompts for an API provider or local model endpoint.
+5. Saves provider config and API keys through Hermes config files.
+6. Launches the main workspace once setup is complete.
 
-Chat requests go through a local API server (`http://127.0.0.1:8642`) with SSE streaming. The desktop app parses the stream in real time, rendering tool progress, markdown content, and token usage as it arrives.
+In local mode, chat requests go through `http://127.0.0.1:8642` with SSE streaming. In remote mode, the app talks to your configured remote URL with the same streaming protocol. The desktop app parses the stream in real time, rendering tool progress, markdown content, and token usage as it arrives.
 
 ## Screens
 
@@ -207,6 +209,7 @@ Platform packaging:
 npm run build:mac
 npm run build:win
 npm run build:linux
+npm run build:rpm    # Fedora/RHEL .rpm only
 ```
 
 ## First-Time Setup
