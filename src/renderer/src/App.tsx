@@ -64,7 +64,13 @@ function App(): React.JSX.Element {
 
     // Lazy deep-verify in the background after the UI is up. If the
     // install is broken, surface the warning then — don't block startup.
-    if (next === "main" || next === "setup") {
+    //
+    // Skip for remote-mode connections: verifyInstall() probes the LOCAL
+    // Python + script paths (HERMES_PYTHON / HERMES_SCRIPT in installer.ts),
+    // which don't exist on machines that only use a remote backend. Without
+    // this guard the user is bounced back to Welcome with an "installBroken"
+    // error immediately after a successful remote connect. (#47, #41, #30)
+    if ((next === "main" || next === "setup") && conn.mode !== "remote") {
       window.hermesAPI.verifyInstall().then((ok) => {
         if (!ok) {
           setInstallError(t("errors.installBroken"));
