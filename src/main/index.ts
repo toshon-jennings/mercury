@@ -231,7 +231,7 @@ function setupIPC(): void {
 
   // Configuration (profile-aware)
   ipcMain.handle("get-locale", () => getAppLocale());
-  ipcMain.handle("set-locale", (_event, locale: "en" | "zh-CN") =>
+  ipcMain.handle("set-locale", (_event, locale: "en" | "es" | "zh-CN") =>
     setAppLocale(locale),
   );
 

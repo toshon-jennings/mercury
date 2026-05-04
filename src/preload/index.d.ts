@@ -34,8 +34,8 @@ interface HermesAPI {
   checkOpenClaw: () => Promise<{ found: boolean; path: string | null }>;
   runClawMigrate: () => Promise<{ success: boolean; error?: string }>;
 
-  getLocale: () => Promise<"en" | "zh-CN">;
-  setLocale: (locale: "en" | "zh-CN") => Promise<"en" | "zh-CN">;
+  getLocale: () => Promise<"en" | "es" | "zh-CN">;
+  setLocale: (locale: "en" | "es" | "zh-CN") => Promise<"en" | "es" | "zh-CN">;
 
   // Configuration (profile-aware)
   getEnv: (profile?: string) => Promise<Record<string, string>>;
