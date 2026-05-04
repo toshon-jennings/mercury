@@ -14,6 +14,7 @@ export default {
   language: {
     label: "Language",
     english: "English",
+    spanish: "Español",
     chinese: "中文",
     hint: "Choose the interface language",
   },

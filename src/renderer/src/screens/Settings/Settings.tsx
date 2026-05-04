@@ -2,7 +2,14 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useTheme } from "../../components/ThemeProvider";
 import { THEME_OPTIONS } from "../../constants";
 import { useI18n } from "../../components/useI18n";
+import { APP_LOCALES, type AppLocale } from "../../../../shared/i18n";
 import { Download, Upload, FileText } from "lucide-react";
+
+const LANGUAGE_LABEL_KEYS: Record<AppLocale, string> = {
+  en: "settings.language.english",
+  es: "settings.language.spanish",
+  "zh-CN": "settings.language.chinese",
+};
 
 // Read cached values from localStorage for instant display
 function getCachedVersion(): string | null {
@@ -616,18 +623,15 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
             {t("settings.language.label")}
           </label>
           <div className="settings-theme-options">
-            <button
-              className={`settings-theme-option ${locale === "en" ? "active" : ""}`}
-              onClick={() => setLocale("en")}
-            >
-              {t("settings.language.english")}
-            </button>
-            <button
-              className={`settings-theme-option ${locale === "zh-CN" ? "active" : ""}`}
-              onClick={() => setLocale("zh-CN")}
-            >
-              {t("settings.language.chinese")}
-            </button>
+            {APP_LOCALES.map((supportedLocale) => (
+              <button
+                key={supportedLocale}
+                className={`settings-theme-option ${locale === supportedLocale ? "active" : ""}`}
+                onClick={() => setLocale(supportedLocale)}
+              >
+                {t(LANGUAGE_LABEL_KEYS[supportedLocale])}
+              </button>
+            ))}
           </div>
           <div className="settings-field-hint">
             {t("settings.language.hint")}

@@ -36,7 +36,30 @@ export function I18nProvider({
   const [locale, setLocaleState] = useState<AppLocale>(initialLocale);
 
   useEffect(() => {
-    setSharedLocale(locale);
+    let cancelled = false;
+
+    void window.hermesAPI
+      ?.getLocale?.()
+      .then((mainLocale) => {
+        if (cancelled || !mainLocale || mainLocale === locale) return;
+        setLocaleState(mainLocale);
+      })
+      .catch(() => {
+        /* ignore */
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (sharedI18n.language !== locale) {
+      setSharedLocale(locale);
+    }
+    void window.hermesAPI?.setLocale?.(locale).catch(() => {
+      /* ignore */
+    });
     try {
       localStorage.setItem(STORAGE_KEY, locale);
     } catch {

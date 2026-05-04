@@ -26,6 +26,26 @@ import soulEn from "./locales/en/soul";
 import memoryEn from "./locales/en/memory";
 import installEn from "./locales/en/install";
 import constantsEn from "./locales/en/constants";
+import commonEs from "./locales/es/common";
+import navigationEs from "./locales/es/navigation";
+import welcomeEs from "./locales/es/welcome";
+import setupEs from "./locales/es/setup";
+import chatEs from "./locales/es/chat";
+import settingsEs from "./locales/es/settings";
+import toolsEs from "./locales/es/tools";
+import sessionsEs from "./locales/es/sessions";
+import modelsEs from "./locales/es/models";
+import providersEs from "./locales/es/providers";
+import officeEs from "./locales/es/office";
+import errorsEs from "./locales/es/errors";
+import schedulesEs from "./locales/es/schedules";
+import skillsEs from "./locales/es/skills";
+import gatewayEs from "./locales/es/gateway";
+import agentsEs from "./locales/es/agents";
+import soulEs from "./locales/es/soul";
+import memoryEs from "./locales/es/memory";
+import installEs from "./locales/es/install";
+import constantsEs from "./locales/es/constants";
 import commonZh from "./locales/zh-CN/common";
 import navigationZh from "./locales/zh-CN/navigation";
 import welcomeZh from "./locales/zh-CN/welcome";
@@ -70,6 +90,30 @@ export const resources = {
       memory: memoryEn,
       install: installEn,
       constants: constantsEn,
+    },
+  },
+  es: {
+    translation: {
+      common: commonEs,
+      navigation: navigationEs,
+      welcome: welcomeEs,
+      setup: setupEs,
+      chat: chatEs,
+      settings: settingsEs,
+      tools: toolsEs,
+      sessions: sessionsEs,
+      models: modelsEs,
+      providers: providersEs,
+      office: officeEs,
+      errors: errorsEs,
+      schedules: schedulesEs,
+      skills: skillsEs,
+      gateway: gatewayEs,
+      agents: agentsEs,
+      soul: soulEs,
+      memory: memoryEs,
+      install: installEs,
+      constants: constantsEs,
     },
   },
   "zh-CN": {
