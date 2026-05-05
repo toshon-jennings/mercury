@@ -508,7 +508,7 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
               className={`settings-theme-option ${connMode === "ssh" ? "active" : ""}`}
               onClick={() => setConnMode("ssh")}
             >
-              🔐 SSH Tunnel
+              SSH Tunnel
             </button>
           </div>
           <div className="settings-field-hint">
