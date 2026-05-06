@@ -12,7 +12,7 @@ import {
   getEnhancedPath,
 } from "./installer";
 import { getModelConfig, readEnv, getConnectionConfig } from "./config";
-import { getSshTunnelUrl, isSshTunnelActive, startSshTunnel } from "./ssh-tunnel";
+import { getSshTunnelUrl, isSshTunnelActive, isSshTunnelHealthy, startSshTunnel } from "./ssh-tunnel";
 import { stripAnsi } from "./utils";
 
 const LOCAL_API_URL = "http://127.0.0.1:8642";
@@ -20,7 +20,9 @@ const LOCAL_API_URL = "http://127.0.0.1:8642";
 export function getApiUrl(): string {
   const conn = getConnectionConfig();
   if (conn.mode === "ssh") {
-    return getSshTunnelUrl();
+    const sshUrl = getSshTunnelUrl();
+    if (!sshUrl) throw new Error("SSH tunnel is not active");
+    return sshUrl;
   }
   if (conn.mode === "remote" && conn.remoteUrl) {
     return conn.remoteUrl.replace(/\/+$/, "");
@@ -59,7 +61,7 @@ export function getRemoteAuthHeader(): Record<string, string> {
 
 export async function ensureSshTunnelIfNeeded(): Promise<void> {
   const conn = getConnectionConfig();
-  if (conn.mode === "ssh" && !isSshTunnelActive()) {
+  if (conn.mode === "ssh" && (!isSshTunnelActive() || !await isSshTunnelHealthy())) {
     await startSshTunnel(conn.ssh);
   }
 }
@@ -336,6 +338,7 @@ function sendMessageViaApi(
       method: "POST",
       headers,
       signal: controller.signal,
+      timeout: 120000,
     },
     (res) => {
       const sid = res.headers["x-hermes-session-id"];
@@ -412,6 +415,10 @@ function sendMessageViaApi(
   req.on("error", (err) => {
     if (err.name === "AbortError") return;
     finish(`API request failed: ${err.message}`);
+  });
+  req.on("timeout", () => {
+    req.destroy();
+    finish("API request timed out. Check the SSH tunnel and remote Hermes gateway.");
   });
 
   req.write(body);

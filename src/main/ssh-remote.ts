@@ -4,14 +4,17 @@
  * local files is instead executed on the remote host via SSH.
  */
 
-import { spawnSync } from "child_process";
+import { spawn } from "child_process";
 import { homedir } from "os";
 import { join } from "path";
 import type { SshConfig } from "./ssh-tunnel";
 import type { InstalledSkill, SkillSearchResult } from "./skills";
 import type { MemoryInfo } from "./memory";
 import type { SessionSummary, SessionMessage, SearchResult } from "./sessions";
+import type { CachedSession } from "./session-cache";
 import type { ToolsetInfo } from "./tools";
+import type { SavedModel } from "./models";
+import type { MemoryProviderInfo } from "./installer";
 import { t } from "../shared/i18n";
 import { getAppLocale } from "./locale";
 
@@ -23,98 +26,151 @@ function buildExecArgs(config: SshConfig): string[] {
     "-o", "BatchMode=yes",
     "-o", "StrictHostKeyChecking=accept-new",
     "-o", "ConnectTimeout=15",
+    "-o", "ControlMaster=auto",
+    "-o", "ControlPath=~/.ssh/cm-hermes-%r@%h:%p",
+    "-o", "ControlPersist=60s",
     "-i", keyPath,
     "-p", String(config.port || 22),
     `${config.username}@${config.host}`,
   ];
 }
 
-export function sshExec(config: SshConfig, command: string, stdin?: string): string {
-  const result = spawnSync("ssh", [...buildExecArgs(config), command], {
-    input: stdin,
-    encoding: "utf-8",
-    timeout: 30000,
-    maxBuffer: 20 * 1024 * 1024,
+export function sshExec(config: SshConfig, command: string, stdin?: string, timeoutMs = 30000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("ssh", [...buildExecArgs(config), command], {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    const timeout = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error("SSH command timed out"));
+    }, timeoutMs);
+    child.stdout.setEncoding("utf-8");
+    child.stderr.setEncoding("utf-8");
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timeout);
+      if (code === 0) resolve(stdout);
+      else reject(new Error(sanitizeSshError(stderr) || "SSH command failed"));
+    });
+    if (stdin !== undefined) child.stdin.end(stdin);
+    else child.stdin.end();
   });
-  if (result.status !== 0) {
-    throw new Error(result.stderr?.trim() || "SSH command failed");
-  }
-  return result.stdout || "";
 }
 
-function sshPython(config: SshConfig, script: string): string {
-  const result = spawnSync("ssh", [...buildExecArgs(config), "python3 -"], {
-    input: script,
-    encoding: "utf-8",
-    timeout: 30000,
-    maxBuffer: 20 * 1024 * 1024,
-  });
-  if (result.status !== 0) {
-    throw new Error(result.stderr?.trim() || "SSH python failed");
+function sshPython(config: SshConfig, script: string, stdin?: string, timeoutMs = 30000): Promise<string> {
+  if (stdin === undefined) {
+    return sshExec(config, "python3 -", script, timeoutMs);
   }
-  return result.stdout || "";
+  return sshExec(config, `python3 -c ${shellQuote(script)}`, stdin, timeoutMs);
 }
 
-function sshReadFile(config: SshConfig, remotePath: string): string {
-  // ~ doesn't expand inside double quotes — use $HOME instead
-  const p = remotePath.replace(/^~\//, "$HOME/");
+function sanitizeSshError(stderr: string): string {
+  const cleaned = stderr
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !/^Warning: Permanently added /.test(line))
+    .filter((line) => !/identity file .* not accessible/i.test(line))
+    .join("\n")
+    .trim();
+  if (/Permission denied \(publickey\)|no such identity|could not open a connection|publickey/i.test(cleaned)) {
+    return "SSH authentication failed. Configure an SSH key for this host and try again.";
+  }
+  if (/Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED/i.test(cleaned)) {
+    return "SSH host key verification failed. Check the host key before reconnecting.";
+  }
+  return cleaned;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\"'\"'")}'`;
+}
+
+function normalizeRemotePath(remotePath: string): string {
+  return remotePath.replace(/^~\//, "$HOME/");
+}
+
+function pythonJsonInput(payload: unknown): string {
+  return JSON.stringify(payload);
+}
+
+async function sshReadFile(config: SshConfig, remotePath: string): Promise<string> {
   try {
-    return sshExec(config, `cat "${p}" 2>/dev/null || true`);
+    return await sshExec(
+      config,
+      `bash -c 'case "$1" in "~/"*) p="$HOME/\${1#~/}" ;; "\\$HOME/"*) p="$HOME/\${1#\\$HOME/}" ;; *) p="$1" ;; esac; cat -- "$p" 2>/dev/null || true' -- ${shellQuote(normalizeRemotePath(remotePath))}`,
+    );
   } catch {
     return "";
   }
 }
 
-function sshWriteFile(config: SshConfig, remotePath: string, content: string): void {
-  const p = remotePath.replace(/^~\//, "$HOME/");
+async function sshWriteFile(config: SshConfig, remotePath: string, content: string): Promise<void> {
+  const p = normalizeRemotePath(remotePath);
   const dir = p.includes("/") ? p.substring(0, p.lastIndexOf("/")) : ".";
-  sshExec(config, `mkdir -p "${dir}" && cat > "${p}"`, content);
+  await sshExec(
+    config,
+    `bash -c 'expand(){ case "$1" in "~/"*) printf "%s" "$HOME/\${1#~/}" ;; "\\$HOME/"*) printf "%s" "$HOME/\${1#\\$HOME/}" ;; *) printf "%s" "$1" ;; esac; }; dir=$(expand "$1"); file=$(expand "$2"); mkdir -p -- "$dir" && cat > "$file"' -- ${shellQuote(dir)} ${shellQuote(p)}`,
+    content,
+  );
 }
 
 // ── Skills ───────────────────────────────────────────────────────────────────
 
 const REMOTE_PREFIX = "REMOTE:";
 
-export function sshListInstalledSkills(config: SshConfig): InstalledSkill[] {
+export async function sshListInstalledSkills(config: SshConfig, profile?: string): Promise<InstalledSkill[]> {
   const script = `
-import os, json
-skills_dir = os.path.expanduser("~/.hermes/skills")
+import os, json, sys
+payload = json.load(sys.stdin)
+profile = payload.get("profile")
+skills_dir = os.path.expanduser(f"~/.hermes/profiles/{profile}/skills" if profile and profile != "default" else "~/.hermes/skills")
 skills = []
+
+def read_meta(skill_path):
+    description = ""
+    skill_file = os.path.join(skill_path, "SKILL.md")
+    if os.path.exists(skill_file):
+        try:
+            content = open(skill_file).read(4000)
+            if content.startswith("---"):
+                end = content.find("---", 3)
+                if end != -1:
+                    for line in content[3:end].splitlines():
+                        if line.strip().startswith("description:"):
+                            description = line.split(":",1)[1].strip().strip("'").strip('"')
+            else:
+                for line in content.splitlines():
+                    if line.strip() and not line.startswith("#"):
+                        description = line.strip()[:120]
+                        break
+        except:
+            pass
+    return description
+
 if os.path.isdir(skills_dir):
-    for category in sorted(os.listdir(skills_dir)):
-        cat_path = os.path.join(skills_dir, category)
-        if not os.path.isdir(cat_path):
+    for entry in sorted(os.listdir(skills_dir)):
+        entry_path = os.path.join(skills_dir, entry)
+        if not os.path.isdir(entry_path):
             continue
-        for name in sorted(os.listdir(cat_path)):
-            skill_path = os.path.join(cat_path, name)
-            if not os.path.isdir(skill_path):
-                continue
-            skill_file = os.path.join(skill_path, "SKILL.md")
-            display_name = name
-            description = ""
-            if os.path.exists(skill_file):
-                try:
-                    content = open(skill_file).read(4000)
-                    if content.startswith("---"):
-                        end = content.find("---", 3)
-                        if end != -1:
-                            for line in content[3:end].splitlines():
-                                if line.strip().startswith("name:"):
-                                    display_name = line.split(":",1)[1].strip().strip("'\\"")
-                                elif line.strip().startswith("description:"):
-                                    description = line.split(":",1)[1].strip().strip("'\\"")
-                    else:
-                        for line in content.splitlines():
-                            if line.startswith("#"):
-                                display_name = line.lstrip("#").strip()
-                                break
-                except:
-                    pass
-            skills.append({"name": display_name, "category": category, "description": description, "path": skill_path})
+        direct_skill_file = os.path.join(entry_path, "SKILL.md")
+        if os.path.exists(direct_skill_file):
+            skills.append({"name": entry, "category": "", "description": read_meta(entry_path), "path": entry_path})
+            continue
+        for name in sorted(os.listdir(entry_path)):
+            skill_path = os.path.join(entry_path, name)
+            if os.path.isdir(skill_path) and os.path.exists(os.path.join(skill_path, "SKILL.md")):
+                skills.append({"name": name, "category": entry, "description": read_meta(skill_path), "path": skill_path})
 print(json.dumps(skills))
 `;
   try {
-    const out = sshPython(config, script);
+    const out = await sshPython(config, script, pythonJsonInput({ profile }));
     const parsed = JSON.parse(out.trim() || "[]") as Array<{
       name: string; category: string; description: string; path: string;
     }>;
@@ -124,39 +180,36 @@ print(json.dumps(skills))
   }
 }
 
-export function sshGetSkillContent(config: SshConfig, skillPath: string): string {
+export async function sshGetSkillContent(config: SshConfig, skillPath: string): Promise<string> {
   const remote = skillPath.startsWith(REMOTE_PREFIX)
     ? skillPath.slice(REMOTE_PREFIX.length)
     : skillPath;
-  return sshReadFile(config, `${remote}/SKILL.md`);
+  return await sshReadFile(config, `${remote}/SKILL.md`);
 }
 
-export function sshInstallSkill(config: SshConfig, identifier: string): { success: boolean; error?: string } {
+export async function sshInstallSkill(config: SshConfig, identifier: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const safe = identifier.replace(/"/g, '\\"');
-    sshExec(config, `hermes skills install "${safe}" --yes 2>&1`);
+    await sshExec(config, `hermes skills install ${shellQuote(identifier)} --yes 2>&1`, undefined, 120000);
     return { success: true };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
 }
 
-export function sshUninstallSkill(config: SshConfig, name: string): { success: boolean; error?: string } {
+export async function sshUninstallSkill(config: SshConfig, name: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const safe = name.replace(/"/g, '\\"');
-    sshExec(config, `hermes skills uninstall "${safe}" --yes 2>&1`);
+    await sshExec(config, `hermes skills uninstall ${shellQuote(name)} 2>&1`);
     return { success: true };
   } catch (err) {
     return { success: false, error: (err as Error).message };
   }
 }
 
-export function sshSearchSkills(config: SshConfig, query: string): SkillSearchResult[] {
+export async function sshSearchSkills(config: SshConfig, query: string): Promise<SkillSearchResult[]> {
   try {
-    const safe = query.replace(/"/g, '\\"');
-    const out = sshExec(
+    const out = await sshExec(
       config,
-      `hermes skills browse --query "${safe}" --json 2>/dev/null || echo "[]"`,
+      `hermes skills browse --query ${shellQuote(query)} --json 2>/dev/null || echo "[]"`,
     );
     const parsed = JSON.parse(out.trim() || "[]");
     if (Array.isArray(parsed)) {
@@ -174,8 +227,8 @@ export function sshSearchSkills(config: SshConfig, query: string): SkillSearchRe
   }
 }
 
-export function sshListBundledSkills(config: SshConfig): SkillSearchResult[] {
-  return sshSearchSkills(config, "");
+export async function sshListBundledSkills(config: SshConfig): Promise<SkillSearchResult[]> {
+  return await sshSearchSkills(config, "");
 }
 
 // ── Memory ───────────────────────────────────────────────────────────────────
@@ -210,14 +263,15 @@ function remoteUserPath(profile?: string): string {
   return "~/.hermes/memories/USER.md";
 }
 
-function sshGetSessionStats(config: SshConfig, profile?: string): { totalSessions: number; totalMessages: number } {
-  const dbPath = profile && profile !== "default"
-    ? `~/.hermes/profiles/${profile}/state.db`
-    : "~/.hermes/state.db";
-
+async function sshGetSessionStats(
+  config: SshConfig,
+  profile?: string,
+): Promise<{ totalSessions: number; totalMessages: number }> {
   const script = `
 import sqlite3, json, os, sys
-db = os.path.expanduser("${dbPath}")
+payload = json.load(sys.stdin)
+profile = payload.get("profile")
+db = os.path.expanduser(f"~/.hermes/profiles/{profile}/state.db" if profile and profile != "default" else "~/.hermes/state.db")
 if not os.path.exists(db):
     print(json.dumps({"totalSessions": 0, "totalMessages": 0}))
     sys.exit(0)
@@ -232,17 +286,17 @@ finally:
     conn.close()
 `;
   try {
-    const out = sshPython(config, script);
+    const out = await sshPython(config, script, pythonJsonInput({ profile }));
     return JSON.parse(out.trim());
   } catch {
     return { totalSessions: 0, totalMessages: 0 };
   }
 }
 
-export function sshReadMemory(config: SshConfig, profile?: string): MemoryInfo {
-  const memContent = sshReadFile(config, remoteMemoryPath(profile));
-  const userContent = sshReadFile(config, remoteUserPath(profile));
-  const stats = sshGetSessionStats(config, profile);
+export async function sshReadMemory(config: SshConfig, profile?: string): Promise<MemoryInfo> {
+  const memContent = await sshReadFile(config, remoteMemoryPath(profile));
+  const userContent = await sshReadFile(config, remoteUserPath(profile));
+  const stats = await sshGetSessionStats(config, profile);
 
   return {
     memory: {
@@ -264,19 +318,28 @@ export function sshReadMemory(config: SshConfig, profile?: string): MemoryInfo {
   };
 }
 
-export function sshAddMemoryEntry(config: SshConfig, content: string, profile?: string): { success: boolean; error?: string } {
-  const current = sshReadFile(config, remoteMemoryPath(profile));
+export async function sshAddMemoryEntry(
+  config: SshConfig,
+  content: string,
+  profile?: string,
+): Promise<{ success: boolean; error?: string }> {
+  const current = await sshReadFile(config, remoteMemoryPath(profile));
   const entries = parseMemoryEntries(current);
   const newContent = serializeEntries([...entries, { index: entries.length, content: content.trim() }]);
   if (newContent.length > MEMORY_CHAR_LIMIT) {
     return { success: false, error: `Would exceed memory limit (${newContent.length}/${MEMORY_CHAR_LIMIT} chars)` };
   }
-  sshWriteFile(config, remoteMemoryPath(profile), newContent);
+  await sshWriteFile(config, remoteMemoryPath(profile), newContent);
   return { success: true };
 }
 
-export function sshUpdateMemoryEntry(config: SshConfig, index: number, content: string, profile?: string): { success: boolean; error?: string } {
-  const current = sshReadFile(config, remoteMemoryPath(profile));
+export async function sshUpdateMemoryEntry(
+  config: SshConfig,
+  index: number,
+  content: string,
+  profile?: string,
+): Promise<{ success: boolean; error?: string }> {
+  const current = await sshReadFile(config, remoteMemoryPath(profile));
   const entries = parseMemoryEntries(current);
   if (index < 0 || index >= entries.length) return { success: false, error: "Entry not found" };
   entries[index] = { ...entries[index], content: content.trim() };
@@ -284,24 +347,32 @@ export function sshUpdateMemoryEntry(config: SshConfig, index: number, content: 
   if (newContent.length > MEMORY_CHAR_LIMIT) {
     return { success: false, error: `Would exceed memory limit (${newContent.length}/${MEMORY_CHAR_LIMIT} chars)` };
   }
-  sshWriteFile(config, remoteMemoryPath(profile), newContent);
+  await sshWriteFile(config, remoteMemoryPath(profile), newContent);
   return { success: true };
 }
 
-export function sshRemoveMemoryEntry(config: SshConfig, index: number, profile?: string): boolean {
-  const current = sshReadFile(config, remoteMemoryPath(profile));
+export async function sshRemoveMemoryEntry(
+  config: SshConfig,
+  index: number,
+  profile?: string,
+): Promise<boolean> {
+  const current = await sshReadFile(config, remoteMemoryPath(profile));
   const entries = parseMemoryEntries(current);
   if (index < 0 || index >= entries.length) return false;
   entries.splice(index, 1);
-  sshWriteFile(config, remoteMemoryPath(profile), serializeEntries(entries));
+  await sshWriteFile(config, remoteMemoryPath(profile), serializeEntries(entries));
   return true;
 }
 
-export function sshWriteUserProfile(config: SshConfig, content: string, profile?: string): { success: boolean; error?: string } {
+export async function sshWriteUserProfile(
+  config: SshConfig,
+  content: string,
+  profile?: string,
+): Promise<{ success: boolean; error?: string }> {
   if (content.length > USER_CHAR_LIMIT) {
     return { success: false, error: `Exceeds limit (${content.length}/${USER_CHAR_LIMIT} chars)` };
   }
-  sshWriteFile(config, remoteUserPath(profile), content);
+  await sshWriteFile(config, remoteUserPath(profile), content);
   return { success: true };
 }
 
@@ -319,21 +390,21 @@ function remoteSoulPath(profile?: string): string {
   return "~/.hermes/SOUL.md";
 }
 
-export function sshReadSoul(config: SshConfig, profile?: string): string {
-  return sshReadFile(config, remoteSoulPath(profile));
+export async function sshReadSoul(config: SshConfig, profile?: string): Promise<string> {
+  return await sshReadFile(config, remoteSoulPath(profile));
 }
 
-export function sshWriteSoul(config: SshConfig, content: string, profile?: string): boolean {
+export async function sshWriteSoul(config: SshConfig, content: string, profile?: string): Promise<boolean> {
   try {
-    sshWriteFile(config, remoteSoulPath(profile), content);
+    await sshWriteFile(config, remoteSoulPath(profile), content);
     return true;
   } catch {
     return false;
   }
 }
 
-export function sshResetSoul(config: SshConfig, profile?: string): string {
-  sshWriteSoul(config, DEFAULT_SOUL, profile);
+export async function sshResetSoul(config: SshConfig, profile?: string): Promise<string> {
+  await sshWriteSoul(config, DEFAULT_SOUL, profile);
   return DEFAULT_SOUL;
 }
 
@@ -385,18 +456,23 @@ function remoteConfigPath(profile?: string): string {
   return `$HOME/.hermes/config.yaml`;
 }
 
-export function sshGetToolsets(config: SshConfig, profile?: string): ToolsetInfo[] {
-  const content = sshReadFile(config, remoteConfigPath(profile));
+export async function sshGetToolsets(config: SshConfig, profile?: string): Promise<ToolsetInfo[]> {
+  const content = await sshReadFile(config, remoteConfigPath(profile));
   if (!content) return localizeToolDefs(true);
   const enabled = parseEnabledToolsets(content);
   if (enabled.size === 0 && !content.includes("platform_toolsets")) return localizeToolDefs(true);
   return localizeToolDefs((key) => enabled.has(key));
 }
 
-export function sshSetToolsetEnabled(config: SshConfig, key: string, enabled: boolean, profile?: string): boolean {
+export async function sshSetToolsetEnabled(
+  config: SshConfig,
+  key: string,
+  enabled: boolean,
+  profile?: string,
+): Promise<boolean> {
   try {
     const configPath = remoteConfigPath(profile);
-    const content = sshReadFile(config, configPath);
+    const content = await sshReadFile(config, configPath);
     if (!content) return false;
 
     const current = parseEnabledToolsets(content);
@@ -424,7 +500,7 @@ export function sshSetToolsetEnabled(config: SshConfig, key: string, enabled: bo
       newContent = content.trimEnd() + "\n\nplatform_toolsets:\n" + newSection + "\n";
     }
 
-    sshWriteFile(config, configPath, newContent);
+    await sshWriteFile(config, configPath, newContent);
     return true;
   } catch {
     return false;
@@ -438,8 +514,8 @@ function remoteEnvPath(profile?: string): string {
   return "~/.hermes/.env";
 }
 
-export function sshReadEnv(config: SshConfig, profile?: string): Record<string, string> {
-  const content = sshReadFile(config, remoteEnvPath(profile));
+export async function sshReadEnv(config: SshConfig, profile?: string): Promise<Record<string, string>> {
+  const content = await sshReadFile(config, remoteEnvPath(profile));
   const result: Record<string, string> = {};
   for (const line of content.split("\n")) {
     const trimmed = line.trim();
@@ -462,12 +538,17 @@ export function sshReadEnv(config: SshConfig, profile?: string): Record<string, 
   return result;
 }
 
-export function sshSetEnvValue(config: SshConfig, key: string, value: string, profile?: string): void {
+export async function sshSetEnvValue(
+  config: SshConfig,
+  key: string,
+  value: string,
+  profile?: string,
+): Promise<void> {
   const envPath = remoteEnvPath(profile);
-  const content = sshReadFile(config, envPath);
+  const content = await sshReadFile(config, envPath);
 
   if (!content.trim()) {
-    sshWriteFile(config, envPath, `${key}=${value}\n`);
+    await sshWriteFile(config, envPath, `${key}=${value}\n`);
     return;
   }
 
@@ -482,46 +563,106 @@ export function sshSetEnvValue(config: SshConfig, key: string, value: string, pr
     }
   }
   if (!found) lines.push(`${key}=${value}`);
-  sshWriteFile(config, envPath, lines.join("\n"));
+  await sshWriteFile(config, envPath, lines.join("\n"));
 }
 
-export function sshGetConfigValue(config: SshConfig, key: string, profile?: string): string | null {
-  const content = sshReadFile(config, remoteConfigPath(profile));
+export async function sshGetConfigValue(
+  config: SshConfig,
+  key: string,
+  profile?: string,
+): Promise<string | null> {
+  const content = await sshReadFile(config, remoteConfigPath(profile));
   if (!content) return null;
   const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const match = content.match(new RegExp(`^\\s*${escapedKey}:\\s*["']?([^"'\\n#]+)["']?`, "m"));
   return match ? match[1].trim() : null;
 }
 
-export function sshSetConfigValue(config: SshConfig, key: string, value: string, profile?: string): void {
+export async function sshSetConfigValue(
+  config: SshConfig,
+  key: string,
+  value: string,
+  profile?: string,
+): Promise<void> {
   const configPath = remoteConfigPath(profile);
-  const content = sshReadFile(config, configPath);
+  const content = await sshReadFile(config, configPath);
   if (!content) return;
   const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const regex = new RegExp(`^(\\s*#?\\s*${escapedKey}:\\s*)["']?[^"'\\n#]*["']?`, "m");
   const updated = regex.test(content) ? content.replace(regex, `$1"${value}"`) : content;
-  sshWriteFile(config, configPath, updated);
+  await sshWriteFile(config, configPath, updated);
+}
+
+export function sshGetHermesHome(_config: SshConfig, profile?: string): string {
+  if (profile && profile !== "default") return `~/.hermes/profiles/${profile}`;
+  return "~/.hermes";
+}
+
+export async function sshGetModelConfig(
+  config: SshConfig,
+  profile?: string,
+): Promise<{ provider: string; model: string; baseUrl: string }> {
+  return {
+    provider: (await sshGetConfigValue(config, "provider", profile)) || "auto",
+    model: (await sshGetConfigValue(config, "default", profile)) || "",
+    baseUrl: (await sshGetConfigValue(config, "base_url", profile)) || "",
+  };
+}
+
+export async function sshSetModelConfig(
+  config: SshConfig,
+  provider: string,
+  model: string,
+  baseUrl: string,
+  profile?: string,
+): Promise<void> {
+  await sshSetConfigValue(config, "provider", provider, profile);
+  await sshSetConfigValue(config, "default", model, profile);
+  await sshSetConfigValue(config, "base_url", baseUrl, profile);
+  const configPath = remoteConfigPath(profile);
+  const content = await sshReadFile(config, configPath);
+  if (!content) return;
+  let updated = content.replace(
+    /^(\s*streaming:\s*)(\S+)/m,
+    "$1true",
+  );
+  const lines = updated.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    if (
+      /^\s*enabled:\s*(true|false)/.test(lines[i]) &&
+      i > 0 &&
+      /smart_model_routing/.test(lines[i - 1])
+    ) {
+      lines[i] = lines[i].replace(/(enabled:\s*)(true|false)/, "$1false");
+    }
+  }
+  updated = lines.join("\n");
+  if (updated !== content) await sshWriteFile(config, configPath, updated);
 }
 
 // ── Sessions ─────────────────────────────────────────────────────────────────
 
-function remoteDbPath(profile?: string): string {
-  if (profile && profile !== "default") return `~/.hermes/profiles/${profile}/state.db`;
-  return "~/.hermes/state.db";
-}
-
-export function sshListSessions(config: SshConfig, limit = 30, offset = 0, profile?: string): SessionSummary[] {
-  const dbPath = remoteDbPath(profile);
+export async function sshListSessions(
+  config: SshConfig,
+  limit = 30,
+  offset = 0,
+  profile?: string,
+): Promise<SessionSummary[]> {
   const script = `
 import sqlite3, json, os, sys
-db = os.path.expanduser("${dbPath}")
+payload = json.load(sys.stdin)
+profile = payload.get("profile")
+limit = max(1, min(200, int(payload.get("limit") or 30)))
+offset = max(0, int(payload.get("offset") or 0))
+db = os.path.expanduser(f"~/.hermes/profiles/{profile}/state.db" if profile and profile != "default" else "~/.hermes/state.db")
 if not os.path.exists(db):
     print("[]"); sys.exit(0)
 conn = sqlite3.connect(db)
 conn.row_factory = sqlite3.Row
 rows = conn.execute(
     "SELECT id, source, started_at, ended_at, message_count, model, title "
-    "FROM sessions ORDER BY started_at DESC LIMIT ${limit} OFFSET ${offset}"
+    "FROM sessions ORDER BY started_at DESC LIMIT ? OFFSET ?",
+    (limit, offset)
 ).fetchall()
 result = []
 for r in rows:
@@ -535,43 +676,56 @@ print(json.dumps(result))
 conn.close()
 `;
   try {
-    const out = sshPython(config, script);
+    const out = await sshPython(config, script, pythonJsonInput({ profile, limit, offset }));
     return JSON.parse(out.trim() || "[]");
   } catch {
     return [];
   }
 }
 
-export function sshGetSessionMessages(config: SshConfig, sessionId: string, profile?: string): SessionMessage[] {
-  const dbPath = remoteDbPath(profile);
-  const safe = sessionId.replace(/'/g, "");
+export async function sshGetSessionMessages(
+  config: SshConfig,
+  sessionId: string,
+  profile?: string,
+): Promise<SessionMessage[]> {
   const script = `
 import sqlite3, json, os, sys
-db = os.path.expanduser("${dbPath}")
+payload = json.load(sys.stdin)
+profile = payload.get("profile")
+session_id = payload.get("sessionId") or ""
+db = os.path.expanduser(f"~/.hermes/profiles/{profile}/state.db" if profile and profile != "default" else "~/.hermes/state.db")
 if not os.path.exists(db):
     print("[]"); sys.exit(0)
 conn = sqlite3.connect(db)
 conn.row_factory = sqlite3.Row
 rows = conn.execute(
-    "SELECT id, role, content, timestamp FROM messages WHERE session_id='${safe}' ORDER BY id ASC"
+    "SELECT id, role, content, timestamp FROM messages WHERE session_id=? ORDER BY id ASC",
+    (session_id,)
 ).fetchall()
-print(json.dumps([{"id": r["id"], "role": r["role"], "content": r["content"], "timestamp": r["timestamp"]} for r in rows]))
+print(json.dumps([{"id": r["id"], "role": r["role"], "content": r["content"] or "", "timestamp": r["timestamp"]} for r in rows]))
 conn.close()
 `;
   try {
-    const out = sshPython(config, script);
+    const out = await sshPython(config, script, pythonJsonInput({ profile, sessionId }));
     return JSON.parse(out.trim() || "[]");
   } catch {
     return [];
   }
 }
 
-export function sshSearchSessions(config: SshConfig, query: string, limit = 20, profile?: string): SearchResult[] {
-  const dbPath = remoteDbPath(profile);
-  const safe = query.replace(/'/g, "''");
+export async function sshSearchSessions(
+  config: SshConfig,
+  query: string,
+  limit = 20,
+  profile?: string,
+): Promise<SearchResult[]> {
   const script = `
 import sqlite3, json, os, sys
-db = os.path.expanduser("${dbPath}")
+payload = json.load(sys.stdin)
+profile = payload.get("profile")
+query = payload.get("query") or ""
+limit = max(1, min(200, int(payload.get("limit") or 20)))
+db = os.path.expanduser(f"~/.hermes/profiles/{profile}/state.db" if profile and profile != "default" else "~/.hermes/state.db")
 if not os.path.exists(db):
     print("[]"); sys.exit(0)
 conn = sqlite3.connect(db)
@@ -580,7 +734,8 @@ try:
     rows = conn.execute(
         "SELECT DISTINCT s.id, s.title, s.started_at, s.source, s.message_count, s.model, m.content as snippet "
         "FROM sessions s JOIN messages m ON m.session_id = s.id "
-        "WHERE m.content LIKE '%${safe}%' ORDER BY s.started_at DESC LIMIT ${limit}"
+        "WHERE m.content LIKE ? ORDER BY s.started_at DESC LIMIT ?",
+        (f"%{query}%", limit)
     ).fetchall()
     print(json.dumps([{"sessionId": r["id"], "title": r["title"], "startedAt": r["started_at"], "source": r["source"] or "cli", "messageCount": r["message_count"] or 0, "model": r["model"] or "", "snippet": (r["snippet"] or "")[:200]} for r in rows]))
 except Exception as e:
@@ -588,7 +743,7 @@ except Exception as e:
 conn.close()
 `;
   try {
-    const out = sshPython(config, script);
+    const out = await sshPython(config, script, pythonJsonInput({ profile, query, limit }));
     return JSON.parse(out.trim() || "[]");
   } catch {
     return [];
@@ -610,7 +765,7 @@ export interface SshProfileInfo {
   gatewayRunning: boolean;
 }
 
-export function sshListProfiles(config: SshConfig): SshProfileInfo[] {
+export async function sshListProfiles(config: SshConfig): Promise<SshProfileInfo[]> {
   const script = `
 import os, json
 hermes_home = os.path.expanduser("~/.hermes")
@@ -679,20 +834,26 @@ if os.path.isdir(profiles_dir):
 print(json.dumps(profiles))
 `;
   try {
-    const out = sshPython(config, script);
+    const out = await sshPython(config, script);
     return JSON.parse(out.trim() || "[]");
   } catch {
     return [{ name: "default", path: "~/.hermes", isDefault: true, isActive: true, model: "", provider: "auto", hasEnv: false, hasSoul: false, skillCount: 0, gatewayRunning: false }];
   }
 }
 
-export function sshCreateProfile(config: SshConfig, name: string, clone: boolean): boolean {
+export async function sshCreateProfile(
+  config: SshConfig,
+  name: string,
+  clone: boolean,
+): Promise<boolean> {
   try {
     const safe = name.replace(/[^a-zA-Z0-9_-]/g, "");
+    if (!safe) return false;
+    const quoted = shellQuote(safe);
     if (clone) {
-      sshExec(config, `hermes profiles create "${safe}" --clone-from default 2>&1 || mkdir -p ~/.hermes/profiles/"${safe}"`);
+      await sshExec(config, `hermes profiles create ${quoted} --clone-from default 2>&1 || mkdir -p ~/.hermes/profiles/${quoted}`);
     } else {
-      sshExec(config, `hermes profiles create "${safe}" 2>&1 || mkdir -p ~/.hermes/profiles/"${safe}"`);
+      await sshExec(config, `hermes profiles create ${quoted} 2>&1 || mkdir -p ~/.hermes/profiles/${quoted}`);
     }
     return true;
   } catch {
@@ -700,10 +861,12 @@ export function sshCreateProfile(config: SshConfig, name: string, clone: boolean
   }
 }
 
-export function sshDeleteProfile(config: SshConfig, name: string): boolean {
+export async function sshDeleteProfile(config: SshConfig, name: string): Promise<boolean> {
   try {
     const safe = name.replace(/[^a-zA-Z0-9_-]/g, "");
-    sshExec(config, `hermes profiles delete "${safe}" --yes 2>&1 || rm -rf ~/.hermes/profiles/"${safe}"`);
+    if (!safe || safe === "default") return false;
+    const quoted = shellQuote(safe);
+    await sshExec(config, `hermes profiles delete ${quoted} --yes 2>&1 || rm -rf ~/.hermes/profiles/${quoted}`);
     return true;
   } catch {
     return false;
@@ -712,9 +875,9 @@ export function sshDeleteProfile(config: SshConfig, name: string): boolean {
 
 // ── Gateway ───────────────────────────────────────────────────────────────────
 
-export function sshGatewayStatus(config: SshConfig): boolean {
+export async function sshGatewayStatus(config: SshConfig): Promise<boolean> {
   try {
-    const out = sshExec(
+    const out = await sshExec(
       config,
       `if [ -f $HOME/.hermes/gateway.pid ]; then ` +
       `pid=$(python3 -c "import json,sys; d=json.load(open('$HOME/.hermes/gateway.pid')); print(d.get('pid',d) if isinstance(d,dict) else d)" 2>/dev/null || cat $HOME/.hermes/gateway.pid); ` +
@@ -727,17 +890,17 @@ export function sshGatewayStatus(config: SshConfig): boolean {
   }
 }
 
-export function sshStartGateway(config: SshConfig): void {
+export async function sshStartGateway(config: SshConfig): Promise<void> {
   try {
-    sshExec(config, `nohup hermes gateway start > $HOME/.hermes/gateway.log 2>&1 &`);
+    await sshExec(config, `nohup hermes gateway start > $HOME/.hermes/gateway.log 2>&1 &`);
   } catch {
     // best effort
   }
 }
 
-export function sshStopGateway(config: SshConfig): void {
+export async function sshStopGateway(config: SshConfig): Promise<void> {
   try {
-    sshExec(
+    await sshExec(
       config,
       `hermes gateway stop 2>/dev/null || ` +
       `(if [ -f $HOME/.hermes/gateway.pid ]; then ` +
@@ -751,9 +914,9 @@ export function sshStopGateway(config: SshConfig): void {
 
 // ── Remote API key (for chat auth through SSH tunnel) ─────────────────────────
 
-export function sshReadRemoteApiKey(config: SshConfig): string {
+export async function sshReadRemoteApiKey(config: SshConfig): Promise<string> {
   try {
-    const env = sshReadEnv(config);
+    const env = await sshReadEnv(config);
     return env["API_SERVER_KEY"] || "";
   } catch {
     return "";
@@ -762,9 +925,9 @@ export function sshReadRemoteApiKey(config: SshConfig): string {
 
 // ── Versions ──────────────────────────────────────────────────────────────────
 
-export function sshGetHermesVersion(config: SshConfig): string | null {
+export async function sshGetHermesVersion(config: SshConfig): Promise<string | null> {
   try {
-    const out = sshExec(config, `hermes --version 2>/dev/null || hermes version 2>/dev/null || echo ""`);
+    const out = await sshExec(config, `hermes --version 2>/dev/null || hermes version 2>/dev/null || echo ""`);
     return out.trim() || null;
   } catch {
     return null;
@@ -773,16 +936,20 @@ export function sshGetHermesVersion(config: SshConfig): string | null {
 
 // ── Logs ──────────────────────────────────────────────────────────────────────
 
-export function sshReadLogs(
+export async function sshReadLogs(
   config: SshConfig,
   logFile?: string,
   lines = 300,
-): { content: string; path: string } {
+): Promise<{ content: string; path: string }> {
   const allowed = ["agent.log", "errors.log", "gateway.log"];
   const file = logFile && allowed.includes(logFile) ? logFile : "agent.log";
   const remotePath = `$HOME/.hermes/logs/${file}`;
   try {
-    const content = sshExec(config, `tail -n ${lines} "${remotePath}" 2>/dev/null || echo ""`);
+    const safeLines = Math.max(1, Math.min(5000, Number.parseInt(String(lines), 10) || 300));
+    const content = await sshExec(
+      config,
+      `bash -c 'case "$2" in "~/"*) p="$HOME/\${2#~/}" ;; "\\$HOME/"*) p="$HOME/\${2#\\$HOME/}" ;; *) p="$2" ;; esac; tail -n "$1" -- "$p" 2>/dev/null || echo ""' -- ${shellQuote(String(safeLines))} ${shellQuote(remotePath)}`,
+    );
     return { content: content.trim(), path: `~/.hermes/logs/${file}` };
   } catch {
     return { content: "", path: `~/.hermes/logs/${file}` };
@@ -802,12 +969,13 @@ const PLATFORM_STATE_KEY: Record<string, string> = {
   home_assistant: "homeassistant",
 };
 
-export function sshGetPlatformEnabled(
+export async function sshGetPlatformEnabled(
   config: SshConfig,
-  _profile?: string,
-): Record<string, boolean> {
+  profile?: string,
+): Promise<Record<string, boolean>> {
+  void profile;
   try {
-    const raw = sshReadFile(config, "$HOME/.hermes/gateway_state.json");
+    const raw = await sshReadFile(config, "$HOME/.hermes/gateway_state.json");
     if (raw.trim()) {
       const state = JSON.parse(raw);
       const platforms = state.platforms || {};
@@ -825,15 +993,15 @@ export function sshGetPlatformEnabled(
   return Object.fromEntries(SSH_SUPPORTED_PLATFORMS.map((p) => [p, false]));
 }
 
-export function sshSetPlatformEnabled(
+export async function sshSetPlatformEnabled(
   config: SshConfig,
   platform: string,
   enabled: boolean,
   profile?: string,
-): void {
+): Promise<void> {
   if (!SSH_SUPPORTED_PLATFORMS.includes(platform)) return;
   const configPath = remoteConfigPath(profile);
-  const content = sshReadFile(config, configPath);
+  const content = await sshReadFile(config, configPath);
   if (!content) return;
 
   let updated = content;
@@ -861,19 +1029,18 @@ export function sshSetPlatformEnabled(
     }
   }
 
-  sshWriteFile(config, configPath, updated);
+  await sshWriteFile(config, configPath, updated);
 }
 
 // ── Cached sessions (Sessions screen uses listCachedSessions) ─────────────────
 
-import type { CachedSession } from "./session-cache";
-
-export function sshListCachedSessions(
+export async function sshListCachedSessions(
   config: SshConfig,
   limit = 50,
-  _offset = 0,
-): CachedSession[] {
-  const sessions = sshListSessions(config, limit, 0);
+  offset = 0,
+): Promise<CachedSession[]> {
+  void offset;
+  const sessions = await sshListSessions(config, limit, 0);
   return sessions.map((s) => ({
     id: s.id,
     title: s.title || s.id,
@@ -886,22 +1053,81 @@ export function sshListCachedSessions(
 
 // ── Doctor / diagnostics ──────────────────────────────────────────────────────
 
-export function sshRunDoctor(config: SshConfig): string {
+export async function sshRunDoctor(config: SshConfig): Promise<string> {
   try {
-    const out = sshExec(config, `hermes doctor 2>&1 || echo "hermes not found in PATH"`);
+    const out = await sshExec(config, `hermes doctor 2>&1 || echo "hermes not found in PATH"`);
     return out.trim() || "No output from doctor.";
   } catch (err) {
     return `SSH doctor failed: ${(err as Error).message}`;
   }
 }
 
+export async function sshRunUpdate(config: SshConfig): Promise<void> {
+  await sshExec(config, "hermes update 2>&1", undefined, 120000);
+}
+
+export async function sshRunDump(config: SshConfig): Promise<string> {
+  try {
+    const out = await sshExec(config, "hermes dump 2>&1", undefined, 60000);
+    return out.trim() || "No output from dump.";
+  } catch (err) {
+    return `SSH dump failed: ${(err as Error).message}`;
+  }
+}
+
+export async function sshDiscoverMemoryProviders(
+  config: SshConfig,
+  profile?: string,
+): Promise<MemoryProviderInfo[]> {
+  const activeProvider = (await sshGetConfigValue(config, "memory.provider", profile)) || "";
+  const script = `
+import json, os
+known = {
+    "honcho": {"description": "memory.providers.honcho", "envVars": ["HONCHO_API_KEY"]},
+    "hindsight": {"description": "memory.providers.hindsight", "envVars": ["HINDSIGHT_API_KEY", "HINDSIGHT_API_URL", "HINDSIGHT_BANK_ID"]},
+    "mem0": {"description": "memory.providers.mem0", "envVars": ["MEM0_API_KEY"]},
+    "retaindb": {"description": "memory.providers.retaindb", "envVars": ["RETAINDB_API_KEY"]},
+    "supermemory": {"description": "memory.providers.supermemory", "envVars": ["SUPERMEMORY_API_KEY"]},
+    "holographic": {"description": "memory.providers.holographic", "envVars": []},
+    "openviking": {"description": "memory.providers.openviking", "envVars": ["OPENVIKING_ENDPOINT", "OPENVIKING_API_KEY"]},
+    "byterover": {"description": "memory.providers.byterover", "envVars": ["BRV_API_KEY"]},
+}
+roots = [
+    os.path.expanduser("~/.hermes/plugins/memory"),
+    os.path.expanduser("~/hermes/plugins/memory"),
+    os.path.expanduser("~/hermes-agent/plugins/memory"),
+]
+names = set(known)
+for root in roots:
+    if os.path.isdir(root):
+        for name in os.listdir(root):
+            if not name.startswith("_") and os.path.isdir(os.path.join(root, name)):
+                names.add(name)
+result = []
+for name in sorted(names):
+    meta = known.get(name, {"description": f"memory.providers.{name}", "envVars": []})
+    result.append({
+        "name": name,
+        "description": meta["description"],
+        "envVars": meta["envVars"],
+        "installed": True,
+        "active": name == ${JSON.stringify(activeProvider)},
+    })
+print(json.dumps(result))
+`;
+  try {
+    const out = await sshPython(config, script);
+    return JSON.parse(out.trim() || "[]");
+  } catch {
+    return [];
+  }
+}
+
 // ── Models library ─────────────────────────────────────────────────────────────
 
-import type { SavedModel } from "./models";
-
-export function sshListModels(config: SshConfig): SavedModel[] {
+export async function sshListModels(config: SshConfig): Promise<SavedModel[]> {
   try {
-    const raw = sshReadFile(config, "$HOME/.hermes/models.json");
+    const raw = await sshReadFile(config, "$HOME/.hermes/models.json");
     if (raw.trim()) return JSON.parse(raw);
   } catch {
     // no models.json on remote yet
@@ -909,6 +1135,6 @@ export function sshListModels(config: SshConfig): SavedModel[] {
   return [];
 }
 
-export function sshSaveModels(config: SshConfig, models: SavedModel[]): void {
-  sshWriteFile(config, "$HOME/.hermes/models.json", JSON.stringify(models, null, 2));
+export async function sshSaveModels(config: SshConfig, models: SavedModel[]): Promise<void> {
+  await sshWriteFile(config, "$HOME/.hermes/models.json", JSON.stringify(models, null, 2));
 }

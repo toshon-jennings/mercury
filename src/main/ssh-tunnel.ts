@@ -15,13 +15,50 @@ export interface SshConfig {
 
 let tunnelProcess: ChildProcess | null = null;
 let activeConfig: SshConfig | null = null;
+let tunnelRunning = false;
 
-export function getSshTunnelUrl(): string {
-  return `http://127.0.0.1:${activeConfig?.localPort ?? 18642}`;
+export function getSshTunnelUrl(): string | null {
+  if (!activeConfig || !tunnelRunning) return null;
+  return `http://127.0.0.1:${activeConfig.localPort}`;
 }
 
 export function isSshTunnelActive(): boolean {
-  return tunnelProcess !== null && !tunnelProcess.killed;
+  return tunnelProcess !== null && tunnelRunning;
+}
+
+function checkTunnelHealth(port: number, timeoutMs = 3000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const req = http.request(
+      `http://127.0.0.1:${port}/health`,
+      { method: "GET", timeout: timeoutMs },
+      (res) => {
+        const healthy = res.statusCode === 200;
+        res.resume();
+        resolve(healthy);
+      },
+    );
+    req.on("error", () => resolve(false));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve(false);
+    });
+    req.end();
+  });
+}
+
+async function waitForHealth(port: number, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() <= deadline) {
+    if (await checkTunnelHealth(port, 1500)) return;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error(`SSH tunnel health check failed after ${timeoutMs}ms`);
+}
+
+export async function isSshTunnelHealthy(): Promise<boolean> {
+  return activeConfig !== null && tunnelRunning
+    ? checkTunnelHealth(activeConfig.localPort)
+    : false;
 }
 
 function findFreePort(preferred: number): Promise<number> {
@@ -71,6 +108,9 @@ function buildSshArgs(config: SshConfig, localPort: number): string[] {
     "-i", keyPath,
     "-o", "StrictHostKeyChecking=accept-new",
     "-o", "BatchMode=yes",
+    "-o", "ControlMaster=auto",
+    "-o", "ControlPath=~/.ssh/cm-hermes-%r@%h:%p",
+    "-o", "ControlPersist=60s",
     "-o", "ExitOnForwardFailure=yes",
     "-o", "ServerAliveInterval=30",
     "-o", "ServerAliveCountMax=3",
@@ -83,6 +123,7 @@ export async function startSshTunnel(config: SshConfig): Promise<void> {
 
   const localPort = await findFreePort(config.localPort || 18642);
   activeConfig = { ...config, localPort };
+  tunnelRunning = false;
 
   tunnelProcess = spawn("ssh", buildSshArgs(config, localPort), {
     stdio: "ignore",
@@ -90,84 +131,89 @@ export async function startSshTunnel(config: SshConfig): Promise<void> {
   });
 
   tunnelProcess.on("exit", () => {
+    tunnelRunning = false;
     tunnelProcess = null;
+    activeConfig = null;
   });
 
   tunnelProcess.on("error", () => {
+    tunnelRunning = false;
     tunnelProcess = null;
+    activeConfig = null;
   });
 
-  await waitForPort(localPort, 12000);
+  try {
+    await waitForPort(localPort, 12000);
+    tunnelRunning = true;
+    await waitForHealth(localPort, 20000);
+  } catch (err) {
+    stopSshTunnel();
+    throw err;
+  }
 }
 
 export function stopSshTunnel(): void {
   if (tunnelProcess && !tunnelProcess.killed) {
     tunnelProcess.kill("SIGTERM");
   }
-  tunnelProcess = null;
+  tunnelRunning = false;
   activeConfig = null;
 }
 
 export async function ensureSshTunnel(config: SshConfig): Promise<void> {
-  if (isSshTunnelActive()) return;
+  if (isSshTunnelActive() && await isSshTunnelHealthy()) return;
   await startSshTunnel(config);
 }
 
 // Test SSH reachability + hermes health endpoint through a temporary tunnel
 export function testSshConnection(config: SshConfig): Promise<boolean> {
-  return new Promise(async (resolve) => {
-    let localPort: number;
-    try {
-      localPort = await findFreePort(config.localPort || 19642);
-    } catch {
-      resolve(false);
-      return;
-    }
+  return findFreePort(config.localPort || 19642)
+    .then((localPort) => new Promise<boolean>((resolve) => {
+      const args = buildSshArgs(config, localPort);
+      const proc = spawn("ssh", args, { stdio: "ignore" });
 
-    const args = buildSshArgs(config, localPort);
-    const proc = spawn("ssh", args, { stdio: "ignore" });
+      let done = false;
+      const finish = (result: boolean): void => {
+        if (done) return;
+        done = true;
+        proc.kill("SIGTERM");
+        resolve(result);
+      };
 
-    let done = false;
-    const finish = (result: boolean): void => {
-      if (done) return;
-      done = true;
-      proc.kill("SIGTERM");
-      resolve(result);
-    };
+      proc.on("error", () => finish(false));
 
-    proc.on("error", () => finish(false));
+      const timeout = setTimeout(() => finish(false), 20000);
 
-    const timeout = setTimeout(() => finish(false), 20000);
+      // Poll until tunnel port is reachable, then hit /health
+      const deadline = Date.now() + 15000;
+      async function poll(): Promise<void> {
+        if (done) return;
+        const portOpen = await new Promise<boolean>((res) => {
+          const s = net.connect(localPort, "127.0.0.1", () => { s.destroy(); res(true); });
+          s.on("error", () => { s.destroy(); res(false); });
+        });
 
-    // Poll until tunnel port is reachable, then hit /health
-    const deadline = Date.now() + 15000;
-    async function poll(): Promise<void> {
-      if (done) return;
-      const portOpen = await new Promise<boolean>((res) => {
-        const s = net.connect(localPort, "127.0.0.1", () => { s.destroy(); res(true); });
-        s.on("error", () => { s.destroy(); res(false); });
-      });
+        if (!portOpen) {
+          if (Date.now() > deadline) { clearTimeout(timeout); finish(false); return; }
+          setTimeout(poll, 400);
+          return;
+        }
 
-      if (!portOpen) {
-        if (Date.now() > deadline) { clearTimeout(timeout); finish(false); return; }
-        setTimeout(poll, 400);
-        return;
+        // Port is open — hit hermes /health
+        const req = http.request(
+          `http://127.0.0.1:${localPort}/health`,
+          { method: "GET", timeout: 3000 },
+          (res) => {
+            clearTimeout(timeout);
+            finish(res.statusCode === 200);
+            res.resume();
+          },
+        );
+        req.on("error", () => { clearTimeout(timeout); finish(false); });
+        req.end();
       }
 
-      // Port is open — hit hermes /health
-      const req = http.request(
-        `http://127.0.0.1:${localPort}/health`,
-        { method: "GET", timeout: 3000 },
-        (res) => {
-          clearTimeout(timeout);
-          finish(res.statusCode === 200);
-          res.resume();
-        },
-      );
-      req.on("error", () => { clearTimeout(timeout); finish(false); });
-      req.end();
-    }
-
-    setTimeout(poll, 600);
-  });
+      setTimeout(poll, 600);
+    }))
+    .catch(() => false);
 }

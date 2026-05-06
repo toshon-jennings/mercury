@@ -46,6 +46,7 @@ import {
   stopSshTunnel,
   testSshConnection,
   isSshTunnelActive,
+  isSshTunnelHealthy,
 } from "./ssh-tunnel";
 import {
   getClaw3dStatus,
@@ -137,6 +138,9 @@ import {
   sshSetEnvValue,
   sshGetConfigValue,
   sshSetConfigValue,
+  sshGetHermesHome,
+  sshGetModelConfig,
+  sshSetModelConfig,
   sshListSessions,
   sshGetSessionMessages,
   sshSearchSessions,
@@ -154,6 +158,9 @@ import {
   sshListCachedSessions,
   sshRunDoctor,
   sshListModels,
+  sshRunUpdate,
+  sshRunDump,
+  sshDiscoverMemoryProviders,
 } from "./ssh-remote";
 
 process.on("uncaughtException", (err) => {
@@ -265,6 +272,22 @@ function setupIPC(): void {
   });
   ipcMain.handle("run-hermes-update", async (event) => {
     try {
+      const conn = getConnectionConfig();
+      if (conn.mode === "ssh" && conn.ssh) {
+        event.sender.send("install-progress", {
+          step: 1,
+          totalSteps: 1,
+          title: "Updating remote Hermes Agent",
+          detail: "Running hermes update over SSH...",
+          log: "Running hermes update over SSH...\n",
+        });
+        await sshRunUpdate(conn.ssh);
+        await sshStartGateway(conn.ssh);
+        await startSshTunnel(conn.ssh);
+        const key = await sshReadRemoteApiKey(conn.ssh);
+        setSshRemoteApiKey(key);
+        return { success: true };
+      }
       await runHermesUpdate((progress: InstallProgress) => {
         event.sender.send("install-progress", progress);
       });
@@ -301,10 +324,10 @@ function setupIPC(): void {
 
   ipcMain.handle(
     "set-env",
-    (_event, key: string, value: string, profile?: string) => {
+    async (_event, key: string, value: string, profile?: string) => {
       const conn = getConnectionConfig();
       if (conn.mode === "ssh" && conn.ssh) {
-        sshSetEnvValue(conn.ssh, key, value, profile);
+        await sshSetEnvValue(conn.ssh, key, value, profile);
         return true;
       }
       setEnvValue(key, value, profile);
@@ -328,10 +351,10 @@ function setupIPC(): void {
 
   ipcMain.handle(
     "set-config",
-    (_event, key: string, value: string, profile?: string) => {
+    async (_event, key: string, value: string, profile?: string) => {
       const conn = getConnectionConfig();
       if (conn.mode === "ssh" && conn.ssh) {
-        sshSetConfigValue(conn.ssh, key, value, profile);
+        await sshSetConfigValue(conn.ssh, key, value, profile);
         return true;
       }
       setConfigValue(key, value, profile);
@@ -339,23 +362,42 @@ function setupIPC(): void {
     },
   );
 
-  ipcMain.handle("get-hermes-home", (_event, profile?: string) =>
-    getHermesHome(profile),
-  );
+  ipcMain.handle("get-hermes-home", (_event, profile?: string) => {
+    const conn = getConnectionConfig();
+    if (conn.mode === "ssh" && conn.ssh) return sshGetHermesHome(conn.ssh, profile);
+    return getHermesHome(profile);
+  });
 
-  ipcMain.handle("get-model-config", (_event, profile?: string) =>
-    getModelConfig(profile),
-  );
+  ipcMain.handle("get-model-config", (_event, profile?: string) => {
+    const conn = getConnectionConfig();
+    if (conn.mode === "ssh" && conn.ssh) return sshGetModelConfig(conn.ssh, profile);
+    return getModelConfig(profile);
+  });
 
   ipcMain.handle(
     "set-model-config",
-    (
+    async (
       _event,
       provider: string,
       model: string,
       baseUrl: string,
       profile?: string,
     ) => {
+      const conn = getConnectionConfig();
+      if (conn.mode === "ssh" && conn.ssh) {
+        const prev = await sshGetModelConfig(conn.ssh, profile);
+        await sshSetModelConfig(conn.ssh, provider, model, baseUrl, profile);
+        if (
+          await sshGatewayStatus(conn.ssh) &&
+          (prev.provider !== provider ||
+            prev.model !== model ||
+            prev.baseUrl !== baseUrl)
+        ) {
+          await sshStopGateway(conn.ssh);
+          await sshStartGateway(conn.ssh);
+        }
+        return true;
+      }
       const prev = getModelConfig(profile);
       setModelConfig(provider, model, baseUrl, profile);
 
@@ -427,10 +469,13 @@ function setupIPC(): void {
   ipcMain.handle("start-ssh-tunnel", async () => {
     const conn = getConnectionConfig();
     if (conn.mode !== "ssh") return false;
+    if (conn.ssh && !await sshGatewayStatus(conn.ssh)) {
+      await sshStartGateway(conn.ssh);
+    }
     await startSshTunnel(conn.ssh);
     // Cache the remote API key so chat auth works through the tunnel
     if (conn.ssh) {
-      const key = sshReadRemoteApiKey(conn.ssh);
+      const key = await sshReadRemoteApiKey(conn.ssh);
       setSshRemoteApiKey(key);
     }
     return true;
@@ -456,6 +501,17 @@ function setupIPC(): void {
       }
 
       await ensureSshTunnelIfNeeded();
+      const conn = getConnectionConfig();
+      if (conn.mode === "ssh" && conn.ssh) {
+        const gatewayRunning = await sshGatewayStatus(conn.ssh);
+        const tunnelHealthy = await isSshTunnelHealthy();
+        if (!gatewayRunning || !tunnelHealthy) {
+          await sshStartGateway(conn.ssh);
+          await startSshTunnel(conn.ssh);
+          const key = await sshReadRemoteApiKey(conn.ssh);
+          setSshRemoteApiKey(key);
+        }
+      }
 
       if (currentChatAbort) {
         currentChatAbort();
@@ -536,14 +592,14 @@ function setupIPC(): void {
   });
 
   // Gateway
-  ipcMain.handle("start-gateway", () => {
+  ipcMain.handle("start-gateway", async () => {
     const conn = getConnectionConfig();
-    if (conn.mode === "ssh" && conn.ssh) { sshStartGateway(conn.ssh); return true; }
+    if (conn.mode === "ssh" && conn.ssh) { await sshStartGateway(conn.ssh); return true; }
     return startGateway();
   });
-  ipcMain.handle("stop-gateway", () => {
+  ipcMain.handle("stop-gateway", async () => {
     const conn = getConnectionConfig();
-    if (conn.mode === "ssh" && conn.ssh) { sshStopGateway(conn.ssh); return true; }
+    if (conn.mode === "ssh" && conn.ssh) { await sshStopGateway(conn.ssh); return true; }
     stopGateway(true);
     return true;
   });
@@ -561,10 +617,10 @@ function setupIPC(): void {
   });
   ipcMain.handle(
     "set-platform-enabled",
-    (_event, platform: string, enabled: boolean, profile?: string) => {
+    async (_event, platform: string, enabled: boolean, profile?: string) => {
       const conn = getConnectionConfig();
       if (conn.mode === "ssh" && conn.ssh) {
-        sshSetPlatformEnabled(conn.ssh, platform, enabled, profile);
+        await sshSetPlatformEnabled(conn.ssh, platform, enabled, profile);
         return true;
       }
       setPlatformEnabled(platform, enabled, profile);
@@ -684,7 +740,7 @@ function setupIPC(): void {
   // Skills
   ipcMain.handle("list-installed-skills", (_event, profile?: string) => {
     const conn = getConnectionConfig();
-    if (conn.mode === "ssh" && conn.ssh) return sshListInstalledSkills(conn.ssh);
+    if (conn.mode === "ssh" && conn.ssh) return sshListInstalledSkills(conn.ssh, profile);
     return listInstalledSkills(profile);
   });
   ipcMain.handle("list-bundled-skills", () => {
@@ -860,7 +916,11 @@ function setupIPC(): void {
   );
 
   // Debug dump
-  ipcMain.handle("run-hermes-dump", () => runHermesDump());
+  ipcMain.handle("run-hermes-dump", () => {
+    const conn = getConnectionConfig();
+    if (conn.mode === "ssh" && conn.ssh) return sshRunDump(conn.ssh);
+    return runHermesDump();
+  });
 
   // MCP servers
   ipcMain.handle("list-mcp-servers", (_event, profile?: string) =>
@@ -868,9 +928,11 @@ function setupIPC(): void {
   );
 
   // Memory providers
-  ipcMain.handle("discover-memory-providers", (_event, profile?: string) =>
-    discoverMemoryProviders(profile),
-  );
+  ipcMain.handle("discover-memory-providers", (_event, profile?: string) => {
+    const conn = getConnectionConfig();
+    if (conn.mode === "ssh" && conn.ssh) return sshDiscoverMemoryProviders(conn.ssh, profile);
+    return discoverMemoryProviders(profile);
+  });
 
   // Log viewer
   ipcMain.handle("read-logs", (_event, logFile?: string, lines?: number) => {
@@ -1067,7 +1129,14 @@ app.whenReady().then(() => {
   // Auto-start SSH tunnel if configured
   const conn = getConnectionConfig();
   if (conn.mode === "ssh" && conn.ssh.host) {
-    startSshTunnel(conn.ssh).catch((err) => {
+    (async () => {
+      if (!await sshGatewayStatus(conn.ssh)) {
+        await sshStartGateway(conn.ssh);
+      }
+      await startSshTunnel(conn.ssh);
+      const key = await sshReadRemoteApiKey(conn.ssh);
+      setSshRemoteApiKey(key);
+    })().catch((err) => {
       console.error("[SSH TUNNEL] Failed to start on launch:", err);
     });
   }
