@@ -107,6 +107,7 @@ import {
   triggerCronJob,
 } from "./cronjobs";
 import { getAppLocale, setAppLocale } from "./locale";
+import type { AppLocale } from "../shared/i18n/types";
 
 process.on("uncaughtException", (err) => {
   console.error("[MAIN UNCAUGHT]", err);
@@ -231,7 +232,7 @@ function setupIPC(): void {
 
   // Configuration (profile-aware)
   ipcMain.handle("get-locale", () => getAppLocale());
-  ipcMain.handle("set-locale", (_event, locale: "en" | "es" | "zh-CN") =>
+  ipcMain.handle("set-locale", (_event, locale: AppLocale) =>
     setAppLocale(locale),
   );
 
