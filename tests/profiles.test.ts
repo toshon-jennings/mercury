@@ -25,7 +25,12 @@ vi.mock("../src/main/installer", () => ({
 }));
 
 // Import AFTER the mock so PROFILES_DIR is resolved against TEST_HOME.
-import { listProfiles } from "../src/main/profiles";
+import {
+  createProfile,
+  deleteProfile,
+  listProfiles,
+  setActiveProfile,
+} from "../src/main/profiles";
 
 const PROFILES_DIR = join(TEST_HOME, "profiles");
 
@@ -96,6 +101,19 @@ describe("listProfiles", () => {
     expect(profiles.find((p) => p.name === "stray.txt")).toBeUndefined();
   });
 
+  it("ignores invalid profile directory names", async () => {
+    mkdirSync(join(PROFILES_DIR, "valid_profile-1"), { recursive: true });
+    mkdirSync(join(PROFILES_DIR, "-flag"), { recursive: true });
+    mkdirSync(join(PROFILES_DIR, "has space"), { recursive: true });
+    mkdirSync(join(PROFILES_DIR, "UpperCase"), { recursive: true });
+
+    const profiles = await listProfiles();
+    expect(profiles.find((p) => p.name === "valid_profile-1")).toBeDefined();
+    expect(profiles.find((p) => p.name === "-flag")).toBeUndefined();
+    expect(profiles.find((p) => p.name === "has space")).toBeUndefined();
+    expect(profiles.find((p) => p.name === "UpperCase")).toBeUndefined();
+  });
+
   it("returns the default profile even when ~/.hermes/profiles/ is empty", async () => {
     const profiles = await listProfiles();
     expect(profiles.find((p) => p.isDefault)).toBeDefined();
@@ -111,5 +129,14 @@ describe("listProfiles", () => {
     const def = profiles.find((p) => p.isDefault);
     expect(work?.isActive).toBe(true);
     expect(def?.isActive).toBe(false);
+  });
+
+  it("rejects invalid profile names before invoking the Hermes CLI", () => {
+    expect(createProfile("../outside", true).success).toBe(false);
+    expect(createProfile("-flag", true).success).toBe(false);
+    expect(deleteProfile("../outside").success).toBe(false);
+    expect(() => setActiveProfile("../outside")).toThrow(
+      "Profile names may contain lowercase letters",
+    );
   });
 });

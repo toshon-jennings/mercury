@@ -9,6 +9,11 @@ import {
   HERMES_SCRIPT,
   getEnhancedPath,
 } from "./installer";
+import {
+  isValidNamedProfileName,
+  isValidProfileName,
+  PROFILE_NAME_ERROR,
+} from "./utils";
 
 const PROFILES_DIR = join(HERMES_HOME, "profiles");
 
@@ -108,14 +113,19 @@ export async function listProfiles(): Promise<ProfileInfo[]> {
   const profiles: ProfileInfo[] = [];
 
   // Default profile is HERMES_HOME itself
-  const [defaultConfig, defaultHasEnv, defaultHasSoul, defaultSkills, defaultGw] =
-    await Promise.all([
-      readProfileConfig(HERMES_HOME),
-      fileExists(join(HERMES_HOME, ".env")),
-      fileExists(join(HERMES_HOME, "SOUL.md")),
-      countSkills(HERMES_HOME),
-      isGatewayRunning(HERMES_HOME),
-    ]);
+  const [
+    defaultConfig,
+    defaultHasEnv,
+    defaultHasSoul,
+    defaultSkills,
+    defaultGw,
+  ] = await Promise.all([
+    readProfileConfig(HERMES_HOME),
+    fileExists(join(HERMES_HOME, ".env")),
+    fileExists(join(HERMES_HOME, "SOUL.md")),
+    countSkills(HERMES_HOME),
+    isGatewayRunning(HERMES_HOME),
+  ]);
 
   profiles.push({
     name: "default",
@@ -137,6 +147,7 @@ export async function listProfiles(): Promise<ProfileInfo[]> {
       const profilePromises = dirs.map(async (name) => {
         // Skip dotfiles like .DS_Store so they don't get mistaken for profiles.
         if (name.startsWith(".")) return null;
+        if (!isValidNamedProfileName(name)) return null;
 
         const profilePath = join(PROFILES_DIR, name);
         const stat = await fs.stat(profilePath);
@@ -185,6 +196,13 @@ export function createProfile(
   name: string,
   clone: boolean,
 ): { success: boolean; error?: string } {
+  if (name === "default") {
+    return { success: false, error: "Cannot create the default profile" };
+  }
+  if (!isValidNamedProfileName(name)) {
+    return { success: false, error: PROFILE_NAME_ERROR };
+  }
+
   try {
     const args = clone
       ? ["profile", "create", name, "--clone"]
@@ -214,6 +232,10 @@ export function deleteProfile(name: string): {
 } {
   if (name === "default")
     return { success: false, error: "Cannot delete the default profile" };
+  if (!isValidNamedProfileName(name)) {
+    return { success: false, error: PROFILE_NAME_ERROR };
+  }
+
   try {
     execFileSync(
       HERMES_PYTHON,
@@ -239,6 +261,10 @@ export function deleteProfile(name: string): {
 }
 
 export function setActiveProfile(name: string): void {
+  if (!isValidProfileName(name)) {
+    throw new Error(PROFILE_NAME_ERROR);
+  }
+
   try {
     execFileSync(HERMES_PYTHON, [HERMES_SCRIPT, "profile", "use", name], {
       cwd: join(HERMES_HOME, "hermes-agent"),

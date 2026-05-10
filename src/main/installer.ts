@@ -4,7 +4,7 @@ import { join } from "path";
 import { homedir } from "os";
 import type { BrowserWindow } from "electron";
 import { getModelConfig, getConnectionConfig } from "./config";
-import { stripAnsi } from "./utils";
+import { profileHome, stripAnsi } from "./utils";
 import { setupAskpass, AskpassHandle } from "./askpass";
 
 export const HERMES_HOME =
@@ -769,11 +769,7 @@ export function discoverMemoryProviders(
  */
 export function getActiveMemoryProvider(profile?: string): string {
   try {
-    const configDir =
-      profile && profile !== "default"
-        ? join(HERMES_HOME, "profiles", profile)
-        : HERMES_HOME;
-    const configPath = join(configDir, "config.yaml");
+    const configPath = join(profileHome(profile), "config.yaml");
     if (!existsSync(configPath)) return "";
     const content = readFileSync(configPath, "utf-8");
     const match = content.match(/^\s*provider:\s*["']?(\w+)["']?\s*$/m);
@@ -791,12 +787,7 @@ export function listMcpServers(
   profile?: string,
 ): Array<{ name: string; type: string; enabled: boolean; detail: string }> {
   try {
-    const configPath = join(
-      profile && profile !== "default"
-        ? join(HERMES_HOME, "profiles", profile)
-        : HERMES_HOME,
-      "config.yaml",
-    );
+    const configPath = join(profileHome(profile), "config.yaml");
     if (!existsSync(configPath)) return [];
     const content = readFileSync(configPath, "utf-8");
     // Simple YAML parse for mcp_servers section
