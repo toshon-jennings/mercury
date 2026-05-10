@@ -21,6 +21,7 @@ vi.mock("../src/main/installer", () => ({
   HERMES_HOME: TEST_HOME,
   HERMES_PYTHON: "/usr/bin/python3",
   HERMES_SCRIPT: "/dev/null",
+  hermesCliArgs: (args: string[] = []) => ["/dev/null", ...args],
   getEnhancedPath: () => process.env.PATH || "",
 }));
 

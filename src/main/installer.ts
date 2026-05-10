@@ -1,6 +1,6 @@
 import { spawn, execSync, execFile } from "child_process";
 import { existsSync, readFileSync, readdirSync } from "fs";
-import { join } from "path";
+import { delimiter, join } from "path";
 import { homedir } from "os";
 import type { BrowserWindow } from "electron";
 import { getModelConfig, getConnectionConfig } from "./config";
@@ -11,10 +11,23 @@ export const HERMES_HOME =
   process.env.HERMES_HOME?.trim() || join(homedir(), ".hermes");
 export const HERMES_REPO = join(HERMES_HOME, "hermes-agent");
 export const HERMES_VENV = join(HERMES_REPO, "venv");
-export const HERMES_PYTHON = join(HERMES_VENV, "bin", "python");
-export const HERMES_SCRIPT = join(HERMES_REPO, "hermes");
+export const HERMES_PYTHON =
+  process.platform === "win32"
+    ? join(HERMES_VENV, "Scripts", "python.exe")
+    : join(HERMES_VENV, "bin", "python");
+export const HERMES_SCRIPT =
+  process.platform === "win32"
+    ? join(HERMES_VENV, "Scripts", "hermes.exe")
+    : join(HERMES_REPO, "hermes");
 export const HERMES_ENV_FILE = join(HERMES_HOME, ".env");
 export const HERMES_CONFIG_FILE = join(HERMES_HOME, "config.yaml");
+
+export function hermesCliArgs(args: string[] = []): string[] {
+  if (process.platform === "win32") {
+    return ["-m", "hermes_cli.main", ...args];
+  }
+  return [HERMES_SCRIPT, ...args];
+}
 
 export interface InstallStatus {
   installed: boolean;
@@ -36,7 +49,11 @@ export function getEnhancedPath(): string {
   const extra = [
     join(home, ".local", "bin"),
     join(home, ".cargo", "bin"),
-    join(HERMES_VENV, "bin"),
+    join(HERMES_VENV, process.platform === "win32" ? "Scripts" : "bin"),
+    join(HERMES_HOME, "git", "cmd"),
+    join(HERMES_HOME, "git", "bin"),
+    join(HERMES_HOME, "git", "usr", "bin"),
+    join(HERMES_HOME, "node"),
     // Node version manager shim directories
     join(home, ".volta", "bin"),
     join(home, ".asdf", "shims"),
@@ -47,7 +64,7 @@ export function getEnhancedPath(): string {
     "/opt/homebrew/bin",
     "/opt/homebrew/sbin",
   ];
-  return [...extra, process.env.PATH || ""].join(":");
+  return [...extra, process.env.PATH || ""].join(delimiter);
 }
 
 /** Resolve the active nvm node version's bin directory. */
@@ -151,7 +168,7 @@ export async function verifyInstall(): Promise<boolean> {
   return new Promise((resolve) => {
     execFile(
       HERMES_PYTHON,
-      [HERMES_SCRIPT, "--version"],
+      hermesCliArgs(["--version"]),
       {
         cwd: HERMES_REPO,
         env: {
@@ -193,7 +210,7 @@ export async function getHermesVersion(): Promise<string | null> {
   return new Promise((resolve) => {
     execFile(
       HERMES_PYTHON,
-      [HERMES_SCRIPT, "--version"],
+      hermesCliArgs(["--version"]),
       {
         cwd: HERMES_REPO,
         env: {
@@ -226,7 +243,10 @@ export function runHermesDoctor(): string {
     return "Hermes is not installed.";
   }
   try {
-    const output = execSync(`"${HERMES_PYTHON}" "${HERMES_SCRIPT}" doctor`, {
+    const cliArgs = hermesCliArgs(["doctor"])
+      .map((arg) => `"${arg.replace(/"/g, '\\"')}"`)
+      .join(" ");
+    const output = execSync(`"${HERMES_PYTHON}" ${cliArgs}`, {
       cwd: HERMES_REPO,
       env: {
         ...process.env,
@@ -283,7 +303,7 @@ export async function runClawMigrate(
   emit(`Migrating from ${openclaw.path}...\n`);
 
   return new Promise((resolve, reject) => {
-    const args = [HERMES_SCRIPT, "claw", "migrate", "--preset", "full"];
+    const args = hermesCliArgs(["claw", "migrate", "--preset", "full"]);
 
     const proc = spawn(HERMES_PYTHON, args, {
       cwd: HERMES_REPO,
@@ -342,7 +362,7 @@ export async function runHermesUpdate(
   emit("Running hermes update...\n");
 
   return new Promise((resolve, reject) => {
-    const proc = spawn(HERMES_PYTHON, [HERMES_SCRIPT, "update"], {
+    const proc = spawn(HERMES_PYTHON, hermesCliArgs(["update"]), {
       cwd: HERMES_REPO,
       env: {
         ...process.env,
@@ -462,17 +482,73 @@ export async function runInstall(
 
   emit("Running official Hermes install script...\n");
 
-  // Bridge any sudo prompts from install.sh to a GUI password dialog.
-  // Windows has no sudo, so skip the bridge there.
-  let askpass: AskpassHandle | null = null;
-  if (process.platform !== "win32") {
-    try {
-      askpass = await setupAskpass(parentWindow ?? null);
-    } catch (err) {
-      emit(
-        `\n[askpass] Could not set up GUI password bridge: ${(err as Error).message}\n`,
+  if (process.platform === "win32") {
+    return await new Promise<void>((resolve, reject) => {
+      const home = homedir();
+      const installCmd = [
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8",
+        "$ErrorActionPreference = 'Stop'",
+        "$installer = [ScriptBlock]::Create((Invoke-RestMethod -Uri 'https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.ps1' -UseBasicParsing))",
+        "& $installer -SkipSetup -HermesHome $env:HERMES_HOME -InstallDir $env:HERMES_INSTALL_DIR",
+      ].join("; ");
+
+      const proc = spawn(
+        "powershell.exe",
+        ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", installCmd],
+        {
+          cwd: home,
+          env: {
+            ...process.env,
+            PATH: getEnhancedPath(),
+            HOME: home,
+            HERMES_HOME,
+            HERMES_INSTALL_DIR: HERMES_REPO,
+            TERM: "dumb",
+          },
+          stdio: ["ignore", "pipe", "pipe"],
+        },
       );
-    }
+
+      proc.stdout?.on("data", (data: Buffer) => {
+        emit(stripAnsi(data.toString()));
+      });
+
+      proc.stderr?.on("data", (data: Buffer) => {
+        emit(stripAnsi(data.toString()));
+      });
+
+      proc.on("close", (code) => {
+        if (code === 0) {
+          emit("\nInstallation complete!\n");
+          resolve();
+        } else if (existsSync(HERMES_PYTHON) && existsSync(HERMES_SCRIPT)) {
+          emit(
+            "\nInstall script exited with warnings, but Hermes is installed successfully.\n",
+          );
+          resolve();
+        } else {
+          reject(
+            new Error(
+              `Installation failed (exit code ${code}). You can try installing via terminal instead.`,
+            ),
+          );
+        }
+      });
+
+      proc.on("error", (err) => {
+        reject(new Error(`Failed to start installer: ${err.message}`));
+      });
+    });
+  }
+
+  // Bridge any sudo prompts from install.sh to a GUI password dialog.
+  let askpass: AskpassHandle | null = null;
+  try {
+    askpass = await setupAskpass(parentWindow ?? null);
+  } catch (err) {
+    emit(
+      `\n[askpass] Could not set up GUI password bridge: ${(err as Error).message}\n`,
+    );
   }
 
   try {
@@ -551,8 +627,9 @@ export async function runHermesBackup(
   if (!existsSync(HERMES_PYTHON) || !existsSync(HERMES_SCRIPT)) {
     return { success: false, error: "Hermes is not installed." };
   }
-  const args = [HERMES_SCRIPT, "backup"];
+  const args = hermesCliArgs();
   if (profile && profile !== "default") args.push("-p", profile);
+  args.push("backup");
 
   return new Promise((resolve) => {
     execFile(
@@ -598,8 +675,9 @@ export async function runHermesImport(
   if (!existsSync(HERMES_PYTHON) || !existsSync(HERMES_SCRIPT)) {
     return { success: false, error: "Hermes is not installed." };
   }
-  const args = [HERMES_SCRIPT, "import", archivePath];
+  const args = hermesCliArgs();
   if (profile && profile !== "default") args.push("-p", profile);
+  args.push("import", archivePath);
 
   return new Promise((resolve) => {
     execFile(
@@ -641,7 +719,7 @@ export function runHermesDump(): Promise<string> {
   return new Promise((resolve) => {
     execFile(
       HERMES_PYTHON,
-      [HERMES_SCRIPT, "dump"],
+      hermesCliArgs(["dump"]),
       {
         cwd: HERMES_REPO,
         env: {

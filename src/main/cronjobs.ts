@@ -2,7 +2,7 @@ import { existsSync } from "fs";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { execFile } from "child_process";
-import { HERMES_HOME, HERMES_PYTHON, HERMES_SCRIPT } from "./installer";
+import { HERMES_HOME, HERMES_PYTHON, hermesCliArgs } from "./installer";
 import { profileHome } from "./utils";
 import { isRemoteMode, getApiUrl, getRemoteAuthHeader } from "./hermes";
 
@@ -142,7 +142,7 @@ function runCronCommand(
   args: string[],
   profile?: string,
 ): Promise<{ success: boolean; output: string; error?: string }> {
-  const cliArgs = [HERMES_SCRIPT];
+  const cliArgs = hermesCliArgs();
   if (profile && profile !== "default") {
     cliArgs.push("-p", profile);
   }
