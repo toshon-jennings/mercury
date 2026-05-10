@@ -11,6 +11,7 @@ import {
 
 const ROOT = join(__dirname, "..");
 const mainSrc = readFileSync(join(ROOT, "src/main/index.ts"), "utf-8");
+const preloadSrc = readFileSync(join(ROOT, "src/preload/index.ts"), "utf-8");
 
 describe("Electron main process hardening", () => {
   it("keeps the main renderer isolated from Node privileges", () => {
@@ -36,6 +37,10 @@ describe("Electron main process hardening", () => {
     expect(mainSrc).toContain(
       "function openExternalUrl(rawUrl: unknown): void",
     );
+  });
+
+  it("keeps the sandboxed main preload free of external runtime imports", () => {
+    expect(preloadSrc).not.toContain("@electron-toolkit/preload");
   });
 });
 

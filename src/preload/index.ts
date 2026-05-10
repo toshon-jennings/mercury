@@ -1,6 +1,16 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { electronAPI } from "@electron-toolkit/preload";
 import type { AppLocale } from "../shared/i18n/types";
+
+const electronAPI = {
+  process: {
+    platform: process.platform,
+    versions: {
+      chrome: process.versions.chrome,
+      electron: process.versions.electron,
+      node: process.versions.node,
+    },
+  },
+};
 
 const hermesAPI = {
   // Installation
