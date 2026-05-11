@@ -584,6 +584,9 @@ export async function sshSetConfigValue(
   value: string,
   profile?: string,
 ): Promise<void> {
+  if (/["\\\n\r]/.test(value)) {
+    throw new Error('Config value contains illegal characters: ", \\, or newline');
+  }
   const configPath = remoteConfigPath(profile);
   const content = await sshReadFile(config, configPath);
   if (!content) return;

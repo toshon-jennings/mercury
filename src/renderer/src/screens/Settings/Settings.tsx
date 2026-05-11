@@ -628,6 +628,7 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
               />
               <div className="settings-field-hint">
                 Make sure you can run <code style={{ fontFamily: "monospace" }}>ssh {sshUser || "user"}@{sshHost || "host"}</code> without a password prompt.
+                The first connection trusts the host key and stores it in <code style={{ fontFamily: "monospace" }}>~/.ssh/known_hosts</code>; SSH will fail closed if that key changes later.
               </div>
             </div>
             <div className="settings-hermes-actions">
