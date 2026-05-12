@@ -14,6 +14,7 @@ export default {
   language: {
     label: "Idioma",
     english: "English",
+    indonesian: "Indonesio",
     chinese: "中文",
     portuguese: "Português",
     hint: "Escolha o idioma da interface",
@@ -27,21 +28,28 @@ export default {
   modelBaseUrlPlaceholder: "http://localhost:1234/v1",
   networkSection: "Rede",
   forceIpv4: "Forçar IPv4",
-  forceIpv4Hint: "Desativar IPv6 para corrigir problemas de tempo limite de conexão em algumas redes",
+  forceIpv4Hint:
+    "Desativar IPv6 para corrigir problemas de tempo limite de conexão em algumas redes",
   httpProxy: "Proxy HTTP",
-  httpProxyHint: "Proxy SOCKS ou HTTP para todas as conexões de saída (deixe em branco para detecção automática)",
+  httpProxyHint:
+    "Proxy SOCKS ou HTTP para todas as conexões de saída (deixe em branco para detecção automática)",
   saved: "Salvo",
-  providerHint: "Selecione um provedor de inferência ou detecte automaticamente com base na Chave da API",
-  customProviderHint: "Use qualquer API compatível com OpenAI (LM Studio, Ollama, vLLM, etc.)",
-  modelHint: "Nome do modelo padrão (deixe em branco para usar o padrão do provedor)",
+  providerHint:
+    "Selecione um provedor de inferência ou detecte automaticamente com base na Chave da API",
+  customProviderHint:
+    "Use qualquer API compatível com OpenAI (LM Studio, Ollama, vLLM, etc.)",
+  modelHint:
+    "Nome do modelo padrão (deixe em branco para usar o padrão do provedor)",
   customBaseUrlHint: "Endpoint da API compatível com OpenAI",
-  poolHint: "Adicione várias chaves de API para o mesmo provedor para rotação automática e balanceamento de carga. O Hermes alternará entre elas.",
+  poolHint:
+    "Adicione várias chaves de API para o mesmo provedor para rotação automática e balanceamento de carga. O Hermes alternará entre elas.",
   add: "Adicionar",
   remove: "Remover",
   keyLabel: "Chave",
   empty: "(vazio)",
   dataSection: "Dados",
-  dataHint: "Exporte ou importe sua configuração do Hermes, sessões, habilidades e memória.",
+  dataHint:
+    "Exporte ou importe sua configuração do Hermes, sessões, habilidades e memória.",
   backingUp: "Fazendo backup...",
   exportBackup: "Exportar Backup",
   importing: "Importando...",
@@ -57,7 +65,8 @@ export default {
   running: "Executando...",
   debugDump: "Dump de Depuração",
   migrationDetected: "Instalação do OpenClaw Detectada",
-  migrationDesc: "Encontramos o OpenClaw em <code>{{path}}</code>. Você pode migrar sua configuração, chaves de API, sessões e habilidades para o Hermes.",
+  migrationDesc:
+    "Encontramos o OpenClaw em <code>{{path}}</code>. Você pode migrar sua configuração, chaves de API, sessões e habilidades para o Hermes.",
   migrationDismiss: "Não mostrar novamente",
   migrating: "Migrando...",
   migrateToHermes: "Migrar para o Hermes",
@@ -69,16 +78,20 @@ export default {
   modeLocal: "Local",
   modeRemote: "Remoto",
   modeLocalHint: "Usando o Hermes instalado neste dispositivo",
-  modeRemoteHint: "Conectar a um servidor da API do Hermes na sua rede ou nuvem",
+  modeRemoteHint:
+    "Conectar a um servidor da API do Hermes na sua rede ou nuvem",
   remoteUrl: "URL Remota",
-  remoteUrlHint: "A URL do servidor da API do Hermes (deve expor /health e /v1/chat/completions)",
+  remoteUrlHint:
+    "A URL do servidor da API do Hermes (deve expor /health e /v1/chat/completions)",
   remoteApiKey: "Chave da API",
-  remoteApiKeyHint: "Deve coincidir com a API_SERVER_KEY no host remoto. Deixe vazio se o servidor aceitar requisições não autenticadas.",
+  remoteApiKeyHint:
+    "Deve coincidir com a API_SERVER_KEY no host remoto. Deixe vazio se o servidor aceitar requisições não autenticadas.",
   testingConnection: "Testando...",
   testConnection: "Testar Conexão",
   save: "Salvar",
   serverConfigTitle: "Configuração do Servidor",
-  serverConfigHint: "Você está conectado a um servidor remoto do Hermes. A seleção de modelos, as chaves de API dos provedores e as credenciais são gerenciadas no host remoto em <code>~/.hermes/.env</code> e <code>config.yaml</code>. Edite-os lá e reinicie o servidor.",
+  serverConfigHint:
+    "Você está conectado a um servidor remoto do Hermes. A seleção de modelos, as chaves de API dos provedores e as credenciais são gerenciadas no host remoto em <code>~/.hermes/.env</code> e <code>config.yaml</code>. Edite-os lá e reinicie o servidor.",
   connectionMode: "Modo",
   switchedToLocal: "Mudou para o modo local",
 } as const;
