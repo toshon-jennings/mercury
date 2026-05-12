@@ -15,14 +15,23 @@ export function stripAnsi(str: string): string {
 }
 
 /**
+ * Validate that a profile name contains only alphanumeric characters,
+ * underscores, or dashes. Prevents path traversal via the profile parameter.
+ */
+export function isValidProfileName(name: string): boolean {
+  return /^[a-zA-Z0-9_-]+$/.test(name);
+}
+
+/**
  * Resolve the home directory for a given profile.
  * 'default' or undefined maps to ~/.hermes; named profiles
  * live under ~/.hermes/profiles/<name>.
  */
 export function profileHome(profile?: string): string {
-  return profile && profile !== "default"
-    ? join(HERMES_HOME, "profiles", profile)
-    : HERMES_HOME;
+  if (profile && profile !== "default" && isValidProfileName(profile)) {
+    return join(HERMES_HOME, "profiles", profile);
+  }
+  return HERMES_HOME;
 }
 
 /**
