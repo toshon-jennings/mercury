@@ -1,17 +1,22 @@
 import { spawn, execSync, execFile } from "child_process";
-import { existsSync, readFileSync, readdirSync } from "fs";
-import { join } from "path";
-import { homedir } from "os";
+import { existsSync, readFileSync, readdirSync, writeFileSync, unlinkSync } from "fs";
+import { join, delimiter } from "path";
+import { homedir, tmpdir } from "os";
+import { randomBytes } from "crypto";
 import type { BrowserWindow } from "electron";
 import { getModelConfig, getConnectionConfig } from "./config";
 import { stripAnsi } from "./utils";
 import { setupAskpass, AskpassHandle } from "./askpass";
 
+const IS_WINDOWS = process.platform === "win32";
+
 export const HERMES_HOME =
   process.env.HERMES_HOME?.trim() || join(homedir(), ".hermes");
 export const HERMES_REPO = join(HERMES_HOME, "hermes-agent");
 export const HERMES_VENV = join(HERMES_REPO, "venv");
-export const HERMES_PYTHON = join(HERMES_VENV, "bin", "python");
+export const HERMES_PYTHON = IS_WINDOWS
+  ? join(HERMES_VENV, "Scripts", "python.exe")
+  : join(HERMES_VENV, "bin", "python");
 export const HERMES_SCRIPT = join(HERMES_REPO, "hermes");
 export const HERMES_ENV_FILE = join(HERMES_HOME, ".env");
 export const HERMES_CONFIG_FILE = join(HERMES_HOME, "config.yaml");
@@ -34,21 +39,34 @@ export interface InstallProgress {
 
 export function getEnhancedPath(): string {
   const home = homedir();
-  const extra = [
-    join(home, ".local", "bin"),
-    join(home, ".cargo", "bin"),
-    join(HERMES_VENV, "bin"),
-    // Node version manager shim directories
-    join(home, ".volta", "bin"),
-    join(home, ".asdf", "shims"),
-    join(home, ".local", "share", "fnm", "aliases", "default", "bin"),
-    join(home, ".fnm", "aliases", "default", "bin"),
-    ...resolveNvmBin(home),
-    "/usr/local/bin",
-    "/opt/homebrew/bin",
-    "/opt/homebrew/sbin",
-  ];
-  return [...extra, process.env.PATH || ""].join(":");
+  const extra: string[] = IS_WINDOWS
+    ? [
+        // Bundled by install.ps1 inside HERMES_HOME — these matter when the
+        // user's system PATH doesn't include git or node yet.
+        join(HERMES_HOME, "git", "bin"),
+        join(HERMES_HOME, "git", "cmd"),
+        join(HERMES_HOME, "git", "usr", "bin"),
+        join(HERMES_HOME, "node"),
+        join(HERMES_VENV, "Scripts"),
+        // Where `uv` lands when astral.sh's installer runs.
+        join(home, ".local", "bin"),
+        join(home, ".cargo", "bin"),
+      ]
+    : [
+        join(home, ".local", "bin"),
+        join(home, ".cargo", "bin"),
+        join(HERMES_VENV, "bin"),
+        // Node version manager shim directories
+        join(home, ".volta", "bin"),
+        join(home, ".asdf", "shims"),
+        join(home, ".local", "share", "fnm", "aliases", "default", "bin"),
+        join(home, ".fnm", "aliases", "default", "bin"),
+        ...resolveNvmBin(home),
+        "/usr/local/bin",
+        "/opt/homebrew/bin",
+        "/opt/homebrew/sbin",
+      ];
+  return [...extra, process.env.PATH || ""].join(delimiter);
 }
 
 /** Resolve the active nvm node version's bin directory. */
@@ -413,40 +431,44 @@ function getShellProfile(home: string): string | null {
   return null;
 }
 
-// Parse install.sh output to detect progress stages
+// Parse install.sh / install.ps1 output to detect progress stages.
+// Patterns are tuned to match both bash and PowerShell installer phrasing.
 const STAGE_MARKERS: { pattern: RegExp; step: number; title: string }[] = [
   {
-    pattern: /Checking for (git|uv|python)/i,
+    pattern: /Checking (for )?(git|uv|python|node|ripgrep|ffmpeg)/i,
     step: 1,
     title: "Checking prerequisites",
   },
   {
-    pattern: /Installing uv|uv found/i,
+    pattern: /Installing uv|uv found|uv installed/i,
     step: 2,
     title: "Setting up package manager",
   },
   {
-    pattern: /Installing Python|Python .* found/i,
+    pattern: /Installing Python|Python .* found|Python installed/i,
     step: 3,
     title: "Setting up Python",
   },
   {
-    pattern: /Cloning|cloning|Updating.*repository|Repository/i,
+    pattern:
+      /Cloning|cloning|Updating.*repository|Repository|Installing to .*hermes-agent|Downloading PortableGit/i,
     step: 4,
     title: "Downloading Hermes Agent",
   },
   {
-    pattern: /Creating virtual|virtual environment|venv/i,
+    pattern: /Creating virtual|virtual environment|uv venv|\bvenv\b/i,
     step: 5,
     title: "Creating Python environment",
   },
   {
-    pattern: /pip install|Installing.*packages|dependencies/i,
+    pattern:
+      /pip install|Installing.*packages|dependencies|Trying tier|Resolving|Main package installed/i,
     step: 6,
     title: "Installing dependencies",
   },
   {
-    pattern: /Configuration|config|Setup complete|Installation complete/i,
+    pattern:
+      /Configuration|config|Setup complete|Installation complete|Configuration directory ready|hermes command ready|All dependencies installed/i,
     step: 7,
     title: "Finishing setup",
   },
@@ -484,17 +506,19 @@ export async function runInstall(
 
   emit("Running official Hermes install script...\n");
 
+  if (IS_WINDOWS) {
+    return runInstallWindows(emit);
+  }
+
   // Bridge any sudo prompts from install.sh to a GUI password dialog.
   // Windows has no sudo, so skip the bridge there.
   let askpass: AskpassHandle | null = null;
-  if (process.platform !== "win32") {
-    try {
-      askpass = await setupAskpass(parentWindow ?? null);
-    } catch (err) {
-      emit(
-        `\n[askpass] Could not set up GUI password bridge: ${(err as Error).message}\n`,
-      );
-    }
+  try {
+    askpass = await setupAskpass(parentWindow ?? null);
+  } catch (err) {
+    emit(
+      `\n[askpass] Could not set up GUI password bridge: ${(err as Error).message}\n`,
+    );
   }
 
   try {
@@ -561,6 +585,148 @@ export async function runInstall(
   } finally {
     askpass?.cleanup();
   }
+}
+
+// PS single-quoted string escape: ' → ''
+function psQuote(s: string): string {
+  return `'${s.replace(/'/g, "''")}'`;
+}
+
+// Resolve a powershell executable. Prefer PowerShell 7 (`pwsh`) when present,
+// fall back to Windows PowerShell 5.1 (`powershell.exe`). Both ship the same
+// flags we use; pwsh is faster and writes UTF-8 without a BOM by default.
+function resolvePowerShellExe(): string {
+  // Spawn will resolve from PATH; we test for pwsh.exe first.
+  const programFiles = process.env["ProgramFiles"];
+  const candidates = [
+    programFiles ? join(programFiles, "PowerShell", "7", "pwsh.exe") : null,
+    "pwsh.exe",
+    "powershell.exe",
+  ].filter((p): p is string => Boolean(p));
+  for (const c of candidates) {
+    if (c.includes("\\") && existsSync(c)) return c;
+  }
+  // Let spawn search PATH for the bare names; powershell.exe ships on every
+  // supported Windows version, so this is always resolvable.
+  return "powershell.exe";
+}
+
+async function runInstallWindows(emit: (t: string) => void): Promise<void> {
+  // We can't `irm | iex` and pass parameters, and we want to override the
+  // upstream defaults (which install to %LOCALAPPDATA%\hermes) so the
+  // desktop app's HERMES_HOME == ~\.hermes convention keeps working.
+  // Strategy: write a small wrapper .ps1 to %TEMP%, run it with -File.
+  const home = homedir();
+  const hermesHome = HERMES_HOME;
+  const installDir = HERMES_REPO;
+
+  const wrapperPath = join(
+    tmpdir(),
+    `hermes-install-${randomBytes(6).toString("hex")}.ps1`,
+  );
+
+  // The wrapper downloads install.ps1 to a sibling temp file and invokes it
+  // with our parameters. This sidesteps the `iex`-can't-pass-args limitation.
+  const wrapperScript = [
+    "$ErrorActionPreference = 'Stop'",
+    // Force TLS 1.2 for older Windows PowerShell 5.1 hosts that still default
+    // to TLS 1.0 — github raw refuses TLS < 1.2.
+    "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}",
+    "$url = 'https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.ps1'",
+    `$installer = Join-Path $env:TEMP ("hermes-install-script-" + [guid]::NewGuid().ToString() + ".ps1")`,
+    "Invoke-RestMethod -Uri $url -OutFile $installer",
+    `& $installer -SkipSetup -HermesHome ${psQuote(hermesHome)} -InstallDir ${psQuote(installDir)}`,
+    "$exit = $LASTEXITCODE",
+    "Remove-Item -Force -ErrorAction SilentlyContinue $installer",
+    "exit $exit",
+    "",
+  ].join("\r\n");
+
+  try {
+    writeFileSync(wrapperPath, wrapperScript, { encoding: "utf8" });
+  } catch (err) {
+    throw new Error(
+      `Failed to stage Windows installer: ${(err as Error).message}`,
+    );
+  }
+
+  const psExe = resolvePowerShellExe();
+  const basePath = getEnhancedPath();
+
+  return new Promise<void>((resolve, reject) => {
+    const proc = spawn(
+      psExe,
+      [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-NoProfile",
+        "-NonInteractive",
+        "-File",
+        wrapperPath,
+      ],
+      {
+        cwd: home,
+        env: {
+          ...process.env,
+          PATH: basePath,
+          HERMES_HOME: hermesHome,
+          // Hint that we're not interactive so install.ps1 doesn't `pause`
+          // (the .cmd wrapper does on failure, but -File on .ps1 won't).
+          NO_COLOR: "1",
+        },
+        stdio: ["ignore", "pipe", "pipe"],
+        windowsHide: true,
+      },
+    );
+
+    proc.stdout?.on("data", (data: Buffer) => {
+      emit(stripAnsi(data.toString()));
+    });
+
+    proc.stderr?.on("data", (data: Buffer) => {
+      emit(stripAnsi(data.toString()));
+    });
+
+    proc.on("close", (code) => {
+      try {
+        unlinkSync(wrapperPath);
+      } catch {
+        /* best-effort */
+      }
+      if (code === 0) {
+        emit("\nInstallation complete!\n");
+        resolve();
+        return;
+      }
+      // Same tolerance as the bash path: if the binary tree exists, count it.
+      if (existsSync(HERMES_PYTHON) && existsSync(HERMES_SCRIPT)) {
+        emit(
+          "\nInstall script exited with warnings, but Hermes is installed successfully.\n",
+        );
+        resolve();
+      } else {
+        reject(
+          new Error(
+            `Installation failed (exit code ${code}). Open PowerShell and try: irm https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.ps1 | iex`,
+          ),
+        );
+      }
+    });
+
+    proc.on("error", (err) => {
+      try {
+        unlinkSync(wrapperPath);
+      } catch {
+        /* best-effort */
+      }
+      // Most common failure: PowerShell is missing or blocked by policy.
+      const hint =
+        (err as NodeJS.ErrnoException).code === "ENOENT"
+          ? " PowerShell was not found. Reinstall Windows PowerShell or run the installer manually from a terminal."
+          : "";
+      reject(new Error(`Failed to start installer: ${err.message}.${hint}`));
+    });
+  });
 }
 
 // ────────────────────────────────────────────────────
