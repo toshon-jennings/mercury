@@ -283,6 +283,12 @@ export function setModelConfig(
   const baseUrlRegex = /^(\s*base_url:\s*)["']?[^"'\n#]*["']?/m;
   if (baseUrlRegex.test(content)) {
     content = content.replace(baseUrlRegex, `$1"${baseUrl}"`);
+  } else if (baseUrl && provider !== "auto") {
+    // Append base_url line after the provider line in the model section
+    content = content.replace(
+      /^(\s*provider:\s*"[^"]*"\s*\n)/m,
+      `$1  base_url: "${baseUrl}"\n`
+    );
   }
 
   // Disable smart_model_routing

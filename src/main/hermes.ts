@@ -14,6 +14,7 @@ import {
 import { getModelConfig, readEnv, getConnectionConfig } from "./config";
 import { getSshTunnelUrl, isSshTunnelActive, isSshTunnelHealthy, startSshTunnel } from "./ssh-tunnel";
 import { stripAnsi } from "./utils";
+import { readModels } from "./models";
 
 const LOCAL_API_URL = "http://127.0.0.1:8642";
 
@@ -499,8 +500,20 @@ function sendMessageViaCli(
 
   const isCustomEndpoint = LOCAL_PROVIDERS.has(mc.provider);
   if (isCustomEndpoint && mc.baseUrl) {
-    env.HERMES_INFERENCE_PROVIDER = "custom";
-    env.OPENAI_BASE_URL = mc.baseUrl.replace(/\/+$/, "");
+    // Check if this model has an explicit apiMode from custom_providers
+    let modelApiMode: string | null = null;
+    try {
+      const modelEntry = readModels().find(m => m.baseUrl === mc.baseUrl && m.model === mc.model);
+      if (modelEntry) modelApiMode = modelEntry.apiMode || null;
+    } catch { /* ignore */ }
+    const isAnthropicProtocol = modelApiMode === "anthropic_messages";
+    if (isAnthropicProtocol) {
+      env.HERMES_INFERENCE_PROVIDER = "anthropic";
+      env.ANTHROPIC_BASE_URL = mc.baseUrl.replace(/\/+$/, "");
+    } else {
+      env.HERMES_INFERENCE_PROVIDER = "custom";
+      env.OPENAI_BASE_URL = mc.baseUrl.replace(/\/+$/, "");
+    }
 
     // Resolve the right API key: check URL-specific key first, then OPENAI_API_KEY
     let resolvedKey = "";
@@ -511,21 +524,35 @@ function sendMessageViaCli(
       }
     }
     if (!resolvedKey) {
-      resolvedKey =
-        profileEnv.CUSTOM_API_KEY ||
-        env.CUSTOM_API_KEY ||
-        profileEnv.OPENAI_API_KEY ||
-        env.OPENAI_API_KEY ||
-        "";
+      // Try custom provider auto-generated key from models.json
+      try {
+        const models = readModels();
+        const matching = models.find(m => m.baseUrl === mc.baseUrl);
+        if (matching) {
+          const envKey2 = "CUSTOM_PROVIDER_" + matching.name.replace(/[^A-Za-z0-9]/g, "_").toUpperCase() + "_KEY";
+          resolvedKey = profileEnv[envKey2] || env[envKey2] || "";
+        }
+      } catch { /* ignore */ }
+      if (!resolvedKey) {
+        resolvedKey =
+          profileEnv.CUSTOM_API_KEY ||
+          env.CUSTOM_API_KEY ||
+          profileEnv.OPENAI_API_KEY ||
+          env.OPENAI_API_KEY ||
+          "";
+      }
     }
     // Local servers (localhost/127.0.0.1) don't need a real key
     if (!resolvedKey && /localhost|127\.0\.0\.1/i.test(mc.baseUrl)) {
       resolvedKey = "no-key-required";
     }
-    env.OPENAI_API_KEY = resolvedKey || "no-key-required";
+    if (isAnthropicProtocol) {
+      env.ANTHROPIC_API_KEY = resolvedKey || "no-key-required";
+    } else {
+      env.OPENAI_API_KEY = resolvedKey || "no-key-required";
+    }
 
     delete env.OPENROUTER_API_KEY;
-    delete env.ANTHROPIC_API_KEY;
     delete env.ANTHROPIC_TOKEN;
     delete env.OPENROUTER_BASE_URL;
   }
