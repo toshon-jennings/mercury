@@ -634,7 +634,14 @@ async function runInstallWindows(emit: (t: string) => void): Promise<void> {
     "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}",
     "$url = 'https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.ps1'",
     `$installer = Join-Path $env:TEMP ("hermes-install-script-" + [guid]::NewGuid().ToString() + ".ps1")`,
-    "Invoke-RestMethod -Uri $url -OutFile $installer",
+    // Windows PowerShell 5.1 parses BOM-less files as the legacy ANSI codepage,
+    // which mangles the non-ASCII glyphs in install.ps1 and produces parse
+    // errors (see issue #149). Re-save with a UTF-8 BOM so PS 5.1 reads it as
+    // UTF-8. Idempotent if upstream later adds its own BOM or switches to ASCII.
+    "$resp = Invoke-WebRequest -Uri $url -UseBasicParsing",
+    "$text = if ($resp.Content -is [byte[]]) { [System.Text.Encoding]::UTF8.GetString($resp.Content) } else { [string]$resp.Content }",
+    "if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) { $text = $text.Substring(1) }",
+    "[System.IO.File]::WriteAllText($installer, $text, (New-Object System.Text.UTF8Encoding $true))",
     `& $installer -SkipSetup -HermesHome ${psQuote(hermesHome)} -InstallDir ${psQuote(installDir)}`,
     "$exit = $LASTEXITCODE",
     "Remove-Item -Force -ErrorAction SilentlyContinue $installer",
