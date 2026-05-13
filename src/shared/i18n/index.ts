@@ -46,6 +46,26 @@ import soulEs from "./locales/es/soul";
 import memoryEs from "./locales/es/memory";
 import installEs from "./locales/es/install";
 import constantsEs from "./locales/es/constants";
+import commonId from "./locales/id/common";
+import navigationId from "./locales/id/navigation";
+import welcomeId from "./locales/id/welcome";
+import setupId from "./locales/id/setup";
+import chatId from "./locales/id/chat";
+import settingsId from "./locales/id/settings";
+import toolsId from "./locales/id/tools";
+import sessionsId from "./locales/id/sessions";
+import modelsId from "./locales/id/models";
+import providersId from "./locales/id/providers";
+import officeId from "./locales/id/office";
+import errorsId from "./locales/id/errors";
+import schedulesId from "./locales/id/schedules";
+import skillsId from "./locales/id/skills";
+import gatewayId from "./locales/id/gateway";
+import agentsId from "./locales/id/agents";
+import soulId from "./locales/id/soul";
+import memoryId from "./locales/id/memory";
+import installId from "./locales/id/install";
+import constantsId from "./locales/id/constants";
 import commonZh from "./locales/zh-CN/common";
 import navigationZh from "./locales/zh-CN/navigation";
 import welcomeZh from "./locales/zh-CN/welcome";
@@ -134,6 +154,30 @@ export const resources = {
       memory: memoryEs,
       install: installEs,
       constants: constantsEs,
+    },
+  },
+  id: {
+    translation: {
+      common: commonId,
+      navigation: navigationId,
+      welcome: welcomeId,
+      setup: setupId,
+      chat: chatId,
+      settings: settingsId,
+      tools: toolsId,
+      sessions: sessionsId,
+      models: modelsId,
+      providers: providersId,
+      office: officeId,
+      errors: errorsId,
+      schedules: schedulesId,
+      skills: skillsId,
+      gateway: gatewayId,
+      agents: agentsId,
+      soul: soulId,
+      memory: memoryId,
+      install: installId,
+      constants: constantsId,
     },
   },
   "zh-CN": {

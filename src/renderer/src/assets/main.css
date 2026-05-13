@@ -581,6 +581,28 @@ body {
   gap: 10px;
 }
 
+.verify-warning-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  background: var(--warning-bg);
+  border-bottom: 1px solid var(--warning);
+}
+
+.verify-warning-text {
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.verify-warning-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .install-error-text {
   font-size: 13px;
   color: var(--error);

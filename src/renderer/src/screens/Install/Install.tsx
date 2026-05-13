@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from "react";
-import { ArrowRight, Copy } from "../../assets/icons";
+import { ArrowRight, Copy, Send } from "../../assets/icons";
+
+const TELEGRAM_COMMUNITY_URL = "https://t.me/hermes_agent_desktop";
 import { useI18n } from "../../components/useI18n";
 
 interface InstallProgress {
@@ -30,13 +32,15 @@ function Install({ onComplete, onFailed }: InstallProps): React.JSX.Element {
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let isMounted = true;
     const cleanup = window.hermesAPI.onInstallProgress((p) => {
-      setProgress(p);
+      if (isMounted) setProgress(p);
     });
 
     window.hermesAPI
       .startInstall()
       .then((result) => {
+        if (!isMounted) return;
         if (result.success) {
           setDone(true);
         } else {
@@ -44,10 +48,14 @@ function Install({ onComplete, onFailed }: InstallProps): React.JSX.Element {
         }
       })
       .catch((err) => {
+        if (!isMounted) return;
         setFailed(err.message || t("install.installationFailedHint"));
       });
 
-    return cleanup;
+    return () => {
+      isMounted = false;
+      cleanup();
+    };
   }, []);
 
   useEffect(() => {
@@ -115,6 +123,16 @@ function Install({ onComplete, onFailed }: InstallProps): React.JSX.Element {
             >
               <Copy size={13} />
               {copied ? t("install.copied") : t("install.copyLogs")}
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() =>
+                window.hermesAPI.openExternal(TELEGRAM_COMMUNITY_URL)
+              }
+              title={TELEGRAM_COMMUNITY_URL}
+            >
+              <Send size={13} />
+              Join Community
             </button>
           </div>
         </div>

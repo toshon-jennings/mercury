@@ -1,14 +1,24 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { HERMES_HOME } from "./installer";
-import { profileHome, escapeRegex, safeWriteFile } from "./utils";
+import { profilePaths, escapeRegex, safeWriteFile } from "./utils";
 
-// ── Connection Config (local vs remote) ─────────────────
+// ── Connection Config (local / remote / ssh) ─────────────
+
+export interface SshConnectionConfig {
+  host: string;
+  port: number;
+  username: string;
+  keyPath: string;
+  remotePort: number;
+  localPort: number;
+}
 
 export interface ConnectionConfig {
-  mode: "local" | "remote";
+  mode: "local" | "remote" | "ssh";
   remoteUrl: string;
   apiKey: string;
+  ssh: SshConnectionConfig;
 }
 
 // Lazy getter — avoids circular dependency with installer.ts
@@ -36,10 +46,19 @@ function writeDesktopConfig(data: Record<string, unknown>): void {
 
 export function getConnectionConfig(): ConnectionConfig {
   const data = readDesktopConfig();
+  const ssh = (data.sshConfig as Partial<SshConnectionConfig>) ?? {};
   return {
-    mode: (data.connectionMode as "local" | "remote") || "local",
+    mode: (data.connectionMode as "local" | "remote" | "ssh") || "local",
     remoteUrl: (data.remoteUrl as string) || "",
     apiKey: (data.remoteApiKey as string) || "",
+    ssh: {
+      host: (ssh.host as string) || "",
+      port: (ssh.port as number) || 22,
+      username: (ssh.username as string) || "",
+      keyPath: (ssh.keyPath as string) || "",
+      remotePort: (ssh.remotePort as number) || 8642,
+      localPort: (ssh.localPort as number) || 18642,
+    },
   };
 }
 
@@ -48,12 +67,16 @@ export function setConnectionConfig(config: ConnectionConfig): void {
   data.connectionMode = config.mode;
   data.remoteUrl = config.remoteUrl;
   data.remoteApiKey = config.apiKey;
+  if (config.mode === "ssh") {
+    data.sshConfig = config.ssh;
+  }
   writeDesktopConfig(data);
 }
 
 // ── In-memory cache with TTL ─────────────────────────────
 const CACHE_TTL = 5000; // 5 seconds
 const _cache = new Map<string, { data: unknown; ts: number }>();
+const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 function getCached<T>(key: string): T | undefined {
   const entry = _cache.get(key);
@@ -73,19 +96,6 @@ function invalidateCache(prefix: string): void {
   for (const key of _cache.keys()) {
     if (key.startsWith(prefix)) _cache.delete(key);
   }
-}
-
-function profilePaths(profile?: string): {
-  envFile: string;
-  configFile: string;
-  home: string;
-} {
-  const home = profileHome(profile);
-  return {
-    home,
-    envFile: join(home, ".env"),
-    configFile: join(home, "config.yaml"),
-  };
 }
 
 export function readEnv(profile?: string): Record<string, string> {
@@ -126,6 +136,8 @@ export function setEnvValue(
   value: string,
   profile?: string,
 ): void {
+  validateEnvEntry(key, value);
+
   const { envFile } = profilePaths(profile);
   invalidateCache(`env:${profile || "default"}`);
 
@@ -152,6 +164,18 @@ export function setEnvValue(
   }
 
   safeWriteFile(envFile, lines.join("\n"));
+}
+
+export function validateEnvEntry(key: string, value: string): void {
+  if (!ENV_KEY_RE.test(key)) {
+    throw new Error(
+      "Invalid environment variable name. Use letters, numbers, and underscores, and do not start with a number.",
+    );
+  }
+
+  if (/[\0\r\n]/.test(value)) {
+    throw new Error("Environment variable values must be single-line strings.");
+  }
 }
 
 export function getConfigValue(key: string, profile?: string): string | null {
@@ -194,7 +218,11 @@ export function getModelConfig(profile?: string): {
   baseUrl: string;
 } {
   const cacheKey = `mc:${profile || "default"}`;
-  const cached = getCached<{ provider: string; model: string; baseUrl: string }>(cacheKey);
+  const cached = getCached<{
+    provider: string;
+    model: string;
+    baseUrl: string;
+  }>(cacheKey);
   if (cached) return cached;
 
   const { configFile } = profilePaths(profile);
@@ -242,6 +270,12 @@ export function setModelConfig(
   const baseUrlRegex = /^(\s*base_url:\s*)["']?[^"'\n#]*["']?/m;
   if (baseUrlRegex.test(content)) {
     content = content.replace(baseUrlRegex, `$1"${baseUrl}"`);
+  } else if (baseUrl && provider !== "auto") {
+    // Append base_url line after the provider line in the model section
+    content = content.replace(
+      /^(\s*provider:\s*"[^"]*"\s*\n)/m,
+      `$1  base_url: "${baseUrl}"\n`
+    );
   }
 
   // Disable smart_model_routing
@@ -272,7 +306,13 @@ export function getHermesHome(profile?: string): string {
 
 // ── Platform enabled/disabled in config.yaml ────────────
 
-const SUPPORTED_PLATFORMS = ["telegram", "discord", "slack", "whatsapp", "signal"];
+const SUPPORTED_PLATFORMS = [
+  "telegram",
+  "discord",
+  "slack",
+  "whatsapp",
+  "signal",
+];
 
 export function getPlatformEnabled(profile?: string): Record<string, boolean> {
   const { configFile } = profilePaths(profile);

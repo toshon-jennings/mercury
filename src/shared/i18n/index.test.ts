@@ -18,8 +18,14 @@ describe("shared i18n", () => {
     expect(t("welcome.title", "es")).toBe("Bienvenido a Hermes");
   });
 
+  it("returns id text when available", () => {
+    expect(t("welcome.title", "id")).toBe("Selamat datang di Hermes");
+  });
+
   it("falls back to en when zh-CN key is missing", () => {
-    expect(t("nonExistent.fallbackKey", "zh-CN")).toBe("nonExistent.fallbackKey");
+    expect(t("nonExistent.fallbackKey", "zh-CN")).toBe(
+      "nonExistent.fallbackKey",
+    );
   });
 
   it("preserves interpolation placeholders in es", () => {
