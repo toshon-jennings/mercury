@@ -8,6 +8,7 @@ import { spawn } from "child_process";
 import { homedir } from "os";
 import { join } from "path";
 import type { SshConfig } from "./ssh-tunnel";
+import { buildSshControlOptions } from "./ssh-options";
 import type { InstalledSkill, SkillSearchResult } from "./skills";
 import type { MemoryInfo } from "./memory";
 import type { SessionSummary, SessionMessage, SearchResult } from "./sessions";
@@ -26,9 +27,7 @@ function buildExecArgs(config: SshConfig): string[] {
     "-o", "BatchMode=yes",
     "-o", "StrictHostKeyChecking=accept-new",
     "-o", "ConnectTimeout=15",
-    "-o", "ControlMaster=auto",
-    "-o", "ControlPath=~/.ssh/cm-hermes-%r@%h:%p",
-    "-o", "ControlPersist=60s",
+    ...buildSshControlOptions(),
     "-i", keyPath,
     "-p", String(config.port || 22),
     `${config.username}@${config.host}`,
