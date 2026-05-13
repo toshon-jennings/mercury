@@ -25,6 +25,8 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
   const [port, setPort] = useState(3000);
   const [portInput, setPortInput] = useState("3000");
   const [portInUse, setPortInUse] = useState(false);
+  const [adapterPort, setAdapterPort] = useState(18789);
+  const [adapterPortInUse, setAdapterPortInUse] = useState(false);
   const [wsUrlInput, setWsUrlInput] = useState("ws://localhost:18789");
   const [error, setError] = useState("");
   const [showLogs, setShowLogs] = useState(false);
@@ -57,6 +59,8 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
     setPort(status.port);
     setPortInput(String(status.port));
     setPortInUse(status.portInUse);
+    setAdapterPort(status.adapterPort);
+    setAdapterPortInUse(status.adapterPortInUse);
     setWsUrlInput(status.wsUrl || "ws://localhost:18789");
     if (status.error) setError(status.error);
     if (status.installed) {
@@ -78,6 +82,8 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
       setRunning(status.running);
       setPort(status.port);
       setPortInUse(status.portInUse);
+      setAdapterPort(status.adapterPort);
+      setAdapterPortInUse(status.adapterPortInUse);
       if (status.error && !errorRef.current) {
         setError(status.error);
       }
@@ -315,7 +321,7 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
           <button
             className={`btn btn-sm ${running ? "btn-secondary" : "btn-primary"}`}
             onClick={handleStartStop}
-            disabled={starting || (portInUse && !running)}
+            disabled={starting || ((portInUse || adapterPortInUse) && !running)}
           >
             {starting
               ? t("office.starting")
@@ -393,6 +399,12 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
       {portInUse && !running && (
         <div className="office-warning-bar">
           {t("office.portInUseWarning", { port })}
+        </div>
+      )}
+
+      {adapterPortInUse && !running && (
+        <div className="office-warning-bar">
+          {t("office.portInUseWarning", { port: adapterPort })}
         </div>
       )}
 
@@ -476,7 +488,9 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
             <p className="office-muted">
               {portInUse && !running
                 ? t("office.portInUse", { port })
-                : t("office.clickToStart")}
+                : adapterPortInUse && !running
+                  ? t("office.portInUse", { port: adapterPort })
+                  : t("office.clickToStart")}
             </p>
           </div>
         ) : null}
