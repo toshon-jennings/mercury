@@ -76,6 +76,7 @@ export function setConnectionConfig(config: ConnectionConfig): void {
 // ── In-memory cache with TTL ─────────────────────────────
 const CACHE_TTL = 5000; // 5 seconds
 const _cache = new Map<string, { data: unknown; ts: number }>();
+const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 function getCached<T>(key: string): T | undefined {
   const entry = _cache.get(key);
@@ -148,6 +149,8 @@ export function setEnvValue(
   value: string,
   profile?: string,
 ): void {
+  validateEnvEntry(key, value);
+
   const { envFile } = profilePaths(profile);
   invalidateCache(`env:${profile || "default"}`);
 
@@ -174,6 +177,18 @@ export function setEnvValue(
   }
 
   safeWriteFile(envFile, lines.join("\n"));
+}
+
+export function validateEnvEntry(key: string, value: string): void {
+  if (!ENV_KEY_RE.test(key)) {
+    throw new Error(
+      "Invalid environment variable name. Use letters, numbers, and underscores, and do not start with a number.",
+    );
+  }
+
+  if (/[\0\r\n]/.test(value)) {
+    throw new Error("Environment variable values must be single-line strings.");
+  }
 }
 
 export function getConfigValue(key: string, profile?: string): string | null {
@@ -216,7 +231,11 @@ export function getModelConfig(profile?: string): {
   baseUrl: string;
 } {
   const cacheKey = `mc:${profile || "default"}`;
-  const cached = getCached<{ provider: string; model: string; baseUrl: string }>(cacheKey);
+  const cached = getCached<{
+    provider: string;
+    model: string;
+    baseUrl: string;
+  }>(cacheKey);
   if (cached) return cached;
 
   const { configFile } = profilePaths(profile);
@@ -294,7 +313,13 @@ export function getHermesHome(profile?: string): string {
 
 // ── Platform enabled/disabled in config.yaml ────────────
 
-const SUPPORTED_PLATFORMS = ["telegram", "discord", "slack", "whatsapp", "signal"];
+const SUPPORTED_PLATFORMS = [
+  "telegram",
+  "discord",
+  "slack",
+  "whatsapp",
+  "signal",
+];
 
 export function getPlatformEnabled(profile?: string): Record<string, boolean> {
   const { configFile } = profilePaths(profile);
