@@ -48,6 +48,15 @@ Thanks for your interest in contributing to Hermes Desktop! Whether it's a bug f
 3. Write a clear description of what you changed and why.
 4. If your PR addresses an open issue, reference it (e.g., `Fixes #42`).
 
+### Keep Pull Requests Small
+
+Please keep PRs small and focused — they are much easier to review and merge. PRs that touch too many files or bundle unrelated changes will likely be asked for splitting up or may not be accepted.
+
+- Stick to one logical change per PR (one fix, one feature, one refactor).
+- If you find yourself touching many unrelated files, split the work into multiple PRs.
+- Avoid bundling formatting/style sweeps with functional changes.
+- Smaller PRs get reviewed and merged faster.
+
 A maintainer will review your PR and may request changes. Once approved, it will be merged.
 
 ## Reporting Bugs
