@@ -49,6 +49,16 @@ Until then, download the `.exe` from the Releases page.
 
 > **Windows users:** The installer is not code-signed. Windows SmartScreen will warn on first launch — click "More info" → "Run anyway".
 
+> **WSL users:** If the installer stalls at `Switching to root user to install dependencies...`, Playwright is waiting for a sudo password that has no TTY to read from. Grant passwordless sudo for the install, then revert when finished:
+>
+> ```bash
+> echo "$USER ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/hermes-install
+> # …re-run the installer; once it finishes:
+> sudo rm /etc/sudoers.d/hermes-install
+> ```
+>
+> Tracked in [#109](https://github.com/fathah/hermes-desktop/issues/109).
+
 ### Fedora (RPM)
 
 ```bash
