@@ -340,6 +340,8 @@ interface HermesAPI {
     adapterRunning: boolean;
     port: number;
     portInUse: boolean;
+    adapterPort: number;
+    adapterPortInUse: boolean;
     wsUrl: string;
     running: boolean;
     error: string;

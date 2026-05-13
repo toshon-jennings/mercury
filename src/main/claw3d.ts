@@ -74,6 +74,17 @@ export function getClaw3dWsUrl(): string {
 function writeClaw3dSettings(wsUrl?: string): void {
   const url = wsUrl || getSavedWsUrl();
 
+  let adapterPort = 18789;
+  try {
+    // Basic regex to extract port from ws://localhost:18789 or similar
+    const portMatch = url.match(/:(\d+)\/?$/);
+    if (portMatch) {
+      adapterPort = parseInt(portMatch[1], 10);
+    }
+  } catch {
+    /* fallback to default */
+  }
+
   // Write ~/.openclaw/claw3d/settings.json
   try {
     mkdirSync(CLAW3D_SETTINGS_DIR, { recursive: true });
@@ -110,7 +121,7 @@ function writeClaw3dSettings(wsUrl?: string): void {
         `NEXT_PUBLIC_GATEWAY_URL=${url}`,
         `CLAW3D_GATEWAY_URL=${url}`,
         `CLAW3D_GATEWAY_TOKEN=`,
-        `HERMES_ADAPTER_PORT=18789`,
+        `HERMES_ADAPTER_PORT=${adapterPort}`,
         `HERMES_MODEL=hermes`,
         `HERMES_AGENT_NAME=Hermes`,
         "",
@@ -149,6 +160,8 @@ export interface Claw3dStatus {
   running: boolean; // true when both dev + adapter are up
   port: number;
   portInUse: boolean;
+  adapterPort: number;
+  adapterPortInUse: boolean;
   wsUrl: string;
   error: string; // last error from either process
 }
@@ -211,10 +224,25 @@ export async function getClaw3dStatus(): Promise<Claw3dStatus> {
   const cloned = existsSync(join(HERMES_OFFICE_DIR, "package.json"));
   const installed = existsSync(join(HERMES_OFFICE_DIR, "node_modules"));
   const port = getSavedPort();
+  const wsUrl = getSavedWsUrl();
+
+  let adapterPort = 18789;
+  try {
+    const portMatch = wsUrl.match(/:(\d+)\/?$/);
+    if (portMatch) {
+      adapterPort = parseInt(portMatch[1], 10);
+    }
+  } catch {
+    /* ignore */
+  }
+
   const devRunning = isDevServerRunning();
-  // Only check port conflict when dev server is NOT running
-  const portInUse = devRunning ? false : await checkPort(port);
   const adapterUp = isAdapterRunning();
+
+  // Only check port conflict when process is NOT running
+  const portInUse = devRunning ? false : await checkPort(port);
+  const adapterPortInUse = adapterUp ? false : await checkPort(adapterPort);
+
   const error = devServerError || adapterError;
   return {
     cloned,
@@ -224,7 +252,9 @@ export async function getClaw3dStatus(): Promise<Claw3dStatus> {
     running: devRunning && adapterUp,
     port,
     portInUse,
-    wsUrl: getSavedWsUrl(),
+    adapterPort,
+    adapterPortInUse,
+    wsUrl,
     error,
   };
 }
@@ -522,6 +552,18 @@ export function startAdapter(): boolean {
 
   adapterError = "";
   adapterLogs = "";
+
+  let adapterPort = 18789;
+  try {
+    const url = getSavedWsUrl();
+    const portMatch = url.match(/:(\d+)\/?$/);
+    if (portMatch) {
+      adapterPort = parseInt(portMatch[1], 10);
+    }
+  } catch {
+    /* fallback to default */
+  }
+
   const npm = findNpm();
   const proc = spawn(npm, ["run", "hermes-adapter"], {
     cwd: HERMES_OFFICE_DIR,
@@ -530,6 +572,7 @@ export function startAdapter(): boolean {
       PATH: getEnhancedPath(),
       HOME: homedir(),
       TERM: "dumb",
+      HERMES_ADAPTER_PORT: String(adapterPort),
     },
     stdio: ["ignore", "pipe", "pipe"],
     detached: true,
