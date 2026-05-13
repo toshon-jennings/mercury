@@ -1,9 +1,9 @@
-import { BrowserWindow, ipcMain } from "electron";
+import { BrowserWindow, ipcMain, type IpcMainEvent } from "electron";
 import { mkdtempSync, writeFileSync, chmodSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import * as net from "net";
-import { randomBytes } from "crypto";
+import { ASKPASS_SUBMIT_CHANNEL } from "../shared/askpass";
 
 export interface AskpassHandle {
   env: Record<string, string>;
@@ -133,29 +133,47 @@ async function showPasswordDialog(
       fullscreenable: false,
       title: "Administrator Password Required",
       webPreferences: {
-        nodeIntegration: true,
-        contextIsolation: false,
+        preload: join(__dirname, "../preload/askpass.js"),
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+        webSecurity: true,
+        allowRunningInsecureContent: false,
+        webviewTag: false,
       },
     });
 
-    const channel = `askpass-result-${randomBytes(8).toString("hex")}`;
     let settled = false;
-    const finish = (value: string | null): void => {
+    function finish(value: string | null): void {
       if (settled) return;
       settled = true;
-      ipcMain.removeAllListeners(channel);
+      ipcMain.removeListener(ASKPASS_SUBMIT_CHANNEL, onSubmit);
       try {
         if (!win.isDestroyed()) win.close();
       } catch {
         /* non-fatal */
       }
       resolve(value);
-    };
+    }
 
-    ipcMain.on(channel, (_e, value: string | null) => finish(value));
+    function onSubmit(event: IpcMainEvent, value: unknown): void {
+      if (event.sender !== win.webContents) return;
+      if (typeof value === "string") {
+        finish(value);
+      } else if (value === null) {
+        finish(null);
+      }
+    }
+
+    ipcMain.on(ASKPASS_SUBMIT_CHANNEL, onSubmit);
     win.on("closed", () => finish(null));
+    win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    win.webContents.on("will-navigate", (event) => event.preventDefault());
+    win.webContents.on("will-attach-webview", (event) =>
+      event.preventDefault(),
+    );
 
-    const html = buildDialogHtml(prompt, channel);
+    const html = buildDialogHtml(prompt);
     win.loadURL(
       "data:text/html;charset=UTF-8;base64," +
         Buffer.from(html).toString("base64"),
@@ -163,15 +181,16 @@ async function showPasswordDialog(
   });
 }
 
-function buildDialogHtml(prompt: string, channel: string): string {
+function buildDialogHtml(prompt: string): string {
   const safePrompt = prompt
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-  const safeChannel = channel.replace(/[^a-zA-Z0-9-]/g, "");
   return `<!doctype html>
-<html><head><meta charset="utf-8"><style>
+<html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'none'; img-src 'none'; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+<style>
   html, body { margin:0; padding:0; height:100%; }
   body { font-family:-apple-system,system-ui,sans-serif; background:#1e1e1e; color:#eee; padding:20px; box-sizing:border-box; }
   .title { font-size:14px; font-weight:600; margin-bottom:6px; }
@@ -191,17 +210,5 @@ function buildDialogHtml(prompt: string, channel: string): string {
   <button id="cancel">Cancel</button>
   <button id="ok" class="primary">OK</button>
 </div>
-<script>
-  const { ipcRenderer } = require("electron");
-  const pw = document.getElementById("pw");
-  const submit = (val) => ipcRenderer.send(${JSON.stringify(safeChannel)}, val);
-  document.getElementById("ok").onclick = () => submit(pw.value);
-  document.getElementById("cancel").onclick = () => submit(null);
-  pw.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") submit(pw.value);
-    if (e.key === "Escape") submit(null);
-  });
-  pw.focus();
-</script>
 </body></html>`;
 }

@@ -21,6 +21,7 @@ vi.mock("../src/main/installer", () => ({
   HERMES_HOME: TEST_HOME,
   HERMES_PYTHON: "/usr/bin/python3",
   HERMES_SCRIPT: "/dev/null",
+  hermesCliArgs: (args: string[] = []) => ["/dev/null", ...args],
   getEnhancedPath: () => process.env.PATH || "",
 }));
 
@@ -32,6 +33,152 @@ vi.mock("../src/shared/i18n", () => ({
 vi.mock("../src/main/locale", () => ({
   getAppLocale: () => "en",
 }));
+
+vi.mock("better-sqlite3", () => {
+  // The app rebuilds better-sqlite3 for Electron during postinstall, while
+  // Vitest runs under Node. Mock the tiny DB surface this unit test needs so
+  // npm ci && npm test does not depend on native module ABI state.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fs = require("fs");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const path = require("path");
+
+  interface SessionRow {
+    id: string;
+    source: string;
+    started_at: number;
+    ended_at: number | null;
+    message_count: number;
+    model: string;
+    title: string | null;
+  }
+
+  interface MessageRow {
+    id: number;
+    session_id: string;
+    role: string;
+    content: string;
+    timestamp: number;
+  }
+
+  interface Store {
+    sessions: Map<string, SessionRow>;
+    messages: MessageRow[];
+    nextMessageId: number;
+  }
+
+  const stores = new Map<string, Store>();
+
+  function getStore(dbPath: string): Store {
+    if (!fs.existsSync(dbPath)) {
+      stores.set(dbPath, {
+        sessions: new Map<string, SessionRow>(),
+        messages: [],
+        nextMessageId: 1,
+      });
+      fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+      fs.writeFileSync(dbPath, "");
+    }
+
+    let store = stores.get(dbPath);
+    if (!store) {
+      store = {
+        sessions: new Map<string, SessionRow>(),
+        messages: [],
+        nextMessageId: 1,
+      };
+      stores.set(dbPath, store);
+    }
+    return store;
+  }
+
+  class FakeStatement {
+    constructor(
+      private readonly sql: string,
+      private readonly store: Store,
+    ) {}
+
+    run(...args: unknown[]): { changes: number } {
+      if (this.sql.includes("INSERT OR REPLACE INTO sessions")) {
+        const [id, source, startedAt, messageCount, model, title] = args;
+        this.store.sessions.set(String(id), {
+          id: String(id),
+          source: String(source),
+          started_at: Number(startedAt),
+          ended_at: null,
+          message_count: Number(messageCount),
+          model: String(model),
+          title: title === null || title === undefined ? null : String(title),
+        });
+        return { changes: 1 };
+      }
+
+      if (this.sql.includes("INSERT INTO messages")) {
+        const [sessionId, role, content, timestamp] = args;
+        this.store.messages.push({
+          id: this.store.nextMessageId++,
+          session_id: String(sessionId),
+          role: String(role),
+          content: String(content),
+          timestamp: Number(timestamp),
+        });
+        return { changes: 1 };
+      }
+
+      throw new Error(`Unhandled fake run SQL: ${this.sql}`);
+    }
+
+    all(...args: unknown[]): SessionRow[] {
+      if (this.sql.includes("FROM sessions s")) {
+        const threshold = Number(args[0] ?? 0);
+        return Array.from(this.store.sessions.values())
+          .filter((session) => session.started_at > threshold)
+          .sort((a, b) => b.started_at - a.started_at);
+      }
+
+      throw new Error(`Unhandled fake all SQL: ${this.sql}`);
+    }
+
+    get(...args: unknown[]): { content: string } | undefined {
+      if (this.sql.includes("SELECT content FROM messages")) {
+        const sessionId = String(args[0]);
+        const match = this.store.messages
+          .filter(
+            (message) =>
+              message.session_id === sessionId &&
+              message.role === "user" &&
+              message.content !== null,
+          )
+          .sort((a, b) => a.timestamp - b.timestamp || a.id - b.id)[0];
+        return match ? { content: match.content } : undefined;
+      }
+
+      throw new Error(`Unhandled fake get SQL: ${this.sql}`);
+    }
+  }
+
+  class FakeDatabase {
+    private readonly store: Store;
+
+    constructor(dbPath: string) {
+      this.store = getStore(dbPath);
+    }
+
+    exec(): void {
+      /* Schema creation is a no-op for the in-memory fake. */
+    }
+
+    prepare(sql: string): FakeStatement {
+      return new FakeStatement(sql, this.store);
+    }
+
+    close(): void {
+      /* no-op */
+    }
+  }
+
+  return { default: FakeDatabase };
+});
 
 import Database from "better-sqlite3";
 import { syncSessionCache } from "../src/main/session-cache";

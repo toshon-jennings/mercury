@@ -769,16 +769,23 @@ export const GATEWAY_PLATFORMS: PlatformDef[] = [
 
 // ── Install ─────────────────────────────────────────────
 
-export const INSTALL_CMD_UNIX =
+export const UNIX_INSTALL_CMD =
   "curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash";
+export const INSTALL_CMD_UNIX = UNIX_INSTALL_CMD;
+export const WINDOWS_INSTALL_CMD =
+  "powershell -NoProfile -ExecutionPolicy Bypass -c \"$hermesHome = Join-Path $env:USERPROFILE '.hermes'; $installDir = Join-Path $hermesHome 'hermes-agent'; $installer = [ScriptBlock]::Create((irm https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.ps1 -UseBasicParsing)); & $installer -SkipSetup -HermesHome $hermesHome -InstallDir $installDir\"";
+export const INSTALL_CMD =
+  typeof window !== "undefined" &&
+  window.electron?.process?.platform === "win32"
+    ? WINDOWS_INSTALL_CMD
+    : UNIX_INSTALL_CMD;
 
-export const INSTALL_CMD_WIN =
-  "irm https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.ps1 | iex";
+export const INSTALL_CMD_WIN = WINDOWS_INSTALL_CMD;
 
 export function getInstallCmd(): string {
   return window.electron?.process?.platform === "win32"
-    ? INSTALL_CMD_WIN
-    : INSTALL_CMD_UNIX;
+    ? WINDOWS_INSTALL_CMD
+    : UNIX_INSTALL_CMD;
 }
 
 // Helper to resolve i18n key or return as-is

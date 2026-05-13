@@ -1,11 +1,17 @@
-import { spawn, execSync, execFile } from "child_process";
-import { existsSync, readFileSync, readdirSync, writeFileSync, unlinkSync } from "fs";
+import { spawn, execFile, execFileSync } from "child_process";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+  unlinkSync,
+} from "fs";
 import { join, delimiter } from "path";
 import { homedir, tmpdir } from "os";
 import { randomBytes } from "crypto";
 import type { BrowserWindow } from "electron";
 import { getModelConfig, getConnectionConfig } from "./config";
-import { stripAnsi } from "./utils";
+import { profileHome, stripAnsi } from "./utils";
 import { setupAskpass, AskpassHandle } from "./askpass";
 import { precacheSudoCredentials } from "./sudoCreds";
 
@@ -18,10 +24,19 @@ export const HERMES_VENV = join(HERMES_REPO, "venv");
 export const HERMES_PYTHON = IS_WINDOWS
   ? join(HERMES_VENV, "Scripts", "python.exe")
   : join(HERMES_VENV, "bin", "python");
-export const HERMES_SCRIPT = join(HERMES_REPO, "hermes");
+export const HERMES_SCRIPT = IS_WINDOWS
+  ? join(HERMES_VENV, "Scripts", "hermes.exe")
+  : join(HERMES_REPO, "hermes");
 export const HERMES_ENV_FILE = join(HERMES_HOME, ".env");
 export const HERMES_CONFIG_FILE = join(HERMES_HOME, "config.yaml");
 export const HERMES_AUTH_FILE = join(HERMES_HOME, "auth.json");
+
+export function hermesCliArgs(args: string[] = []): string[] {
+  if (process.platform === "win32") {
+    return ["-m", "hermes_cli.main", ...args];
+  }
+  return [HERMES_SCRIPT, ...args];
+}
 
 export interface InstallStatus {
   installed: boolean;
@@ -192,7 +207,7 @@ export async function verifyInstall(): Promise<boolean> {
   return new Promise((resolve) => {
     execFile(
       HERMES_PYTHON,
-      [HERMES_SCRIPT, "--version"],
+      hermesCliArgs(["--version"]),
       {
         cwd: HERMES_REPO,
         env: {
@@ -234,7 +249,7 @@ export async function getHermesVersion(): Promise<string | null> {
   return new Promise((resolve) => {
     execFile(
       HERMES_PYTHON,
-      [HERMES_SCRIPT, "--version"],
+      hermesCliArgs(["--version"]),
       {
         cwd: HERMES_REPO,
         env: {
@@ -267,7 +282,7 @@ export function runHermesDoctor(): string {
     return "Hermes is not installed.";
   }
   try {
-    const output = execSync(`"${HERMES_PYTHON}" "${HERMES_SCRIPT}" doctor`, {
+    const output = execFileSync(HERMES_PYTHON, hermesCliArgs(["doctor"]), {
       cwd: HERMES_REPO,
       env: {
         ...process.env,
@@ -324,7 +339,7 @@ export async function runClawMigrate(
   emit(`Migrating from ${openclaw.path}...\n`);
 
   return new Promise((resolve, reject) => {
-    const args = [HERMES_SCRIPT, "claw", "migrate", "--preset", "full"];
+    const args = hermesCliArgs(["claw", "migrate", "--preset", "full"]);
 
     const proc = spawn(HERMES_PYTHON, args, {
       cwd: HERMES_REPO,
@@ -383,7 +398,7 @@ export async function runHermesUpdate(
   emit("Running hermes update...\n");
 
   return new Promise((resolve, reject) => {
-    const proc = spawn(HERMES_PYTHON, [HERMES_SCRIPT, "update"], {
+    const proc = spawn(HERMES_PYTHON, hermesCliArgs(["update"]), {
       cwd: HERMES_REPO,
       env: {
         ...process.env,
@@ -772,8 +787,9 @@ export async function runHermesBackup(
   if (!existsSync(HERMES_PYTHON) || !existsSync(HERMES_SCRIPT)) {
     return { success: false, error: "Hermes is not installed." };
   }
-  const args = [HERMES_SCRIPT, "backup"];
+  const args = hermesCliArgs();
   if (profile && profile !== "default") args.push("-p", profile);
+  args.push("backup");
 
   return new Promise((resolve) => {
     execFile(
@@ -819,8 +835,9 @@ export async function runHermesImport(
   if (!existsSync(HERMES_PYTHON) || !existsSync(HERMES_SCRIPT)) {
     return { success: false, error: "Hermes is not installed." };
   }
-  const args = [HERMES_SCRIPT, "import", archivePath];
+  const args = hermesCliArgs();
   if (profile && profile !== "default") args.push("-p", profile);
+  args.push("import", archivePath);
 
   return new Promise((resolve) => {
     execFile(
@@ -862,7 +879,7 @@ export function runHermesDump(): Promise<string> {
   return new Promise((resolve) => {
     execFile(
       HERMES_PYTHON,
-      [HERMES_SCRIPT, "dump"],
+      hermesCliArgs(["dump"]),
       {
         cwd: HERMES_REPO,
         env: {
@@ -990,11 +1007,7 @@ export function discoverMemoryProviders(
  */
 export function getActiveMemoryProvider(profile?: string): string {
   try {
-    const configDir =
-      profile && profile !== "default"
-        ? join(HERMES_HOME, "profiles", profile)
-        : HERMES_HOME;
-    const configPath = join(configDir, "config.yaml");
+    const configPath = join(profileHome(profile), "config.yaml");
     if (!existsSync(configPath)) return "";
     const content = readFileSync(configPath, "utf-8");
     const match = content.match(/^\s*provider:\s*["']?(\w+)["']?\s*$/m);
@@ -1012,12 +1025,7 @@ export function listMcpServers(
   profile?: string,
 ): Array<{ name: string; type: string; enabled: boolean; detail: string }> {
   try {
-    const configPath = join(
-      profile && profile !== "default"
-        ? join(HERMES_HOME, "profiles", profile)
-        : HERMES_HOME,
-      "config.yaml",
-    );
+    const configPath = join(profileHome(profile), "config.yaml");
     if (!existsSync(configPath)) return [];
     const content = readFileSync(configPath, "utf-8");
     // Simple YAML parse for mcp_servers section

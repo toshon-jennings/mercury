@@ -1,6 +1,7 @@
-import { BrowserWindow, ipcMain } from "electron";
+import { BrowserWindow, ipcMain, type IpcMainEvent } from "electron";
 import { spawn } from "child_process";
-import { randomBytes } from "crypto";
+import { join } from "path";
+import { ASKPASS_SUBMIT_CHANNEL } from "../shared/askpass";
 
 export interface SudoPrecacheResult {
   ok: boolean;
@@ -116,17 +117,21 @@ function showSudoDialog(parent: BrowserWindow | null): Promise<string | null> {
       title: "Administrator Password",
       alwaysOnTop: true,
       webPreferences: {
-        nodeIntegration: true,
-        contextIsolation: false,
+        preload: join(__dirname, "../preload/askpass.js"),
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+        webSecurity: true,
+        allowRunningInsecureContent: false,
+        webviewTag: false,
       },
     });
 
-    const channel = `sudo-precache-${randomBytes(8).toString("hex")}`;
     let settled = false;
     const finish = (value: string | null): void => {
       if (settled) return;
       settled = true;
-      ipcMain.removeAllListeners(channel);
+      ipcMain.removeListener(ASKPASS_SUBMIT_CHANNEL, onSubmit);
       try {
         if (!win.isDestroyed()) win.close();
       } catch {
@@ -135,20 +140,35 @@ function showSudoDialog(parent: BrowserWindow | null): Promise<string | null> {
       resolve(value);
     };
 
-    ipcMain.on(channel, (_e, value: string | null) => finish(value));
+    function onSubmit(event: IpcMainEvent, value: unknown): void {
+      if (event.sender !== win.webContents) return;
+      if (typeof value === "string") {
+        finish(value);
+      } else if (value === null) {
+        finish(null);
+      }
+    }
+
+    ipcMain.on(ASKPASS_SUBMIT_CHANNEL, onSubmit);
     win.on("closed", () => finish(null));
+    win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    win.webContents.on("will-navigate", (event) => event.preventDefault());
+    win.webContents.on("will-attach-webview", (event) =>
+      event.preventDefault(),
+    );
 
     win.loadURL(
       "data:text/html;charset=UTF-8;base64," +
-        Buffer.from(buildDialogHtml(channel)).toString("base64"),
+        Buffer.from(buildDialogHtml()).toString("base64"),
     );
   });
 }
 
-function buildDialogHtml(channel: string): string {
-  const safeChannel = channel.replace(/[^a-zA-Z0-9-]/g, "");
+function buildDialogHtml(): string {
   return `<!doctype html>
-<html><head><meta charset="utf-8"><style>
+<html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'none'; img-src 'none'; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+<style>
   html, body { margin:0; padding:0; height:100%; }
   body { font-family:-apple-system,system-ui,sans-serif; background:#1e1e1e; color:#eee; padding:22px; box-sizing:border-box; }
   .title { font-size:15px; font-weight:600; margin-bottom:8px; }
@@ -168,17 +188,5 @@ function buildDialogHtml(channel: string): string {
   <button id="cancel">Cancel</button>
   <button id="ok" class="primary">Continue</button>
 </div>
-<script>
-  const { ipcRenderer } = require("electron");
-  const pw = document.getElementById("pw");
-  const submit = (val) => ipcRenderer.send(${JSON.stringify(safeChannel)}, val);
-  document.getElementById("ok").onclick = () => submit(pw.value);
-  document.getElementById("cancel").onclick = () => submit(null);
-  pw.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") submit(pw.value);
-    if (e.key === "Escape") submit(null);
-  });
-  pw.focus();
-</script>
 </body></html>`;
 }

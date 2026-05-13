@@ -2,6 +2,10 @@ import { join, dirname } from "path";
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { HERMES_HOME } from "./installer";
 
+const PROFILE_NAME_RE = /^[a-z0-9_][a-z0-9_-]{0,63}$/;
+export const PROFILE_NAME_ERROR =
+  "Profile names may contain lowercase letters, numbers, underscores, and hyphens, and cannot start with a hyphen.";
+
 /**
  * Strip ANSI escape codes from terminal output.
  * Used by hermes.ts, claw3d.ts, and installer.ts when processing
@@ -14,12 +18,24 @@ export function stripAnsi(str: string): string {
   return str.replace(ANSI_RE, "");
 }
 
-/**
- * Validate that a profile name contains only alphanumeric characters,
- * underscores, or dashes. Prevents path traversal via the profile parameter.
- */
-export function isValidProfileName(name: string): boolean {
-  return /^[a-zA-Z0-9_-]+$/.test(name);
+export function isValidNamedProfileName(profile: unknown): profile is string {
+  return typeof profile === "string" && PROFILE_NAME_RE.test(profile);
+}
+
+export function isValidProfileName(profile: unknown): profile is string {
+  return profile === "default" || isValidNamedProfileName(profile);
+}
+
+export function normalizeProfileName(profile?: unknown): string | undefined {
+  if (profile === undefined || profile === "" || profile === "default") {
+    return undefined;
+  }
+
+  if (!isValidNamedProfileName(profile)) {
+    throw new Error(PROFILE_NAME_ERROR);
+  }
+
+  return profile;
 }
 
 /**
@@ -27,18 +43,16 @@ export function isValidProfileName(name: string): boolean {
  * 'default' or undefined maps to ~/.hermes; named profiles
  * live under ~/.hermes/profiles/<name>.
  */
-export function profileHome(profile?: string): string {
-  if (profile && profile !== "default" && isValidProfileName(profile)) {
-    return join(HERMES_HOME, "profiles", profile);
-  }
-  return HERMES_HOME;
+export function profileHome(profile?: unknown): string {
+  const normalized = normalizeProfileName(profile);
+  return normalized ? join(HERMES_HOME, "profiles", normalized) : HERMES_HOME;
 }
 
 /**
  * Resolve the standard per-profile file locations (.env, config.yaml) under
  * the profile's home directory.
  */
-export function profilePaths(profile?: string): {
+export function profilePaths(profile?: unknown): {
   envFile: string;
   configFile: string;
   home: string;

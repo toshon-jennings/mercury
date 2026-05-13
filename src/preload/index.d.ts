@@ -1,5 +1,15 @@
-import { ElectronAPI } from "@electron-toolkit/preload";
 import type { AppLocale } from "../shared/i18n/types";
+
+interface ElectronAPI {
+  process: {
+    platform: NodeJS.Platform;
+    versions: {
+      chrome: string;
+      electron: string;
+      node: string;
+    };
+  };
+}
 
 interface InstallStatus {
   installed: boolean;
