@@ -1,4 +1,4 @@
 provider: github
-owner: fathah
-repo: hermes-desktop
-updaterCacheDirName: hermes-desktop-updater
+owner: toshon-jennings
+repo: mercury
+updaterCacheDirName: mercury-updater
