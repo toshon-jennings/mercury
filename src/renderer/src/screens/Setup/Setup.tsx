@@ -2,8 +2,21 @@ import { useState } from "react";
 import { ArrowRight, ExternalLink } from "../../assets/icons";
 import { PROVIDERS, LOCAL_PRESETS } from "../../constants";
 import { useI18n } from "../../components/useI18n";
+import VerifyWarningBanner from "../../components/VerifyWarningBanner";
 
-function Setup({ onComplete }: { onComplete: () => void }): React.JSX.Element {
+interface SetupProps {
+  onComplete: () => void;
+  verifyWarning?: boolean;
+  onReinstall?: () => void;
+  onDismissVerifyWarning?: () => void;
+}
+
+function Setup({
+  onComplete,
+  verifyWarning,
+  onReinstall,
+  onDismissVerifyWarning,
+}: SetupProps): React.JSX.Element {
   const { t } = useI18n();
   const [selectedProvider, setSelectedProvider] = useState("openrouter");
   const [apiKey, setApiKey] = useState("");
@@ -76,6 +89,12 @@ function Setup({ onComplete }: { onComplete: () => void }): React.JSX.Element {
 
   return (
     <div className="screen setup-screen">
+      {verifyWarning && onReinstall && onDismissVerifyWarning && (
+        <VerifyWarningBanner
+          onReinstall={onReinstall}
+          onDismiss={onDismissVerifyWarning}
+        />
+      )}
       <h1 className="setup-title">{t("setup.title")}</h1>
       <p className="setup-subtitle">{t("setup.subtitle")}</p>
 

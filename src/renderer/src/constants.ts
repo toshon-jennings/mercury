@@ -769,8 +769,17 @@ export const GATEWAY_PLATFORMS: PlatformDef[] = [
 
 // ── Install ─────────────────────────────────────────────
 
-export const INSTALL_CMD =
+export const INSTALL_CMD_UNIX =
   "curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash";
+
+export const INSTALL_CMD_WIN =
+  "irm https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.ps1 | iex";
+
+export function getInstallCmd(): string {
+  return window.electron?.process?.platform === "win32"
+    ? INSTALL_CMD_WIN
+    : INSTALL_CMD_UNIX;
+}
 
 // Helper to resolve i18n key or return as-is
 export function tk(t: (key: string) => string, value: string): string {

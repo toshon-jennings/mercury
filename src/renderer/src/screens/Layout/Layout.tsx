@@ -13,6 +13,7 @@ import Models from "../Models/Models";
 import Providers from "../Providers/Providers";
 import Schedules from "../Schedules/Schedules";
 import RemoteNotice from "../../components/RemoteNotice";
+import VerifyWarningBanner from "../../components/VerifyWarningBanner";
 import hermeslogo from "../../assets/hermes.png";
 import {
   ChatBubble,
@@ -64,7 +65,17 @@ const NAV_ITEMS: { view: View; icon: LucideIcon; labelKey: string }[] = [
   { view: "settings", icon: SettingsIcon, labelKey: "navigation.settings" },
 ];
 
-function Layout(): React.JSX.Element {
+interface LayoutProps {
+  verifyWarning?: boolean;
+  onReinstall?: () => void;
+  onDismissVerifyWarning?: () => void;
+}
+
+function Layout({
+  verifyWarning,
+  onReinstall,
+  onDismissVerifyWarning,
+}: LayoutProps = {}): React.JSX.Element {
   const { t } = useI18n();
   const [view, setView] = useState<View>("chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -220,6 +231,12 @@ function Layout(): React.JSX.Element {
       </aside>
 
       <main className="content">
+        {verifyWarning && onReinstall && onDismissVerifyWarning && (
+          <VerifyWarningBanner
+            onReinstall={onReinstall}
+            onDismiss={onDismissVerifyWarning}
+          />
+        )}
         <div style={paneStyle("chat")}>
           <Chat
             messages={messages}

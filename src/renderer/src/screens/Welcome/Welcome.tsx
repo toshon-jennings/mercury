@@ -7,7 +7,7 @@ import {
   Globe,
   Spinner,
 } from "../../assets/icons";
-import { INSTALL_CMD } from "../../constants";
+import { getInstallCmd } from "../../constants";
 import { useI18n } from "../../components/useI18n";
 
 interface WelcomeProps {
@@ -283,10 +283,10 @@ function Welcome({
             <div className="welcome-terminal-option">
               <p className="welcome-terminal-label">{t("welcome.terminalInstallHint")}</p>
               <div className="welcome-terminal-box">
-                <code>{INSTALL_CMD}</code>
+                <code>{getInstallCmd()}</code>
                 <button
                   className="btn-ghost welcome-copy-btn"
-                  onClick={() => navigator.clipboard.writeText(INSTALL_CMD)}
+                  onClick={() => navigator.clipboard.writeText(getInstallCmd())}
                   title={t("welcome.copyInstallCommand")}
                 >
                   <Copy size={14} />
