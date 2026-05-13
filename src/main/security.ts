@@ -1,4 +1,4 @@
-import type { WebPreferences } from "electron";
+import type { WebContents, WebPreferences } from "electron";
 import { pathToFileURL } from "url";
 
 const EXTERNAL_PROTOCOLS = new Set(["https:", "http:", "mailto:"]);
@@ -60,4 +60,18 @@ export function hardenWebviewPreferences(
   webPreferences.sandbox = true;
   webPreferences.webSecurity = true;
   webPreferences.allowRunningInsecureContent = false;
+}
+
+export function hardenAttachedWebContents(webContents: WebContents): void {
+  webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  webContents.on("will-navigate", (event, url) => {
+    if (!isAllowedWebviewUrl(url)) {
+      event.preventDefault();
+    }
+  });
+  webContents.on("will-redirect", (event, url) => {
+    if (!isAllowedWebviewUrl(url)) {
+      event.preventDefault();
+    }
+  });
 }

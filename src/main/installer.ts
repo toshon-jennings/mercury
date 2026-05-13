@@ -1,4 +1,4 @@
-import { spawn, execSync, execFile } from "child_process";
+import { spawn, execFile, execFileSync } from "child_process";
 import {
   existsSync,
   readFileSync,
@@ -13,6 +13,7 @@ import type { BrowserWindow } from "electron";
 import { getModelConfig, getConnectionConfig } from "./config";
 import { profileHome, stripAnsi } from "./utils";
 import { setupAskpass, AskpassHandle } from "./askpass";
+import { precacheSudoCredentials } from "./sudoCreds";
 
 const IS_WINDOWS = process.platform === "win32";
 
@@ -281,10 +282,7 @@ export function runHermesDoctor(): string {
     return "Hermes is not installed.";
   }
   try {
-    const cliArgs = hermesCliArgs(["doctor"])
-      .map((arg) => `"${arg.replace(/"/g, '\\"')}"`)
-      .join(" ");
-    const output = execSync(`"${HERMES_PYTHON}" ${cliArgs}`, {
+    const output = execFileSync(HERMES_PYTHON, hermesCliArgs(["doctor"]), {
       cwd: HERMES_REPO,
       env: {
         ...process.env,
@@ -485,8 +483,12 @@ const STAGE_MARKERS: { pattern: RegExp; step: number; title: string }[] = [
     title: "Installing dependencies",
   },
   {
+    // Only fire step 7 on the install script's actual final lines.
+    // Intermediate "Browser engine setup complete" / "All dependencies installed"
+    // used to match here and pinned the progress bar at 100% while Playwright
+    // and TUI deps were still running — see issue #104.
     pattern:
-      /Configuration|config|Setup complete|Installation complete|Configuration directory ready|hermes command ready|All dependencies installed/i,
+      /Installation complete|hermes command ready|Configuration directory ready|Hermes (installation )?(finished|is ready)/i,
     step: 7,
     title: "Finishing setup",
   },
@@ -528,8 +530,28 @@ export async function runInstall(
     return runInstallWindows(emit);
   }
 
-  // Bridge any sudo prompts from install.sh to a GUI password dialog.
-  // Windows has no sudo, so skip the bridge there.
+  // Ask for the sudo password ONCE upfront and warm sudo's credential cache
+  // before install.sh runs. Playwright's `install --with-deps` later invokes
+  // `sudo apt-get` from a subprocess with no TTY — without a warm cache it
+  // hangs forever waiting on stdin. See issues #104 and #109.
+  emit("→ Checking administrator access...\n");
+  const sudoPrecache = await precacheSudoCredentials(parentWindow ?? null);
+  if (sudoPrecache.cancelled) {
+    throw new Error(
+      "Installation cancelled: administrator password is required to install browser libraries.",
+    );
+  }
+  if (!sudoPrecache.ok) {
+    emit(
+      "⚠ Administrator password was not accepted. Continuing without — install may stall at the browser dependency step.\n",
+    );
+  } else {
+    emit("✓ Administrator access granted\n");
+  }
+
+  // Keep the legacy askpass bridge as a fallback for any sudo call that
+  // somehow escapes the cred cache (e.g. install runs past sudo's 15min TTL
+  // and the keepalive failed).
   let askpass: AskpassHandle | null = null;
   try {
     askpass = await setupAskpass(parentWindow ?? null);
@@ -602,6 +624,7 @@ export async function runInstall(
     });
   } finally {
     askpass?.cleanup();
+    sudoPrecache.stop();
   }
 }
 

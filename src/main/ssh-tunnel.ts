@@ -3,6 +3,7 @@ import { homedir } from "os";
 import { join } from "path";
 import net from "net";
 import http from "http";
+import { buildSshControlOptions } from "./ssh-options";
 
 export interface SshConfig {
   host: string;
@@ -108,9 +109,7 @@ function buildSshArgs(config: SshConfig, localPort: number): string[] {
     "-i", keyPath,
     "-o", "StrictHostKeyChecking=accept-new",
     "-o", "BatchMode=yes",
-    "-o", "ControlMaster=auto",
-    "-o", "ControlPath=~/.ssh/cm-hermes-%r@%h:%p",
-    "-o", "ControlPersist=60s",
+    ...buildSshControlOptions(),
     "-o", "ExitOnForwardFailure=yes",
     "-o", "ServerAliveInterval=30",
     "-o", "ServerAliveCountMax=3",

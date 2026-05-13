@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { pathToFileURL } from "url";
 import { readFileSync } from "fs";
 import { join } from "path";
 import {
+  hardenAttachedWebContents,
   hardenWebviewPreferences,
   isAllowedAppNavigationUrl,
   isAllowedExternalUrl,
@@ -12,6 +13,7 @@ import {
 const ROOT = join(__dirname, "..");
 const mainSrc = readFileSync(join(ROOT, "src/main/index.ts"), "utf-8");
 const preloadSrc = readFileSync(join(ROOT, "src/preload/index.ts"), "utf-8");
+const installerSrc = readFileSync(join(ROOT, "src/main/installer.ts"), "utf-8");
 
 describe("Electron main process hardening", () => {
   it("keeps the main renderer isolated from Node privileges", () => {
@@ -31,6 +33,12 @@ describe("Electron main process hardening", () => {
     expect(mainSrc).toContain("hardenWebviewPreferences(webPreferences)");
   });
 
+  it("keeps attached webviews constrained after initial attachment", () => {
+    expect(mainSrc).toContain('app.on("web-contents-created"');
+    expect(mainSrc).toContain('contents.getType() === "webview"');
+    expect(mainSrc).toContain("hardenAttachedWebContents(contents)");
+  });
+
   it("routes shell.openExternal through the allowlist helper", () => {
     const directShellOpens = mainSrc.match(/shell\.openExternal\(/g) ?? [];
     expect(directShellOpens).toHaveLength(1);
@@ -41,6 +49,23 @@ describe("Electron main process hardening", () => {
 
   it("keeps the sandboxed main preload free of external runtime imports", () => {
     expect(preloadSrc).not.toContain("@electron-toolkit/preload");
+  });
+
+  it("runs hermes doctor without a shell-built command string", () => {
+    expect(installerSrc).toContain(
+      'execFileSync(HERMES_PYTHON, hermesCliArgs(["doctor"])',
+    );
+    expect(installerSrc).not.toContain("execSync(`");
+  });
+
+  it("keeps the Linux sudo precache install flow wired in", () => {
+    expect(installerSrc).toContain(
+      'import { precacheSudoCredentials } from "./sudoCreds"',
+    );
+    expect(installerSrc).toContain(
+      "const sudoPrecache = await precacheSudoCredentials(",
+    );
+    expect(installerSrc).toContain("sudoPrecache.stop();");
   });
 });
 
@@ -138,5 +163,43 @@ describe("Electron webview policy", () => {
     expect(webPreferences.sandbox).toBe(true);
     expect(webPreferences.webSecurity).toBe(true);
     expect(webPreferences.allowRunningInsecureContent).toBe(false);
+  });
+
+  it("blocks post-attachment navigation away from loopback webview URLs", () => {
+    type NavigationHandler = (
+      event: { preventDefault: () => void },
+      url: string,
+    ) => void;
+    const handlers = new Map<string, NavigationHandler>();
+    const webContentsMock = {
+      setWindowOpenHandler: vi.fn(),
+      on: vi.fn((event: string, handler: NavigationHandler) => {
+        handlers.set(event, handler);
+      }),
+    };
+
+    hardenAttachedWebContents(
+      webContentsMock as unknown as Parameters<
+        typeof hardenAttachedWebContents
+      >[0],
+    );
+
+    expect(webContentsMock.setWindowOpenHandler).toHaveBeenCalledWith(
+      expect.any(Function),
+    );
+    expect(handlers.has("will-navigate")).toBe(true);
+    expect(handlers.has("will-redirect")).toBe(true);
+
+    const allowedEvent = { preventDefault: vi.fn() };
+    handlers.get("will-navigate")?.(allowedEvent, "http://localhost:3000");
+    expect(allowedEvent.preventDefault).not.toHaveBeenCalled();
+
+    const blockedEvent = { preventDefault: vi.fn() };
+    handlers.get("will-navigate")?.(blockedEvent, "http://attacker.com:3000");
+    expect(blockedEvent.preventDefault).toHaveBeenCalled();
+
+    const redirectedEvent = { preventDefault: vi.fn() };
+    handlers.get("will-redirect")?.(redirectedEvent, "http://example.com:3000");
+    expect(redirectedEvent.preventDefault).toHaveBeenCalled();
   });
 });

@@ -118,6 +118,7 @@ import {
 } from "./cronjobs";
 import { getAppLocale, setAppLocale } from "./locale";
 import {
+  hardenAttachedWebContents,
   hardenWebviewPreferences,
   isAllowedAppNavigationUrl,
   isAllowedExternalUrl,
@@ -1168,6 +1169,12 @@ app.whenReady().then(() => {
 
   app.on("browser-window-created", (_, window) => {
     optimizer.watchWindowShortcuts(window);
+  });
+
+  app.on("web-contents-created", (_event, contents) => {
+    if (contents.getType() === "webview") {
+      hardenAttachedWebContents(contents);
+    }
   });
 
   buildMenu();
