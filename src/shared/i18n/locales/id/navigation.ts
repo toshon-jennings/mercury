@@ -1,0 +1,15 @@
+export default {
+  chat: "Chat",
+  sessions: "Sesi",
+  agents: "Profil",
+  office: "Office",
+  models: "Model",
+  providers: "Provider",
+  skills: "Skill",
+  soul: "Persona",
+  memory: "Memori",
+  tools: "Alat",
+  schedules: "Jadwal",
+  gateway: "Gateway",
+  settings: "Pengaturan",
+} as const;

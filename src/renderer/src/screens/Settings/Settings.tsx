@@ -8,6 +8,7 @@ import { Download, Upload, FileText } from "lucide-react";
 const LANGUAGE_LABEL_KEYS: Record<AppLocale, string> = {
   en: "settings.language.english",
   es: "settings.language.spanish",
+  id: "settings.language.indonesian",
   "pt-BR": "settings.language.portuguese",
   "zh-CN": "settings.language.chinese",
 };
@@ -156,7 +157,7 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
   }, [profile]);
 
   useEffect(() => {
-    loadConfig();
+    void Promise.resolve().then(loadConfig);
   }, [loadConfig]);
 
   async function handleMigrate(): Promise<void> {
