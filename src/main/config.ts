@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { HERMES_HOME } from "./installer";
-import { profileHome, escapeRegex, safeWriteFile } from "./utils";
+import { profilePaths, escapeRegex, safeWriteFile } from "./utils";
 
 // ── Connection Config (local / remote / ssh) ─────────────
 
@@ -96,19 +96,6 @@ function invalidateCache(prefix: string): void {
   for (const key of _cache.keys()) {
     if (key.startsWith(prefix)) _cache.delete(key);
   }
-}
-
-function profilePaths(profile?: string): {
-  envFile: string;
-  configFile: string;
-  home: string;
-} {
-  const home = profileHome(profile);
-  return {
-    home,
-    envFile: join(home, ".env"),
-    configFile: join(home, "config.yaml"),
-  };
 }
 
 export function readEnv(profile?: string): Record<string, string> {

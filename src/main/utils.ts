@@ -35,6 +35,23 @@ export function profileHome(profile?: string): string {
 }
 
 /**
+ * Resolve the standard per-profile file locations (.env, config.yaml) under
+ * the profile's home directory.
+ */
+export function profilePaths(profile?: string): {
+  envFile: string;
+  configFile: string;
+  home: string;
+} {
+  const home = profileHome(profile);
+  return {
+    home,
+    envFile: join(home, ".env"),
+    configFile: join(home, "config.yaml"),
+  };
+}
+
+/**
  * Escape special regex characters in a string so it can be
  * safely interpolated into a RegExp constructor.
  */

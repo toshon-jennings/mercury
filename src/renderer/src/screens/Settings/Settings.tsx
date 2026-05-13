@@ -3,7 +3,9 @@ import { useTheme } from "../../components/ThemeProvider";
 import { THEME_OPTIONS } from "../../constants";
 import { useI18n } from "../../components/useI18n";
 import { APP_LOCALES, type AppLocale } from "../../../../shared/i18n";
-import { Download, Upload, FileText } from "lucide-react";
+import { Download, Upload, FileText, Send } from "lucide-react";
+
+const TELEGRAM_COMMUNITY_URL = "https://t.me/hermes_agent_desktop";
 
 const LANGUAGE_LABEL_KEYS: Record<AppLocale, string> = {
   en: "settings.language.english",
@@ -472,6 +474,28 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
           {dumpOutput && (
             <pre className="settings-hermes-doctor">{dumpOutput}</pre>
           )}
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <div className="settings-section-title">Community</div>
+        <div className="settings-field">
+          <div className="settings-field-hint" style={{ marginBottom: 10 }}>
+            Join our Telegram group to ask questions, report issues, and chat
+            with other Hermes users.
+          </div>
+          <div className="settings-hermes-actions">
+            <button
+              className="btn btn-secondary"
+              onClick={() =>
+                window.hermesAPI.openExternal(TELEGRAM_COMMUNITY_URL)
+              }
+              title={TELEGRAM_COMMUNITY_URL}
+            >
+              <Send size={14} style={{ marginRight: 6 }} />
+              Join Telegram Community
+            </button>
+          </div>
         </div>
       </div>
 
