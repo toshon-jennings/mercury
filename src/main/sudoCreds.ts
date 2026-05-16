@@ -170,14 +170,14 @@ function buildDialogHtml(): string {
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'none'; img-src 'none'; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
 <style>
   html, body { margin:0; padding:0; height:100%; }
-  body { font-family:-apple-system,system-ui,sans-serif; background:#1e1e1e; color:#eee; padding:22px; box-sizing:border-box; }
+  body { font-family:-apple-system,system-ui,sans-serif; background:#121212; color:#ffffff; padding:22px; box-sizing:border-box; }
   .title { font-size:15px; font-weight:600; margin-bottom:8px; }
-  .prompt { font-size:12px; line-height:1.55; margin-bottom:16px; color:#bbb; }
-  input { width:100%; padding:9px 11px; border-radius:6px; border:1px solid #444; background:#2a2a2a; color:#fff; font-size:14px; box-sizing:border-box; outline:none; }
-  input:focus { border-color:#2563eb; }
+  .prompt { font-size:12px; line-height:1.55; margin-bottom:16px; color:#a0a0a0; }
+  input { width:100%; padding:9px 11px; border-radius:6px; border:1px solid #333; background:#1a1a1a; color:#fff; font-size:14px; box-sizing:border-box; outline:none; }
+  input:focus { border-color:#cd2927; }
   .row { display:flex; gap:8px; justify-content:flex-end; margin-top:20px; }
-  button { padding:7px 16px; border-radius:6px; border:1px solid #444; background:#333; color:#fff; cursor:pointer; font-size:13px; font-family:inherit; }
-  button.primary { background:#2563eb; border-color:#2563eb; }
+  button { padding:7px 16px; border-radius:6px; border:1px solid #333; background:#242424; color:#fff; cursor:pointer; font-size:13px; font-family:inherit; }
+  button.primary { background:#cd2927; border-color:#cd2927; }
   button:hover { opacity:0.9; }
 </style></head>
 <body>
