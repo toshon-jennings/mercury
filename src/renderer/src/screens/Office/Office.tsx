@@ -45,6 +45,22 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
   const logRef = useRef<HTMLDivElement>(null);
   const webviewRef = useRef<HTMLWebViewElement>(null);
 
+  useEffect(() => {
+    const webview = webviewRef.current;
+    if (!webview) return;
+    const handleDomReady = (): void => {
+      // Force scrollbars inside the webview content
+      void (webview as any).insertCSS(`
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.05); }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        html, body { overflow: auto !important; height: auto !important; min-height: 100% !important; }
+      `);
+    };
+    webview.addEventListener("dom-ready", handleDomReady);
+    return () => webview.removeEventListener("dom-ready", handleDomReady);
+  }, [running]);
+
   // Refs to avoid restarting the poll interval on every state change
   const startingRef = useRef(starting);
   const runningRef = useRef(running);
@@ -492,7 +508,6 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
             <webview
               ref={webviewRef as React.RefObject<HTMLWebViewElement>}
               src={claw3dUrl}
-              style={{ width: "100%", height: "100%", border: "none" }}
             />
           </>
         ) : !showLogs ? (
