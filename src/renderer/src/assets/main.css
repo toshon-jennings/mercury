@@ -4584,10 +4584,11 @@ body {
 .office-content {
   flex: 1;
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
-  /* Do NOT use display:flex here when webview is a child.
-     A flex-grown webview holds a synthetic intrinsic size in Electron
-     that prevents the parent from shrinking, locking scrollbars above. */
+  /* The webview is position:absolute (out of flow), so display:flex here
+     only affects .office-center and .office-loading-overlay — no scroll lock. */
 }
 
 /* Webview fills the .office-content box via absolute positioning.
@@ -4633,16 +4634,15 @@ body {
 }
 
 .office-center {
-  position: absolute;
-  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 16px;
   padding: 48px 24px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto; /* Allow setup cards to scroll if content exceeds viewport */
-  box-sizing: border-box;
 }
 
 .office-muted {

@@ -26,9 +26,9 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
   const [port, setPort] = useState(3000);
   const [portInput, setPortInput] = useState("3000");
   const [portInUse, setPortInUse] = useState(false);
-  const [adapterPort, setAdapterPort] = useState(18789);
+  const [adapterPort, setAdapterPort] = useState(18642);
   const [adapterPortInUse, setAdapterPortInUse] = useState(false);
-  const [wsUrlInput, setWsUrlInput] = useState("ws://localhost:18789");
+  const [wsUrlInput, setWsUrlInput] = useState("ws://localhost:18642");
   const [error, setError] = useState("");
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState("");
@@ -78,7 +78,7 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
     setPortInUse(status.portInUse);
     setAdapterPort(status.adapterPort);
     setAdapterPortInUse(status.adapterPortInUse);
-    setWsUrlInput(status.wsUrl || "ws://localhost:18789");
+    setWsUrlInput(status.wsUrl || "ws://localhost:18642");
     if (status.error) setError(status.error);
     if (status.installed) {
       setState("ready");
@@ -415,7 +415,7 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleWsUrlSave();
               }}
-              placeholder="ws://localhost:18789"
+              placeholder="ws://localhost:18642"
             />
           </div>
           <button className="btn btn-secondary btn-sm" onClick={loadLogs}>
