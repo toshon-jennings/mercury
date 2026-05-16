@@ -3,6 +3,7 @@ import { useTheme } from "../../components/ThemeProvider";
 import { THEME_OPTIONS } from "../../constants";
 import { useI18n } from "../../components/useI18n";
 import { APP_LOCALES, type AppLocale } from "../../../../shared/i18n";
+import openclawLogo from "../../assets/openclaw-color.png";
 import { Download, Upload, FileText, Send } from "lucide-react";
 
 const TELEGRAM_COMMUNITY_URL = "https://t.me/hermes_agent_desktop";
@@ -710,10 +711,15 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
           )}
           <div className="settings-migration-actions">
             <button
-              className="btn btn-primary "
+              className="btn btn-openclaw"
               onClick={handleMigrate}
               disabled={migrating}
             >
+              <img
+                src={openclawLogo}
+                alt="OpenClaw"
+                className="btn-openclaw-logo"
+              />
               {migrating
                 ? t("settings.migrating")
                 : t("settings.migrateToHermes")}

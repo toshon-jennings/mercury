@@ -1,76 +1,76 @@
 /* ========================================================================
    MERCURY for Hermes Agent — Clean Design System
-   Mercury palette: Walnut #5b3000 · Brown Bark #66462c · Stone Brown #726953
-                    Grey Olive #76877d · Cool Steel #82a6b1
+   Mercury palette: Pure White #ffffff · Obsidian #121212 · Slate Grey #707070
+                    Crimson Accent #cd2927 · Cool Silver #a0a0a0
    Dark + Light mode, no gradients, flat design
    ======================================================================== */
 
 /* ----- Dark Theme (default) ----- */
 [data-theme="dark"] {
-  --bg-primary: #1c1410;
-  --bg-secondary: #150f0a;
-  --bg-tertiary: #261c14;
-  --bg-elevated: #2e2219;
-  --bg-hover: #38291e;
-  --bg-active: #422f23;
-  --accent: #66462c;
-  --accent-hover: #7d5535;
-  --accent-subtle: rgba(102, 70, 44, 0.2);
-  --accent-text: #82a6b1;
-  --text-primary: #ede8e0;
-  --text-secondary: #b5a898;
-  --text-muted: #8c7e6e;
-  --border: rgba(255, 240, 220, 0.07);
-  --border-bright: rgba(255, 240, 220, 0.12);
-  --border-focus: #66462c;
+  --bg-primary: #121212;
+  --bg-secondary: #1a1a1a;
+  --bg-tertiary: #242424;
+  --bg-elevated: #2c2c2c;
+  --bg-hover: #333333;
+  --bg-active: #3d3d3d;
+  --accent: #cd2927;
+  --accent-hover: #b02422;
+  --accent-subtle: rgba(205, 41, 39, 0.15);
+  --accent-text: #cd2927;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0a0;
+  --text-muted: #707070;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-bright: rgba(255, 255, 255, 0.18);
+  --border-focus: #cd2927;
   --success: #22c55e;
   --success-bg: rgba(34, 197, 94, 0.1);
   --error: #ef4444;
   --error-bg: rgba(239, 68, 68, 0.1);
   --warning: #f59e0b;
   --warning-bg: rgba(245, 158, 11, 0.1);
-  --user-bubble: #5b3000;
+  --user-bubble: #cd2927;
   --user-bubble-text: #ffffff;
-  --agent-bubble: #261c14;
-  --agent-bubble-text: #ede8e0;
-  --code-bg: #130e08;
-  --scrollbar-thumb: #3d2d20;
-  --scrollbar-hover: #52403a;
-  --selection: rgba(91, 48, 0, 0.4);
+  --agent-bubble: #242424;
+  --agent-bubble-text: #ffffff;
+  --code-bg: #0a0a0a;
+  --scrollbar-thumb: #333333;
+  --scrollbar-hover: #444444;
+  --selection: rgba(205, 41, 39, 0.3);
 }
 
 /* ----- Light Theme ----- */
 [data-theme="light"] {
-  --bg-primary: #faf8f4;
-  --bg-secondary: #f2ede5;
-  --bg-tertiary: #ece5d8;
-  --bg-elevated: #e5dccf;
-  --bg-hover: #ddd4c4;
-  --bg-active: #d5cbbe;
-  --accent: #5b3000;
-  --accent-hover: #3d2000;
-  --accent-subtle: rgba(91, 48, 0, 0.09);
-  --accent-text: #5b3000;
-  --text-primary: #1a1007;
-  --text-secondary: #4a3828;
-  --text-muted: #7a6550;
-  --border: #e0d4c4;
-  --border-bright: #d0c2af;
-  --border-focus: #5b3000;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f7f7f7;
+  --bg-tertiary: #eeeeee;
+  --bg-elevated: #e5e5e5;
+  --bg-hover: #dddddd;
+  --bg-active: #d4d4d4;
+  --accent: #cd2927;
+  --accent-hover: #b02422;
+  --accent-subtle: rgba(205, 41, 39, 0.08);
+  --accent-text: #cd2927;
+  --text-primary: #000000;
+  --text-secondary: #444444;
+  --text-muted: #777777;
+  --border: #e5e5e5;
+  --border-bright: #d4d4d4;
+  --border-focus: #cd2927;
   --success: #16a34a;
   --success-bg: rgba(22, 163, 74, 0.08);
   --error: #dc2626;
   --error-bg: rgba(220, 38, 38, 0.06);
   --warning: #d97706;
   --warning-bg: rgba(217, 119, 6, 0.08);
-  --user-bubble: #5b3000;
+  --user-bubble: #cd2927;
   --user-bubble-text: #ffffff;
-  --agent-bubble: #ece5d8;
-  --agent-bubble-text: #1a1007;
-  --code-bg: #f5f0e6;
-  --scrollbar-thumb: #c8bbac;
-  --scrollbar-hover: #b5a595;
-  --selection: rgba(91, 48, 0, 0.15);
+  --agent-bubble: #eeeeee;
+  --agent-bubble-text: #000000;
+  --code-bg: #f5f5f5;
+  --scrollbar-thumb: #d4d4d4;
+  --scrollbar-hover: #c0c0c0;
+  --selection: rgba(205, 41, 39, 0.15);
 }
 
 /* ----- Google Sans ----- */
@@ -248,6 +248,39 @@ body {
 .btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.btn-openclaw {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  line-height: 1;
+  border: none;
+  cursor: pointer;
+  background: #141414;
+  color: #fff;
+  transition: all var(--transition);
+}
+
+.btn-openclaw:hover:not(:disabled) {
+  background: #1f1f1f;
+}
+
+.btn-openclaw:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-openclaw-logo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .input {
