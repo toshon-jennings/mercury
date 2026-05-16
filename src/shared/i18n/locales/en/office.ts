@@ -20,7 +20,7 @@ export default {
   close: "Close",
   cannotLoadClaw3d: "Cannot load Claw3D",
   startingClaw3dService: "Starting Claw3D service...",
-  clickToStart: "Click \"Start\" to run Claw3D",
-  setupDesc1: "Claw3D is a 3D visualization environment for your Hermes agents. It lets you see your agents working in an interactive office space.",
-  setupDesc2: "Click below to automatically download and set up Claw3D. This will clone the repository and install all dependencies.",
+  clickToStart: "Click \"Start\" to launch your interactive office. This will start a local server and load the 3D visualization where your agents work and interact.",
+  setupDesc1: "Claw3D (Office) is an interactive 3D visualization environment for your Mercury agents. It allows you to watch your agents collaborate, manage tasks, and perform work in a real-time office space.",
+  setupDesc2: "Ready to go? Click below to download and set up the Office. We'll handle the installation so you can start seeing your agents in action.",
 } as const;

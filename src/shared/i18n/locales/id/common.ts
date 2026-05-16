@@ -1,5 +1,6 @@
 export default {
-  appName: "Hermes Agent",
+  appName: "MERCURY for Hermes Agent",
+  shortAppName: "MERCURY",
   continue: "Lanjutkan",
   cancel: "Batal",
   retry: "Coba lagi",

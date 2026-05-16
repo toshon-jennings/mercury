@@ -67,6 +67,17 @@ export function getClaw3dWsUrl(): string {
   return getSavedWsUrl();
 }
 
+function getAdapterPort(): number {
+  const wsUrl = getSavedWsUrl();
+  try {
+    const portMatch = wsUrl.match(/:(\d+)\/?$/);
+    if (portMatch) return parseInt(portMatch[1], 10);
+  } catch {
+    /* fallback */
+  }
+  return 18789;
+}
+
 /**
  * Write Claw3D settings to ~/.openclaw/claw3d/settings.json
  * and .env in the claw3d directory so onboarding is skipped.
@@ -237,11 +248,17 @@ export async function getClaw3dStatus(): Promise<Claw3dStatus> {
   }
 
   const devRunning = isDevServerRunning();
-  const adapterUp = isAdapterRunning();
+  const adapterTracked = isAdapterRunning();
 
-  // Only check port conflict when process is NOT running
+  // Treat any listener on the adapter port as the adapter being available.
+  // This handles the case where OpenClaw's own gateway is already running on that port.
+  const adapterPortOccupied = adapterTracked || (await checkPort(adapterPort));
+  const adapterUp = adapterPortOccupied;
+
+  // Only check port conflict when the dev server is NOT running
   const portInUse = devRunning ? false : await checkPort(port);
-  const adapterPortInUse = adapterUp ? false : await checkPort(adapterPort);
+  // Adapter port is never a blocking conflict — a listener there is treated as the adapter
+  const adapterPortInUse = false;
 
   const error = devServerError || adapterError;
   return {
@@ -631,7 +648,7 @@ export function stopAdapter(): void {
   cleanupPid(ADAPTER_PID_FILE);
 }
 
-export function startAll(): { success: boolean; error?: string } {
+export async function startAll(): Promise<{ success: boolean; error?: string }> {
   if (!existsSync(join(HERMES_OFFICE_DIR, "node_modules"))) {
     return {
       success: false,
@@ -650,10 +667,13 @@ export function startAll(): { success: boolean; error?: string } {
     };
   }
 
-  // Start adapter
-  const adapterOk = startAdapter();
-  if (!adapterOk) {
-    return { success: false, error: "Failed to start Hermes adapter" };
+  // Skip starting our adapter if the port is already occupied — an external process
+  // (e.g. OpenClaw's own gateway) is already serving that role.
+  if (!isAdapterRunning() && !(await checkPort(getAdapterPort()))) {
+    const adapterOk = startAdapter();
+    if (!adapterOk) {
+      return { success: false, error: "Failed to start Hermes adapter" };
+    }
   }
 
   return { success: true };

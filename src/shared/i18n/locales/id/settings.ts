@@ -42,14 +42,14 @@ export default {
   modelHint: "Nama model default (kosongkan untuk memakai default provider)",
   customBaseUrlHint: "Endpoint API kompatibel OpenAI",
   poolHint:
-    "Tambahkan beberapa API Key untuk provider yang sama agar Hermes dapat melakukan rotasi otomatis dan load balancing.",
+    "Tambahkan beberapa API Key untuk provider yang sama agar Mercury dapat melakukan rotasi otomatis dan load balancing.",
   add: "Tambah",
   remove: "Hapus",
   keyLabel: "Key",
   empty: "(kosong)",
   dataSection: "Data",
   dataHint:
-    "Ekspor atau impor konfigurasi Hermes, sesi, skill, dan memori Anda.",
+    "Ekspor atau impor konfigurasi Mercury, sesi, skill, dan memori Anda.",
   backingUp: "Membuat backup...",
   exportBackup: "Ekspor Backup",
   importing: "Mengimpor...",
@@ -66,10 +66,10 @@ export default {
   debugDump: "Debug Dump",
   migrationDetected: "Instalasi OpenClaw Terdeteksi",
   migrationDesc:
-    "OpenClaw ditemukan di <code>{{path}}</code>. Anda dapat memigrasikan konfigurasi, API key, sesi, dan skill ke Hermes.",
+    "OpenClaw ditemukan di <code>{{path}}</code>. Anda dapat memigrasikan konfigurasi, API key, sesi, dan skill ke Mercury.",
   migrationDismiss: "Jangan tampilkan lagi",
   migrating: "Memigrasikan...",
-  migrateToHermes: "Migrasi ke Hermes",
+  migrateToHermes: "Migrasi ke Mercury",
   skip: "Lewati",
   appearanceHint: "Pilih tampilan antarmuka yang Anda sukai",
   apiKeyPlaceholder: "API Key",
@@ -77,11 +77,11 @@ export default {
   connectionSection: "Koneksi",
   modeLocal: "Lokal",
   modeRemote: "Remote",
-  modeLocalHint: "Menggunakan Hermes yang terinstal di perangkat ini",
-  modeRemoteHint: "Hubungkan ke server Hermes API di jaringan atau cloud Anda",
+  modeLocalHint: "Menggunakan Mercury yang terinstal di perangkat ini",
+  modeRemoteHint: "Hubungkan ke server Mercury API di jaringan atau cloud Anda",
   remoteUrl: "URL Remote",
   remoteUrlHint:
-    "URL server Hermes API (harus mengekspos /health dan /v1/chat/completions)",
+    "URL server Mercury API (harus mengekspos /health dan /v1/chat/completions)",
   remoteApiKey: "API Key",
   remoteApiKeyHint:
     "Cocok dengan API_SERVER_KEY di host remote. Kosongkan jika server menerima request tanpa autentikasi.",
@@ -90,7 +90,7 @@ export default {
   save: "Simpan",
   serverConfigTitle: "Konfigurasi Server",
   serverConfigHint:
-    "Anda terhubung ke server Hermes remote. Pilihan model, API key provider, dan kredensial dikelola di <code>~/.hermes/.env</code> dan <code>config.yaml</code> pada server. Edit di host (mis. <code>docker exec -it hermes vi /opt/data/.env</code>) lalu restart container.",
+    "Anda terhubung ke server Mercury remote. Pilihan model, API key provider, dan kredensial dikelola di <code>~/.hermes/.env</code> dan <code>config.yaml</code> pada server. Edit di host (mis. <code>docker exec -it hermes vi /opt/data/.env</code>) lalu restart container.",
   connectionMode: "Mode",
   switchedToLocal: "Beralih ke mode lokal",
 } as const;

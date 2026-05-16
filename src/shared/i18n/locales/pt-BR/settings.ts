@@ -42,14 +42,14 @@ export default {
     "Nome do modelo padrão (deixe em branco para usar o padrão do provedor)",
   customBaseUrlHint: "Endpoint da API compatível com OpenAI",
   poolHint:
-    "Adicione várias chaves de API para o mesmo provedor para rotação automática e balanceamento de carga. O Hermes alternará entre elas.",
+    "Adicione várias chaves de API para o mesmo provedor para rotação automática e balanceamento de carga. O Mercury alternará entre elas.",
   add: "Adicionar",
   remove: "Remover",
   keyLabel: "Chave",
   empty: "(vazio)",
   dataSection: "Dados",
   dataHint:
-    "Exporte ou importe sua configuração do Hermes, sessões, habilidades e memória.",
+    "Exporte ou importe sua configuração do Mercury, sessões, habilidades e memória.",
   backingUp: "Fazendo backup...",
   exportBackup: "Exportar Backup",
   importing: "Importando...",
@@ -66,10 +66,10 @@ export default {
   debugDump: "Dump de Depuração",
   migrationDetected: "Instalação do OpenClaw Detectada",
   migrationDesc:
-    "Encontramos o OpenClaw em <code>{{path}}</code>. Você pode migrar sua configuração, chaves de API, sessões e habilidades para o Hermes.",
+    "Encontramos o OpenClaw em <code>{{path}}</code>. Você pode migrar sua configuração, chaves de API, sessões e habilidades para o Mercury.",
   migrationDismiss: "Não mostrar novamente",
   migrating: "Migrando...",
-  migrateToHermes: "Migrar para o Hermes",
+  migrateToHermes: "Migrar para o Mercury",
   skip: "Pular",
   appearanceHint: "Escolha a aparência preferida da interface",
   apiKeyPlaceholder: "Chave da API",
@@ -77,12 +77,12 @@ export default {
   connectionSection: "Conexão",
   modeLocal: "Local",
   modeRemote: "Remoto",
-  modeLocalHint: "Usando o Hermes instalado neste dispositivo",
+  modeLocalHint: "Usando o Mercury instalado neste dispositivo",
   modeRemoteHint:
-    "Conectar a um servidor da API do Hermes na sua rede ou nuvem",
+    "Conectar a um servidor da API do Mercury na sua rede ou nuvem",
   remoteUrl: "URL Remota",
   remoteUrlHint:
-    "A URL do servidor da API do Hermes (deve expor /health e /v1/chat/completions)",
+    "A URL do servidor da API do Mercury (deve expor /health e /v1/chat/completions)",
   remoteApiKey: "Chave da API",
   remoteApiKeyHint:
     "Deve coincidir com a API_SERVER_KEY no host remoto. Deixe vazio se o servidor aceitar requisições não autenticadas.",
@@ -91,7 +91,7 @@ export default {
   save: "Salvar",
   serverConfigTitle: "Configuração do Servidor",
   serverConfigHint:
-    "Você está conectado a um servidor remoto do Hermes. A seleção de modelos, as chaves de API dos provedores e as credenciais são gerenciadas no host remoto em <code>~/.hermes/.env</code> e <code>config.yaml</code>. Edite-os lá e reinicie o servidor.",
+    "Você está conectado a um servidor remoto do Mercury. A seleção de modelos, as chaves de API dos provedores e as credenciais são gerenciadas no host remoto em <code>~/.hermes/.env</code> e <code>config.yaml</code>. Edite-os lá e reinicie o servidor.",
   connectionMode: "Modo",
   switchedToLocal: "Mudou para o modo local",
 } as const;
