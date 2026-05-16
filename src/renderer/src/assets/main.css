@@ -161,6 +161,7 @@ body {
 
 .app-content {
   flex: 1;
+  min-height: 0; /* Required: allows flex child to shrink below its content size */
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1912,7 +1913,8 @@ body {
 .settings-container {
   padding: 24px 32px;
   overflow-y: auto;
-  height: 100%;
+  flex: 1;
+  min-height: 0; /* Critical: height:100% on a flex child won't trigger overflow; min-height:0 will */
 }
 
 .settings-header {
@@ -4582,13 +4584,20 @@ body {
 .office-content {
   flex: 1;
   position: relative;
-  display: flex;
-  flex-direction: column;
   min-height: 0;
+  /* Do NOT use display:flex here when webview is a child.
+     A flex-grown webview holds a synthetic intrinsic size in Electron
+     that prevents the parent from shrinking, locking scrollbars above. */
 }
 
+/* Webview fills the .office-content box via absolute positioning.
+   This is the canonical Electron fix: avoids the flex-grow lock
+   that prevents sibling/parent scroll when a webview is flex:1. */
 .office-content webview {
-  flex: 1;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   border: none;
 }
 
@@ -4624,13 +4633,16 @@ body {
 }
 
 .office-center {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 16px;
   padding: 48px 24px;
-  flex: 1;
+  overflow-y: auto; /* Allow setup cards to scroll if content exceeds viewport */
+  box-sizing: border-box;
 }
 
 .office-muted {
