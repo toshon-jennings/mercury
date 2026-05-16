@@ -5,6 +5,7 @@ import {
   ipcMain,
   Menu,
   Notification,
+  nativeTheme,
 } from "electron";
 import { join } from "path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
@@ -216,6 +217,13 @@ function createWindow(): void {
       allowRunningInsecureContent: false,
       webviewTag: true,
     },
+  });
+
+  // Listen for system theme changes and notify renderer
+  nativeTheme.on("updated", () => {
+    mainWindow?.webContents.send("system-theme-updated", {
+      shouldUseDarkColors: nativeTheme.shouldUseDarkColors,
+    });
   });
 
   mainWindow.on("ready-to-show", () => {
@@ -1101,6 +1109,10 @@ function buildMenu(): void {
 function setupUpdater(): void {
   // IPC handlers must always be registered to avoid invoke errors
   ipcMain.handle("get-app-version", () => app.getVersion());
+
+  ipcMain.handle("get-system-theme", () => {
+    return nativeTheme.shouldUseDarkColors ? "dark" : "light";
+  });
 
   if (!app.isPackaged) {
     // Skip auto-update in dev mode

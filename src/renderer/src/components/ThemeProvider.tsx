@@ -40,22 +40,33 @@ export function ThemeProvider({
   });
   const [resolved, setResolved] = useState<ResolvedTheme>(() => resolve(theme));
 
+  // Immediate sync of data-theme to prevent flash
+  if (typeof document !== "undefined") {
+    document.documentElement.setAttribute("data-theme", resolved);
+  }
+
+  // Listen for system theme updates from Electron
+  useEffect(() => {
+    const cleanup = window.hermesAPI.onSystemThemeUpdated((info) => {
+      if (theme === "system") {
+        setResolved(info.shouldUseDarkColors ? "dark" : "light");
+      }
+    });
+
+    // Initial sync with actual native state if in system mode
+    if (theme === "system") {
+      window.hermesAPI.getSystemTheme().then((native) => {
+        setResolved(native);
+      });
+    }
+
+    return cleanup;
+  }, [theme]);
+
   function setTheme(next: Theme): void {
     setThemeState(next);
     localStorage.setItem(STORAGE_KEY, next);
   }
-
-  // Listen for system preference changes
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    function onChange(): void {
-      if (theme === "system") {
-        setResolved(getSystemTheme());
-      }
-    }
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, [theme]);
 
   // Update resolved whenever theme changes
   useEffect(() => {

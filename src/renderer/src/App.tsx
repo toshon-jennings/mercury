@@ -9,10 +9,6 @@ import SplashScreen from "./screens/SplashScreen/SplashScreen";
 
 type Screen = "splash" | "welcome" | "installing" | "setup" | "main";
 
-// Minimum time the splash stays visible so the brand animation plays
-// through. Tracks the splash logo fade-in duration in main.css.
-const SPLASH_MIN_MS = 1300;
-
 function App(): React.JSX.Element {
   const [screen, setScreen] = useState<Screen>("splash");
   const [installError, setInstallError] = useState<string | null>(null);
@@ -24,8 +20,10 @@ function App(): React.JSX.Element {
   const [verifyWarning, setVerifyWarning] = useState(false);
   const isMac = window.electron?.process?.platform === "darwin";
 
+  const [isCheckComplete, setIsCheckComplete] = useState(false);
+  const [nextScreen, setNextScreen] = useState<Screen>("welcome");
+
   const runInstallCheck = useCallback(async () => {
-    const startedAt = Date.now();
     let next: Screen = "welcome";
     let error: string | null = null;
     let isRemote = false;
@@ -70,25 +68,12 @@ function App(): React.JSX.Element {
 
     if (error) setInstallError(error);
 
-    const elapsed = Date.now() - startedAt;
-    const wait = Math.max(0, SPLASH_MIN_MS - elapsed);
-    if (wait > 0) {
-      await new Promise((r) => setTimeout(r, wait));
-    }
-    setScreen(next);
+    setNextScreen(next);
+    setIsCheckComplete(true);
 
-    // Lazy deep-verify in the background after the UI is up. If the
-    // install is broken, surface the warning then — don't block startup.
-    //
-    // Skip for remote-mode connections: verifyInstall() probes the LOCAL
-    // Python + script paths (HERMES_PYTHON / HERMES_SCRIPT in installer.ts),
-    // which don't exist on machines that only use a remote backend. Without
-    // this guard the user is bounced back to Welcome with an "installBroken"
-    // error immediately after a successful remote connect. (#47, #41, #30)
+    // Lazy deep-verify in the background after the UI is up.
     if ((next === "main" || next === "setup") && !isRemote) {
       window.hermesAPI.verifyInstall().then((ok) => {
-        // Files exist (checkInstall passed) but the probe failed. Surface
-        // a soft warning instead of bouncing to Welcome — see #130.
         if (!ok) setVerifyWarning(true);
       });
     }
@@ -99,8 +84,18 @@ function App(): React.JSX.Element {
   }, [runInstallCheck]);
 
   const handleSplashFinished = useCallback(() => {
-    /* splash transition is driven by the install check, not a timer */
-  }, []);
+    if (isCheckComplete) {
+      setScreen(nextScreen);
+    } else {
+      // If the check is still running, wait for it and then switch
+      const checkInterval = setInterval(() => {
+        if (isCheckComplete) {
+          setScreen(nextScreen);
+          clearInterval(checkInterval);
+        }
+      }, 100);
+    }
+  }, [isCheckComplete, nextScreen]);
 
   function handleInstallComplete(): void {
     setInstallError(null);
