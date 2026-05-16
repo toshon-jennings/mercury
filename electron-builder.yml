@@ -1,5 +1,5 @@
 appId: com.nousresearch.hermes
-productName: Hermes Agent
+productName: Mercury
 directories:
   buildResources: build
 files:
@@ -41,9 +41,9 @@ linux:
   maintainer: electronjs.org
   vendor: Nous Research
   category: Utility
-  synopsis: Self-improving AI assistant desktop app
+  synopsis: MERCURY for Hermes Agent desktop app
   description: >-
-    Hermes Desktop is a native desktop app for installing, configuring, and chatting
+    MERCURY for Hermes Agent is a native desktop app for installing, configuring, and chatting
     with Hermes Agent — a self-improving AI assistant with tool use, multi-platform
     messaging, and a closed learning loop.
 appImage:

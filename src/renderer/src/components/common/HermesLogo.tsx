@@ -6,8 +6,9 @@ function HermesLogo({ size = 32 }: { size?: number }): React.JSX.Element {
       src={icon}
       width={size}
       height={size}
-      className="rounded-xl"
-      alt="Hermes"
+      className="rounded-lg shadow-sm"
+      style={{ borderRadius: "22%" }}
+      alt="Mercury"
     />
   );
 }

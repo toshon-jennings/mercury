@@ -1,5 +1,5 @@
 export default {
-  title: "Bem-vindo ao Hermes",
+  title: "Bem-vindo ao Mercury",
   subtitle:
     "Seu assistente de IA que se aprimora sozinho e roda localmente na sua máquina. Privado, poderoso e sempre aprendendo.",
   installIssueTitle: "Problema na Instalação",
@@ -10,9 +10,9 @@ export default {
   installSizeHint: "Isso instalará os componentes necessários (~2 GB)",
   copyInstallCommand: "Copiar comando de instalação",
   dividerOr: "ou",
-  connectRemote: "Conectar ao Hermes Remoto",
-  connectRemoteTitle: "Conectar ao Hermes Remoto",
-  connectRemoteSubtitle: "Insira a URL de um servidor da API do Hermes em execução.",
+  connectRemote: "Conectar ao Mercury Remoto",
+  connectRemoteTitle: "Conectar ao Mercury Remoto",
+  connectRemoteSubtitle: "Insira a URL de um servidor da API do Mercury em execução.",
   remoteServerUrl: "URL do Servidor",
   remoteApiKey: "Chave da API (opcional)",
   remoteApiKeyPlaceholder: "Token Bearer (API_SERVER_KEY)",

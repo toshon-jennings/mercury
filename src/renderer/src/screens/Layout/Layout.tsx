@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Chat, { ChatMessage } from "../Chat/Chat";
 import Sessions from "../Sessions/Sessions";
 import Agents from "../Agents/Agents";
@@ -14,7 +14,6 @@ import Providers from "../Providers/Providers";
 import Schedules from "../Schedules/Schedules";
 import RemoteNotice from "../../components/RemoteNotice";
 import VerifyWarningBanner from "../../components/VerifyWarningBanner";
-import hermeslogo from "../../assets/hermes.png";
 import {
   ChatBubble,
   Clock,
@@ -76,6 +75,20 @@ function Layout({
   onReinstall,
   onDismissVerifyWarning,
 }: LayoutProps = {}): React.JSX.Element {
+  const brandTitleRef = useRef<HTMLSpanElement>(null);
+  const brandSubtitleRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    const title = brandTitleRef.current;
+    const subtitle = brandSubtitleRef.current;
+    if (!title || !subtitle) return;
+    const titleWidth = title.getBoundingClientRect().width;
+    const subtitleWidth = subtitle.getBoundingClientRect().width;
+    if (subtitleWidth > 0) {
+      subtitle.style.transform = `scaleX(${titleWidth / subtitleWidth})`;
+    }
+  }, []);
+
   const { t } = useI18n();
   const [view, setView] = useState<View>("chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -88,6 +101,7 @@ function Layout({
   );
   // Remote-only mode — SSH tunnel has full access; only pure HTTP remote mode restricts screens
   const [remoteMode, setRemoteMode] = useState(false);
+  const [appVersion, setAppVersion] = useState("");
 
   const paneStyle = (target: View): React.CSSProperties => ({
     display: view === target ? "flex" : "none",
@@ -104,6 +118,7 @@ function Layout({
   // Re-check remote mode on tab switch (picks up Settings changes)
   useEffect(() => {
     window.hermesAPI.isRemoteOnlyMode().then(setRemoteMode);
+    window.hermesAPI.getAppVersion().then(setAppVersion);
   }, [view]);
 
   // Auto-update state
@@ -189,7 +204,10 @@ function Layout({
     <div className="layout">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <img src={hermeslogo} height={30} alt="" />
+          <div className="sidebar-brand-stack">
+            <span className="sidebar-brand-title" ref={brandTitleRef}>MERCURY</span>
+            <span className="sidebar-brand-subtitle" ref={brandSubtitleRef}>for Hermes Agent</span>
+          </div>
         </div>
 
         <nav className="sidebar-nav">
@@ -225,7 +243,8 @@ function Layout({
             </button>
           )}
           <div className="sidebar-footer-text">
-            {activeProfile === "default" ? t("common.appName") : activeProfile}
+            <span>{activeProfile === "default" ? t("common.shortAppName") : activeProfile}</span>
+            {appVersion && <span className="sidebar-version">v{appVersion}</span>}
           </div>
         </div>
       </aside>

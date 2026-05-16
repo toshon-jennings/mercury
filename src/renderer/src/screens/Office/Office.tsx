@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Refresh, ExternalLink, Settings } from "../../assets/icons";
+import { Refresh, ExternalLink, Settings, Building } from "../../assets/icons";
 import { useI18n } from "../../components/useI18n";
+import HermesLogo from "../../components/common/HermesLogo";
 
 type OfficeState =
   | "checking"
@@ -111,6 +112,7 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
       addEventListener: (e: string, fn: (evt?: unknown) => void) => void;
       removeEventListener: (e: string, fn: (evt?: unknown) => void) => void;
       executeJavaScript?: (code: string) => Promise<unknown>;
+      insertCSS?: (css: string) => Promise<unknown>;
     };
     if (!wv) return;
     const onLoad = (): void => {
@@ -120,6 +122,16 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
         wv.executeJavaScript(
           `try { localStorage.setItem("claw3d:onboarding:completed", "true") } catch(e) {}`,
         ).catch(() => {});
+      }
+      // Ensure the page is scrollable and scrollbars are always visible
+      if (wv.insertCSS) {
+        wv.insertCSS(`
+          html, body { overflow-y: auto !important; }
+          ::-webkit-scrollbar { width: 8px !important; height: 8px !important; }
+          ::-webkit-scrollbar-track { background: transparent !important; }
+          ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.4) !important; border-radius: 4px !important; }
+          ::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.7) !important; }
+        `).catch(() => {});
       }
     };
     const onFail = (evt: unknown): void => {
@@ -484,14 +496,39 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
             />
           </>
         ) : !showLogs ? (
-          <div className="office-center">
-            <p className="office-muted">
-              {portInUse && !running
-                ? t("office.portInUse", { port })
-                : adapterPortInUse && !running
-                  ? t("office.portInUse", { port: adapterPort })
-                  : t("office.clickToStart")}
-            </p>
+          <div className="office-center" style={{ gap: 0 }}>
+            <div className="office-setup-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ marginBottom: 24 }}>
+                <HermesLogo size={64} />
+              </div>
+              <h1 className="welcome-title" style={{ fontSize: 28, marginBottom: 12 }}>{t("office.title")}</h1>
+              <p className="welcome-subtitle" style={{ marginBottom: 32 }}>
+                {t("office.setupDesc1")}
+              </p>
+              
+              <div className="welcome-actions">
+                <button
+                  className="btn btn-primary welcome-button"
+                  onClick={handleStartStop}
+                  disabled={starting || ((portInUse || adapterPortInUse) && !running)}
+                  style={{ width: 'auto', minWidth: 160 }}
+                >
+                  {starting
+                    ? t("office.starting")
+                    : running
+                      ? t("common.stop")
+                      : t("common.start")}
+                </button>
+                
+                <p className="welcome-note" style={{ marginTop: 8 }}>
+                  {portInUse && !running
+                    ? t("office.portInUse", { port })
+                    : adapterPortInUse && !running
+                      ? t("office.portInUse", { port: adapterPort })
+                      : t("office.clickToStart")}
+                </p>
+              </div>
+            </div>
           </div>
         ) : null}
       </div>

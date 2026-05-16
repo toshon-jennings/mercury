@@ -24,7 +24,7 @@ export default {
   startingClaw3dService: "Memulai layanan Claw3D...",
   clickToStart: 'Klik "Mulai" untuk menjalankan Claw3D',
   setupDesc1:
-    "Claw3D adalah lingkungan visualisasi 3D untuk agent Hermes Anda. Ini memungkinkan Anda melihat agent bekerja di ruang office interaktif.",
+    "Claw3D adalah lingkungan visualisasi 3D untuk agent Mercury Anda. Ini memungkinkan Anda melihat agent bekerja di ruang office interaktif.",
   setupDesc2:
     "Klik di bawah untuk mengunduh dan menyiapkan Claw3D otomatis. Ini akan meng-clone repository dan menginstal semua dependency.",
 } as const;
