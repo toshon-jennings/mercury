@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Refresh, ExternalLink, Settings, Building } from "../../assets/icons";
+import { Refresh, ExternalLink, Settings } from "../../assets/icons";
 import { useI18n } from "../../components/useI18n";
 import HermesLogo from "../../components/common/HermesLogo";
 
