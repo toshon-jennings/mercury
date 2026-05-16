@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import Chat, { ChatMessage } from "../Chat/Chat";
+import icon from "../../assets/icon.png";
 import Sessions from "../Sessions/Sessions";
 import Agents from "../Agents/Agents";
 import Settings from "../Settings/Settings";
@@ -204,9 +205,20 @@ function Layout({
     <div className="layout">
       <aside className="sidebar">
         <div className="sidebar-brand">
+          <img
+            src={icon}
+            width={28}
+            height={28}
+            style={{ borderRadius: "22%" }}
+            alt=""
+          />
           <div className="sidebar-brand-stack">
-            <span className="sidebar-brand-title" ref={brandTitleRef}>MERCURY</span>
-            <span className="sidebar-brand-subtitle" ref={brandSubtitleRef}>for Hermes Agent</span>
+            <span className="sidebar-brand-title" ref={brandTitleRef}>
+              MERCURY
+            </span>
+            <span className="sidebar-brand-subtitle" ref={brandSubtitleRef}>
+              for Hermes Agent
+            </span>
           </div>
         </div>
 

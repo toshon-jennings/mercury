@@ -373,6 +373,10 @@ interface HermesAPI {
   downloadUpdate: () => Promise<boolean>;
   installUpdate: () => Promise<void>;
   getAppVersion: () => Promise<string>;
+  getSystemTheme: () => Promise<"light" | "dark">;
+  onSystemThemeUpdated: (
+    callback: (info: { shouldUseDarkColors: boolean }) => void,
+  ) => () => void;
   onUpdateAvailable: (
     callback: (info: { version: string; releaseNotes: string }) => void,
   ) => () => void;

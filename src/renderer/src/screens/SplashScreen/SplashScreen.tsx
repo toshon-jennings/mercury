@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import splashBg from "../../assets/hermesbg.webp";
+import { useEffect, useRef, useState } from "react";
+import logo from "../../assets/icon.png";
 
 interface SplashScreenProps {
   onFinished: () => void;
@@ -8,9 +8,23 @@ interface SplashScreenProps {
 function SplashScreen({ onFinished }: SplashScreenProps): React.JSX.Element {
   const titleRef = useRef<HTMLDivElement>(null);
   const subtitleRef = useRef<HTMLDivElement>(null);
+  const [isExiting, setIsExiting] = useState(false);
 
   useEffect(() => {
-    onFinished();
+    // Show splash for 4s, then start fade out
+    const exitTimer = setTimeout(() => {
+      setIsExiting(true);
+    }, 4000);
+
+    // Call onFinished after fade out animation (1.2s)
+    const finishTimer = setTimeout(() => {
+      onFinished();
+    }, 5200);
+
+    return () => {
+      clearTimeout(exitTimer);
+      clearTimeout(finishTimer);
+    };
   }, [onFinished]);
 
   useEffect(() => {
@@ -25,11 +39,22 @@ function SplashScreen({ onFinished }: SplashScreenProps): React.JSX.Element {
   }, []);
 
   return (
-    <div className="splash-screen">
-      <img className="splash-bg" src={splashBg} alt="" />
-      <div className="splash-logo splash-logo-text">
-        <div className="splash-logo-title" ref={titleRef}>MERCURY</div>
-        <div className="splash-logo-subtitle" ref={subtitleRef}>for Hermes Agent</div>
+    <div className={`splash-screen ${isExiting ? "is-exiting" : ""}`}>
+      <div className="splash-content">
+        <div className="splash-logo-container">
+          <img src={logo} className="splash-logo-image" alt="Mercury Logo" />
+        </div>
+        <div className="splash-text-container">
+          <div className="splash-logo-title" ref={titleRef}>
+            MERCURY
+          </div>
+          <div className="splash-logo-subtitle" ref={subtitleRef}>
+            for Hermes Agent
+          </div>
+        </div>
+        <div className="splash-loader">
+          <div className="splash-loader-bar" />
+        </div>
       </div>
     </div>
   );

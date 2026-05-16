@@ -534,6 +534,20 @@ const hermesAPI = {
   installUpdate: (): Promise<void> => ipcRenderer.invoke("install-update"),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke("get-app-version"),
 
+  getSystemTheme: (): Promise<"light" | "dark"> =>
+    ipcRenderer.invoke("get-system-theme"),
+
+  onSystemThemeUpdated: (
+    callback: (info: { shouldUseDarkColors: boolean }) => void,
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      info: unknown,
+    ): void => callback(info as { shouldUseDarkColors: boolean });
+    ipcRenderer.on("system-theme-updated", handler);
+    return () => ipcRenderer.removeListener("system-theme-updated", handler);
+  },
+
   onUpdateAvailable: (
     callback: (info: { version: string; releaseNotes: string }) => void,
   ): (() => void) => {
