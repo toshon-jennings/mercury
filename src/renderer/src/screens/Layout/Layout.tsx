@@ -298,7 +298,10 @@ function Layout({
         )}
 
         {visitedViews.has("office") && (
-          <div style={paneStyle("office")}>
+          <div style={{
+            ...paneStyle("office"),
+            overflow: "auto", // Office manages its own internal scroll; paneStyle's overflow:hidden blocks it
+          }}>
             <Office visible={view === "office"} />
           </div>
         )}

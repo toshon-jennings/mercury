@@ -19,7 +19,7 @@ const ADAPTER_PID_FILE = join(HERMES_HOME, "claw3d-adapter.pid");
 const PORT_FILE = join(HERMES_HOME, "claw3d-port");
 const WS_URL_FILE = join(HERMES_HOME, "claw3d-ws-url");
 const DEFAULT_PORT = 3000;
-const DEFAULT_WS_URL = "ws://localhost:18789";
+const DEFAULT_WS_URL = "ws://localhost:18642";
 const CLAW3D_SETTINGS_DIR = join(homedir(), ".openclaw", "claw3d");
 
 let devServerProcess: ChildProcess | null = null;
@@ -50,7 +50,12 @@ export function getClaw3dPort(): number {
 
 function getSavedWsUrl(): string {
   try {
-    const url = readFileSync(WS_URL_FILE, "utf-8").trim();
+    let url = readFileSync(WS_URL_FILE, "utf-8").trim();
+    // Migration: automatically update old default port to new default port
+    if (url === "ws://localhost:18789") {
+      url = DEFAULT_WS_URL;
+      safeWriteFile(WS_URL_FILE, url);
+    }
     return url || DEFAULT_WS_URL;
   } catch {
     return DEFAULT_WS_URL;
@@ -75,7 +80,7 @@ function getAdapterPort(): number {
   } catch {
     /* fallback */
   }
-  return 18789;
+  return 18642;
 }
 
 /**
@@ -85,9 +90,9 @@ function getAdapterPort(): number {
 function writeClaw3dSettings(wsUrl?: string): void {
   const url = wsUrl || getSavedWsUrl();
 
-  let adapterPort = 18789;
+  let adapterPort = 18642;
   try {
-    // Basic regex to extract port from ws://localhost:18789 or similar
+    // Basic regex to extract port from ws://localhost:18642 or similar
     const portMatch = url.match(/:(\d+)\/?$/);
     if (portMatch) {
       adapterPort = parseInt(portMatch[1], 10);
@@ -237,7 +242,7 @@ export async function getClaw3dStatus(): Promise<Claw3dStatus> {
   const port = getSavedPort();
   const wsUrl = getSavedWsUrl();
 
-  let adapterPort = 18789;
+  let adapterPort = 18642;
   try {
     const portMatch = wsUrl.match(/:(\d+)\/?$/);
     if (portMatch) {
@@ -570,7 +575,7 @@ export function startAdapter(): boolean {
   adapterError = "";
   adapterLogs = "";
 
-  let adapterPort = 18789;
+  let adapterPort = 18642;
   try {
     const url = getSavedWsUrl();
     const portMatch = url.match(/:(\d+)\/?$/);
