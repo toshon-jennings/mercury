@@ -221,8 +221,10 @@ export function createProfile(
     return { success: true };
   } catch (err) {
     const msg =
-      (err as { stderr?: Buffer }).stderr?.toString() || (err as Error).message;
-    return { success: false, error: msg.trim() };
+      (err as { stderr?: Buffer }).stderr?.toString() ||
+      (err as Error).message ||
+      String(err);
+    return { success: false, error: msg ? msg.trim() : "Unknown error" };
   }
 }
 
@@ -255,8 +257,10 @@ export function deleteProfile(name: string): {
     return { success: true };
   } catch (err) {
     const msg =
-      (err as { stderr?: Buffer }).stderr?.toString() || (err as Error).message;
-    return { success: false, error: msg.trim() };
+      (err as { stderr?: Buffer }).stderr?.toString() ||
+      (err as Error).message ||
+      String(err);
+    return { success: false, error: msg ? msg.trim() : "Unknown error" };
   }
 }
 
