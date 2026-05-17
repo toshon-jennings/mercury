@@ -1,5 +1,6 @@
 export default {
   title: "Sesi",
+  subtitle: "Tinjau dan lanjutkan percakapan Anda sebelumnya",
   searchPlaceholder: "Cari percakapan...",
   noResults: "Tidak ada hasil",
   noResultsHint: "Coba kata pencarian lain",

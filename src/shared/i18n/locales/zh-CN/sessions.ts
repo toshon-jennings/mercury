@@ -1,6 +1,7 @@
 export default {
   title: "会话",
-  searchPlaceholder: "搜索会话...",
+  subtitle: "查看并恢复您之前的对话",
+  searchPlaceholder: "搜索对话...",
   noResults: "未找到结果",
   noResultsHint: "试试其他搜索词",
   empty: "还没有会话",

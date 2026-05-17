@@ -252,8 +252,12 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
   // --- Checking ---
   if (state === "checking") {
     return (
-      <div className="settings-container">
-        <h1 className="settings-header">{t("office.title")}</h1>
+      <div className="screen-layout office-container">
+        <div className="page-header">
+          <div>
+            <h2 className="page-title">{t("office.title")}</h2>
+          </div>
+        </div>
         <div className="office-center">
           <div className="office-spinner" />
           <p className="office-muted">{t("office.checkingStatus")}</p>
@@ -265,8 +269,12 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
   // --- Not installed ---
   if (state === "not-installed" || state === "error") {
     return (
-      <div className="settings-container">
-        <h1 className="settings-header">{t("office.title")}</h1>
+      <div className="screen-layout office-container">
+        <div className="page-header">
+          <div>
+            <h2 className="page-title">{t("office.title")}</h2>
+          </div>
+        </div>
         <div className="office-center">
           <div className="office-setup-card">
             <h2 className="office-setup-title">{t("office.setupTitle")}</h2>
@@ -301,8 +309,12 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
   // --- Installing ---
   if (state === "installing") {
     return (
-      <div className="settings-container">
-        <h1 className="settings-header">{t("office.title")}</h1>
+      <div className="screen-layout office-container">
+        <div className="page-header">
+          <div>
+            <h2 className="page-title">{t("office.title")}</h2>
+          </div>
+        </div>
         <div className="office-installing">
           <h2 className="office-install-title">{t("office.installTitle")}</h2>
           <div className="install-progress-container">

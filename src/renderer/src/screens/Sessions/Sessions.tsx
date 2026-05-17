@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, memo } from "react";
-import { Plus, Search, X, ChatBubble } from "../../assets/icons";
+import { Plus, Search, X, ChatBubble, ChevronDown } from "../../assets/icons";
 import { useI18n } from "../../components/useI18n";
 
 interface CachedSession {
@@ -195,6 +195,18 @@ function Sessions({
     };
   }, [searchQuery]);
 
+  const collapsibleGroups: DateGroup[] = ["yesterday", "thisWeek", "earlier"];
+  const [collapsed, setCollapsed] = useState<Set<DateGroup>>(new Set(collapsibleGroups));
+
+  function toggleGroup(label: DateGroup): void {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
+
   const isShowingSearch = searchQuery.trim().length > 0;
   const grouped = groupSessions(sessions);
 
@@ -202,9 +214,12 @@ function Sessions({
     <div className="sessions-container">
       {/* Header with integrated search */}
       <div className="sessions-header">
-        <div className="sessions-header-top">
-          <h2 className="sessions-title">{t("sessions.title")}</h2>
-          <button className="btn btn-primary " onClick={onNewChat}>
+        <div className="page-header">
+          <div>
+            <h2 className="page-title">{t("sessions.title")}</h2>
+            <p className="page-subtitle">{t("sessions.subtitle")}</p>
+          </div>
+          <button className="btn btn-primary btn-sm" onClick={onNewChat}>
             <Plus size={14} />
             {t("sessions.newChat")}
           </button>
@@ -296,22 +311,41 @@ function Sessions({
         </div>
       ) : (
         <div className="sessions-list">
-          {grouped.map((group) => (
-            <div key={group.label} className="sessions-group">
-              <div className="sessions-group-label">{t(`sessions.${group.label}`)}</div>
-              {group.sessions.map((s) => (
-                <SessionCard
-                  key={s.id}
-                  session={s}
-                  isActive={currentSessionId === s.id}
-                  showFullDate={
-                    group.label === "thisWeek" || group.label === "earlier"
-                  }
-                  onClick={() => onResumeSession(s.id)}
-                />
-              ))}
-            </div>
-          ))}
+          {grouped.map((group) => {
+            const isCollapsible = collapsibleGroups.includes(group.label);
+            const isCollapsed = collapsed.has(group.label);
+            return (
+              <div key={group.label} className="sessions-group">
+                {isCollapsible ? (
+                  <button
+                    className="sessions-group-label sessions-group-label--toggle"
+                    onClick={() => toggleGroup(group.label)}
+                    aria-expanded={!isCollapsed}
+                  >
+                    <span>{t(`sessions.${group.label}`)}</span>
+                    <ChevronDown
+                      size={12}
+                      className={`sessions-group-chevron${isCollapsed ? " sessions-group-chevron--collapsed" : ""}`}
+                    />
+                  </button>
+                ) : (
+                  <div className="sessions-group-label">{t(`sessions.${group.label}`)}</div>
+                )}
+                {!isCollapsed &&
+                  group.sessions.map((s) => (
+                    <SessionCard
+                      key={s.id}
+                      session={s}
+                      isActive={currentSessionId === s.id}
+                      showFullDate={
+                        group.label === "thisWeek" || group.label === "earlier"
+                      }
+                      onClick={() => onResumeSession(s.id)}
+                    />
+                  ))}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

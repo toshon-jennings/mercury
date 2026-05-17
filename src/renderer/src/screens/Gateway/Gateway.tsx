@@ -105,8 +105,13 @@ function Gateway({ profile }: { profile?: string }): React.JSX.Element {
   );
 
   return (
-    <div className="settings-container">
-      <h1 className="settings-header">{t("gateway.title")}</h1>
+    <div className="screen-layout gateway-container">
+      <div className="page-header">
+        <div>
+          <h2 className="page-title">{t("gateway.title")}</h2>
+          <p className="page-subtitle">{t("gateway.subtitle")}</p>
+        </div>
+      </div>
 
       <div className="settings-section">
         <div className="settings-section-title">

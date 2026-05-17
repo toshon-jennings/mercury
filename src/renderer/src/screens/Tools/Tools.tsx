@@ -298,10 +298,12 @@ function Tools({ profile }: ToolsProps): React.JSX.Element {
   }
 
   return (
-    <div className="tools-container">
-      <div className="tools-header">
-        <h2 className="tools-title">{t("tools.title")}</h2>
-        <p className="tools-subtitle">{t("tools.subtitle")}</p>
+    <div className="screen-layout tools-container">
+      <div className="page-header">
+        <div>
+          <h2 className="page-title">{t("tools.title")}</h2>
+          <p className="page-subtitle">{t("tools.subtitle")}</p>
+        </div>
       </div>
 
       <div className="tools-grid">
@@ -333,9 +335,11 @@ function Tools({ profile }: ToolsProps): React.JSX.Element {
 
       {mcpServers.length > 0 && (
         <>
-          <div className="tools-header" style={{ marginTop: 32 }}>
-            <h2 className="tools-title">{t("tools.mcpServers")}</h2>
-            <p className="tools-subtitle" dangerouslySetInnerHTML={{ __html: t("tools.mcpDescription") }} />
+          <div className="page-header" style={{ marginTop: 32 }}>
+            <div>
+              <h2 className="page-title">{t("tools.mcpServers")}</h2>
+              <p className="page-subtitle" dangerouslySetInnerHTML={{ __html: t("tools.mcpDescription") }} />
+            </div>
           </div>
           <div className="tools-grid">
             {mcpServers.map((s) => (

@@ -1,5 +1,6 @@
 export default {
   title: "Pengaturan",
+  subtitle: "Kelola preferensi sistem dan konfigurasi mesin Anda",
   sections: {
     hermesAgent: "Hermes Agent",
     appearance: "Tampilan",

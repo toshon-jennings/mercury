@@ -1057,8 +1057,7 @@ body {
 }
 
 .chat-header {
-  padding: 14px 24px;
-  border-bottom: 1px solid var(--border);
+  padding: 24px 32px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1066,8 +1065,8 @@ body {
 }
 
 .chat-header-title {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
@@ -1148,7 +1147,7 @@ body {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 24px 32px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -1616,7 +1615,7 @@ body {
 /* Input area */
 .chat-input-area {
   position: relative;
-  padding: 12px 24px 16px;
+  padding: 12px 32px 32px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -1944,10 +1943,47 @@ body {
    SETTINGS
    ======================================================================== */
 .settings-container {
+}
+
+/* ── Shared page header ────────────────────────────────── */
+.screen-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   padding: 24px 32px;
   overflow-y: auto;
   flex: 1;
-  min-height: 0; /* Critical: height:100% on a flex child won't trigger overflow; min-height:0 will */
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.page-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  margin-bottom: 0;
+}
+
+.page-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .settings-header {
@@ -2374,7 +2410,7 @@ body {
   flex-direction: column;
   height: 100%;
   overflow-y: auto;
-  padding: 10px 20px;
+  padding: 24px 32px;
 }
 
 .agents-loading {
@@ -2384,24 +2420,6 @@ body {
   justify-content: center;
 }
 
-.agents-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.agents-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.agents-subtitle {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
 
 /* Agent card footer with chat button */
 .agents-card-footer {
@@ -2614,23 +2632,11 @@ body {
 }
 
 .sessions-header {
-  padding: 20px 24px 12px;
+  padding: 24px 32px 12px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-
-.sessions-header-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.sessions-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
 }
 
 /* Search bar — integrated into header */
@@ -2715,7 +2721,7 @@ body {
 .sessions-list {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 16px 16px;
+  padding: 4px 32px 32px;
 }
 
 /* Date group headings */
@@ -2730,6 +2736,31 @@ body {
   letter-spacing: 0.05em;
   color: var(--text-muted);
   padding: 12px 8px 6px;
+}
+
+.sessions-group-label--toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.sessions-group-label--toggle:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.sessions-group-chevron {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.sessions-group-chevron--collapsed {
+  transform: rotate(-90deg);
 }
 
 /* Session card */
@@ -2850,25 +2881,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.skills-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.skills-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.skills-subtitle {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 2px;
 }
 
 .skills-error {
@@ -3219,30 +3231,6 @@ body {
   justify-content: center;
 }
 
-.schedules-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-
-.schedules-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.schedules-subtitle {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-.schedules-header-actions {
-  display: flex;
-  gap: 8px;
-}
-
 /* Job list */
 .schedules-list {
   display: flex;
@@ -3550,34 +3538,11 @@ body {
   justify-content: center;
 }
 
-.soul-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  flex-shrink: 0;
-}
-
-.soul-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .soul-saved {
   color: var(--success);
   font-size: 12px;
   font-weight: 600;
   animation: fadeInOut 2s ease forwards;
-}
-
-.soul-subtitle {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 2px;
 }
 
 .soul-reset-confirm {
@@ -3636,19 +3601,6 @@ body {
 /* ========================================================================
    MEMORY
    ======================================================================== */
-.memory-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.memory-subtitle {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin: 0;
-}
-
 .memory-stats {
   display: flex;
   gap: 24px;
@@ -4007,11 +3959,6 @@ body {
    TOOLS CONFIGURATION
    ======================================================================== */
 .tools-container {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 24px 32px;
-  overflow-y: auto;
 }
 
 .tools-loading {
@@ -4019,22 +3966,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.tools-header {
-  margin-bottom: 20px;
-}
-
-.tools-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.tools-subtitle {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 2px;
 }
 
 .tools-grid {
@@ -4189,19 +4120,6 @@ body {
 /* ========================================================================
    MODELS
    ======================================================================== */
-.models-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-
-.models-subtitle {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
 .models-loading {
   display: flex;
   align-items: center;
@@ -4433,8 +4351,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--border);
+  padding: 24px 32px 14px;
   background: var(--bg-secondary);
   flex-shrink: 0;
   z-index: 20;
@@ -4453,8 +4370,8 @@ body {
 }
 
 .office-toolbar-title {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   color: var(--text-primary);
   margin: 0;
 }
@@ -4907,6 +4824,13 @@ body {
 }
 
 /* ========================================================================
+   SELECTION
+   ======================================================================== */
+::selection {
+  background: var(--selection);
+  color: var(--text-primary);
+}
+==
    SELECTION
    ======================================================================== */
 ::selection {

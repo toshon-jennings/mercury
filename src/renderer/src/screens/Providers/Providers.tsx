@@ -151,11 +151,13 @@ function Providers({
   const isCustomProvider = modelProvider === "custom";
 
   return (
-    <div className="settings-container">
-      <h1 className="settings-header">{t("providers.title")}</h1>
-      <p className="models-subtitle" style={{ marginBottom: 16 }}>
-        {t("providers.subtitle")}
-      </p>
+    <div className="screen-layout providers-container">
+      <div className="page-header">
+        <div>
+          <h2 className="page-title">{t("providers.title")}</h2>
+          <p className="page-subtitle">{t("providers.subtitle")}</p>
+        </div>
+      </div>
 
       <div className="settings-section">
         <div className="settings-section-title">

@@ -1,5 +1,6 @@
 export default {
   title: "Sesiones",
+  subtitle: "Revisa y reanuda tus conversaciones pasadas",
   searchPlaceholder: "Buscar conversaciones...",
   noResults: "No se encontraron resultados",
   noResultsHint: "Prueba con otros términos de búsqueda",

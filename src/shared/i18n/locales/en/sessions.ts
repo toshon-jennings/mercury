@@ -1,5 +1,6 @@
 export default {
   title: "Sessions",
+  subtitle: "Review and resume your past conversations",
   searchPlaceholder: "Search conversations...",
   noResults: "No results found",
   noResultsHint: "Try different search terms",
