@@ -45,6 +45,26 @@ interface HermesAPI {
   checkOpenClaw: () => Promise<{ found: boolean; path: string | null }>;
   runClawMigrate: () => Promise<{ success: boolean; error?: string }>;
 
+  // Terminal
+  terminalStart: (options?: {
+    cols?: number;
+    rows?: number;
+    cwd?: string;
+  }) => Promise<{ sessionId: string }>;
+  terminalInput: (sessionId: string, input: string) => Promise<boolean>;
+  terminalResize: (
+    sessionId: string,
+    cols: number,
+    rows: number,
+  ) => Promise<boolean>;
+  terminalKill: (sessionId: string) => Promise<boolean>;
+  onTerminalData: (
+    callback: (payload: { sessionId: string; data: string }) => void,
+  ) => () => void;
+  onTerminalExit: (
+    callback: (payload: { sessionId: string; exitCode: number }) => void,
+  ) => () => void;
+
   getLocale: () => Promise<AppLocale>;
   setLocale: (locale: AppLocale) => Promise<AppLocale>;
 

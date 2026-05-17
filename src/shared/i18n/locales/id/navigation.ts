@@ -9,6 +9,7 @@ export default {
   soul: "Persona",
   memory: "Memori",
   tools: "Alat",
+  terminal: "Terminal",
   schedules: "Jadwal",
   gateway: "Gateway",
   settings: "Pengaturan",
