@@ -15,6 +15,8 @@ import {
   Bell,
   Slash,
   Zap,
+  FolderOpen,
+  X,
 } from "lucide-react";
 import { isImeComposing } from "./keyboard";
 
@@ -229,6 +231,7 @@ function Chat({
     cost?: number;
   } | null>(null);
   const [fastMode, setFastMode] = useState(false);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -389,6 +392,18 @@ function Chat({
     );
   }
 
+  async function handleSelectFolder(): Promise<void> {
+    const folder = await window.hermesAPI.selectChatFolder();
+    if (folder) {
+      setSelectedFolder(folder);
+    }
+  }
+
+  const selectedFolderName = useMemo(
+    () => selectedFolder?.split(/[\\/]/).filter(Boolean).pop() || null,
+    [selectedFolder],
+  );
+
   // IPC listeners — stable callback refs, registered once
   useEffect(() => {
     const cleanupChunk = window.hermesAPI.onChatChunk((chunk) => {
@@ -530,6 +545,7 @@ function Chat({
         profile,
         hermesSessionId || undefined,
         messages.map((m) => ({ role: m.role, content: m.content })),
+        selectedFolder || undefined,
       );
     } catch {
       // Error already handled by onChatError IPC listener — avoid duplicate
@@ -553,6 +569,7 @@ function Chat({
         profile,
         hermesSessionId || undefined,
         messages.map((m) => ({ role: m.role, content: m.content })),
+        selectedFolder || undefined,
       );
     } catch {
       // Error already handled by onChatError IPC listener — avoid duplicate
@@ -896,6 +913,29 @@ function Chat({
           )}
         </div>
         <div className="chat-header-actions">
+          <div className="chat-folder-header">
+            <button
+              className={`chat-folder-trigger ${selectedFolder ? "chat-folder-selected" : ""}`}
+              onClick={handleSelectFolder}
+              title={selectedFolder || t("chat.chooseFolder")}
+              type="button"
+            >
+              <FolderOpen size={14} />
+              <span className="chat-folder-name">
+                {selectedFolderName || t("chat.chooseFolder")}
+              </span>
+            </button>
+            {selectedFolder && (
+              <button
+                className="chat-folder-clear"
+                onClick={() => setSelectedFolder(null)}
+                title={t("chat.clearFolder")}
+                type="button"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
           <div className="chat-fast-wrapper">
             <button
               className={`btn-ghost chat-fast-btn ${fastMode ? "chat-fast-active" : ""}`}
@@ -1122,57 +1162,63 @@ function Chat({
           )}
         </div>
 
-        <div className="chat-model-bar" ref={pickerRef}>
-          <button
-            className="chat-model-trigger"
-            onClick={() => {
-              if (!showModelPicker) loadModelConfig();
-              setShowModelPicker(!showModelPicker);
-            }}
-          >
-            <span className="chat-model-name">{displayModel}</span>
-            <ChevronDown size={12} />
-          </button>
+        <div className="chat-context-bar">
+          <div className="chat-model-bar" ref={pickerRef}>
+            <button
+              className="chat-model-trigger"
+              onClick={() => {
+                if (!showModelPicker) loadModelConfig();
+                setShowModelPicker(!showModelPicker);
+              }}
+            >
+              <span className="chat-model-name">{displayModel}</span>
+              <ChevronDown size={12} />
+            </button>
 
-          {showModelPicker && (
-            <div className="chat-model-dropdown">
-              {modelGroups.map((group) => (
-                <div key={group.provider} className="chat-model-group">
-                  <div className="chat-model-group-label">
-                    {t(group.providerLabel)}
+            {showModelPicker && (
+              <div className="chat-model-dropdown">
+                {modelGroups.map((group) => (
+                  <div key={group.provider} className="chat-model-group">
+                    <div className="chat-model-group-label">
+                      {t(group.providerLabel)}
+                    </div>
+                    {group.models.map((m) => (
+                      <button
+                        key={`${m.provider}:${m.model}`}
+                        className={`chat-model-option ${currentModel === m.model && currentProvider === m.provider ? "active" : ""}`}
+                        onClick={() =>
+                          selectModel(m.provider, m.model, m.baseUrl)
+                        }
+                      >
+                        <span className="chat-model-option-label">
+                          {m.label}
+                        </span>
+                        <span className="chat-model-option-id">{m.model}</span>
+                      </button>
+                    ))}
                   </div>
-                  {group.models.map((m) => (
-                    <button
-                      key={`${m.provider}:${m.model}`}
-                      className={`chat-model-option ${currentModel === m.model && currentProvider === m.provider ? "active" : ""}`}
-                      onClick={() =>
-                        selectModel(m.provider, m.model, m.baseUrl)
-                      }
-                    >
-                      <span className="chat-model-option-label">{m.label}</span>
-                      <span className="chat-model-option-id">{m.model}</span>
-                    </button>
-                  ))}
-                </div>
-              ))}
+                ))}
 
-              <div className="chat-model-group">
-                <div className="chat-model-group-label">{t("chat.custom")}</div>
-                <div className="chat-model-custom">
-                  <input
-                    className="chat-model-custom-input"
-                    type="text"
-                    value={customModelInput}
-                    onChange={(e) => setCustomModelInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleCustomModelSubmit();
-                    }}
-                    placeholder={t("chat.typeModelName")}
-                  />
+                <div className="chat-model-group">
+                  <div className="chat-model-group-label">
+                    {t("chat.custom")}
+                  </div>
+                  <div className="chat-model-custom">
+                    <input
+                      className="chat-model-custom-input"
+                      type="text"
+                      value={customModelInput}
+                      onChange={(e) => setCustomModelInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleCustomModelSubmit();
+                      }}
+                      placeholder={t("chat.typeModelName")}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

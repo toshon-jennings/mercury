@@ -10,6 +10,8 @@ export default {
   send: "Send",
   custom: "Custom",
   typeModelName: "Type model name...",
+  chooseFolder: "Choose folder",
+  clearFolder: "Clear folder",
   emptyTitle: "How can I help you today?",
   emptyHint: "Ask me to write code, answer questions, search the web, and more",
   suggestionSearch: "Search the web",
@@ -24,8 +26,10 @@ export default {
   clearChat: "Clear chat",
   fastMode: "Fast Mode",
   fastModeOn: "Fast Mode ON",
-  fastModeActive: "Priority processing active — lower latency on supported models. Click to disable.",
-  fastModeInactive: "Enable priority processing for lower latency on OpenAI and Anthropic models.",
+  fastModeActive:
+    "Priority processing active — lower latency on supported models. Click to disable.",
+  fastModeInactive:
+    "Enable priority processing for lower latency on OpenAI and Anthropic models.",
   availableCommands: "Available Commands",
   categoryChat: "Chat",
   categoryAgent: "Agent",

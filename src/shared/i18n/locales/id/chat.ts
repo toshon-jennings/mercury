@@ -10,6 +10,8 @@ export default {
   send: "Kirim",
   custom: "Kustom",
   typeModelName: "Ketik nama model...",
+  chooseFolder: "Pilih folder",
+  clearFolder: "Hapus folder",
   emptyTitle: "Apa yang bisa saya bantu hari ini?",
   emptyHint:
     "Minta saya menulis kode, menjawab pertanyaan, mencari web, dan lainnya",
