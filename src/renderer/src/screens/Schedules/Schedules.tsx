@@ -255,7 +255,7 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
   }
 
   return (
-    <div className="schedules-container">
+    <div className="screen-layout schedules-container">
       {/* Create Modal */}
       {showCreate && (
         <div className="skills-detail-overlay" onClick={closeCreateModal}>
@@ -494,18 +494,18 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
         </div>
       )}
 
-      <div className="schedules-header">
+      <div className="page-header">
         <div>
-          <h2 className="schedules-title">{t("schedules.title")}</h2>
-          <p className="schedules-subtitle">{t("schedules.subtitle")}</p>
+          <h2 className="page-title">{t("schedules.title")}</h2>
+          <p className="page-subtitle">{t("schedules.subtitle")}</p>
         </div>
-        <div className="schedules-header-actions">
-          <button className="btn btn-secondary" onClick={loadJobs}>
+        <div className="page-header-actions">
+          <button className="btn btn-secondary btn-sm" onClick={loadJobs}>
             <Refresh size={14} />
             {t("schedules.refresh")}
           </button>
           <button
-            className="btn btn-primary"
+            className="btn btn-primary btn-sm"
             onClick={() => setShowCreate(true)}
           >
             <Plus size={14} />

@@ -1,5 +1,6 @@
 export default {
   title: "Settings",
+  subtitle: "Manage your system preferences and engine configuration",
   sections: {
     hermesAgent: "Hermes Agent",
     appearance: "Appearance",

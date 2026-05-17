@@ -1,5 +1,6 @@
 export default {
   title: "Gateway",
+  subtitle: "Conecta Mercury a plataformas de mensajería externas",
   messagingGateway: "Gateway de mensajería",
   platforms: "Plataformas",
   status: "Estado",

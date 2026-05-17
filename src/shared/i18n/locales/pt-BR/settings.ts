@@ -1,5 +1,6 @@
 export default {
   title: "Configurações",
+  subtitle: "Gerencie suas preferências de sistema e configuração do motor",
   sections: {
     hermesAgent: "Hermes Agent",
     appearance: "Aparência",

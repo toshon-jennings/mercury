@@ -143,7 +143,7 @@ function Models(): React.JSX.Element {
   if (loading) {
     return (
       <div className="settings-container">
-        <h1 className="settings-header">{t("models.title")}</h1>
+        <h2 className="page-title">{t("models.title")}</h2>
         <div className="models-loading">
           <div className="loading-spinner" />
         </div>
@@ -152,13 +152,11 @@ function Models(): React.JSX.Element {
   }
 
   return (
-    <div className="settings-container">
-      <div className="models-header">
+    <div className="screen-layout models-container">
+      <div className="page-header">
         <div>
-          <h1 className="settings-header" style={{ marginBottom: 4 }}>
-            {t("models.title")}
-          </h1>
-          <p className="models-subtitle">{t("models.subtitle")}</p>
+          <h2 className="page-title">{t("models.title")}</h2>
+          <p className="page-subtitle">{t("models.subtitle")}</p>
         </div>
         <button className="btn btn-primary btn-sm" onClick={openAddModal}>
           <Plus size={14} />

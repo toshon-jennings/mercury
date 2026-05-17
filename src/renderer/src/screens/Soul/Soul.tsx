@@ -74,14 +74,14 @@ function Soul({ profile }: SoulProps): React.JSX.Element {
   }
 
   return (
-    <div className="soul-container">
-      <div className="soul-header">
+    <div className="screen-layout soul-container">
+      <div className="page-header">
         <div>
-          <h2 className="soul-title">
+          <h2 className="page-title">
             {t("soul.title")}
             {saved && <span className="soul-saved">{t("common.saved")}</span>}
           </h2>
-          <p className="soul-subtitle">{t("soul.subtitle")}</p>
+          <p className="page-subtitle">{t("soul.subtitle")}</p>
         </div>
         <button
           className="btn btn-secondary btn-sm"

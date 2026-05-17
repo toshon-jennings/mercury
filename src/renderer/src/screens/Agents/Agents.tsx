@@ -108,11 +108,11 @@ function Agents({
   }
 
   return (
-    <div className="agents-container">
-      <div className="agents-header">
+    <div className="screen-layout agents-container">
+      <div className="page-header">
         <div>
-          <h2 className="agents-title">{t("agents.title")}</h2>
-          <p className="agents-subtitle">{t("agents.subtitle")}</p>
+          <h2 className="page-title">{t("agents.title")}</h2>
+          <p className="page-subtitle">{t("agents.subtitle")}</p>
         </div>
         <button
           className="btn btn-primary btn-sm"

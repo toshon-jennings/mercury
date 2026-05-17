@@ -187,7 +187,7 @@ function Memory({ profile }: { profile?: string }): React.JSX.Element {
   if (loading || !data) {
     return (
       <div className="settings-container">
-        <h1 className="settings-header">{t("memory.title")}</h1>
+        <h2 className="page-title">{t("memory.title")}</h2>
         <div style={{ display: "flex", justifyContent: "center", padding: 48 }}>
           <div className="loading-spinner" />
         </div>
@@ -196,13 +196,11 @@ function Memory({ profile }: { profile?: string }): React.JSX.Element {
   }
 
   return (
-    <div className="settings-container">
-      <div className="memory-header">
+    <div className="screen-layout memory-container">
+      <div className="page-header">
         <div>
-          <h1 className="settings-header" style={{ marginBottom: 4 }}>
-            {t("memory.title")}
-          </h1>
-          <p className="memory-subtitle">{t("memory.subtitle")}</p>
+          <h2 className="page-title">{t("memory.title")}</h2>
+          <p className="page-subtitle">{t("memory.subtitle")}</p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={loadData}>
           <Refresh size={13} />

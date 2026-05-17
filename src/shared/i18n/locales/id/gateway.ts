@@ -1,5 +1,6 @@
 export default {
   title: "Gateway",
+  subtitle: "Hubungkan Mercury ke platform perpesanan eksternal",
   messagingGateway: "Gateway Pesan",
   platforms: "Platform",
   status: "Status",

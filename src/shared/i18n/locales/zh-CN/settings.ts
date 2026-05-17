@@ -1,5 +1,6 @@
 export default {
   title: "设置",
+  subtitle: "管理您的系统首选项和引擎配置",
   sections: {
     hermesAgent: "Hermes Agent",
     appearance: "外观",

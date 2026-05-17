@@ -137,7 +137,7 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
   }
 
   return (
-    <div className="skills-container">
+    <div className="screen-layout skills-container">
       {/* Detail Panel */}
       {detailSkill && (
         <div
@@ -182,10 +182,10 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
         </div>
       )}
 
-      <div className="skills-header">
+      <div className="page-header">
         <div>
-          <h2 className="skills-title">{t("skills.title")}</h2>
-          <p className="skills-subtitle">{t("skills.subtitle")}</p>
+          <h2 className="page-title">{t("skills.title")}</h2>
+          <p className="page-subtitle">{t("skills.subtitle")}</p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={loadAll}>
           <Refresh size={14} />
