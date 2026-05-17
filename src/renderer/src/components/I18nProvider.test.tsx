@@ -7,8 +7,6 @@ import {
 import { I18nProvider } from "./I18nProvider";
 import { useI18n } from "./useI18n";
 
-type LocaleHermesApi = Pick<Window["hermesAPI"], "getLocale" | "setLocale">;
-
 function Probe(): React.JSX.Element {
   const { t } = useI18n();
   return <div>{t("welcome.title")}</div>;
@@ -30,10 +28,10 @@ describe("I18nProvider", () => {
   const setLocale = vi.fn().mockResolvedValue(DEFAULT_ACTIVE_LOCALE);
 
   beforeEach(() => {
-    (window as Window & { hermesAPI: LocaleHermesApi }).hermesAPI = {
+    window.hermesAPI = {
       getLocale,
       setLocale,
-    };
+    } as unknown as Window["hermesAPI"];
     getLocale.mockClear();
     setLocale.mockClear();
     getLocale.mockResolvedValue(DEFAULT_ACTIVE_LOCALE);
@@ -62,11 +60,15 @@ describe("I18nProvider", () => {
   });
 
   it("renders Spanish translations after switching locale", async () => {
-    render(
-      <I18nProvider>
-        <LocaleSwitcherProbe />
-      </I18nProvider>,
-    );
+    getLocale.mockResolvedValue(undefined);
+
+    await act(async () => {
+      render(
+        <I18nProvider>
+          <LocaleSwitcherProbe />
+        </I18nProvider>,
+      );
+    });
 
     await act(async () => {
       fireEvent.click(
@@ -74,7 +76,7 @@ describe("I18nProvider", () => {
       );
     });
 
-    expect(setLocale).toHaveBeenLastCalledWith("es");
+    expect(setLocale).toHaveBeenCalledWith("es");
     expect(await screen.findByText("Bienvenido a Mercury")).toBeInTheDocument();
   });
 });

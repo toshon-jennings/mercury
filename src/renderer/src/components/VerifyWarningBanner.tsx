@@ -1,4 +1,4 @@
-import { useI18n } from "./useI18n";
+import { useIntlayer } from "react-intlayer";
 
 interface VerifyWarningBannerProps {
   onReinstall: () => void;
@@ -15,24 +15,21 @@ function VerifyWarningBanner({
   onReinstall,
   onDismiss,
 }: VerifyWarningBannerProps): React.JSX.Element {
-  const { t } = useI18n();
+  const content = useIntlayer("verify-warning-banner");
+
   return (
     <div className="verify-warning-banner" role="status">
-      <span className="verify-warning-text">{t("errors.verifyFailed")}</span>
+      <span className="verify-warning-text">{content.message}</span>
       <div className="verify-warning-actions">
         <button
           className="btn btn-secondary btn-sm"
           onClick={onReinstall}
           type="button"
         >
-          {t("errors.verifyReinstall")}
+          {content.reinstall}
         </button>
-        <button
-          className="btn-ghost btn-sm"
-          onClick={onDismiss}
-          type="button"
-        >
-          {t("errors.verifyDismiss")}
+        <button className="btn-ghost btn-sm" onClick={onDismiss} type="button">
+          {content.dismiss}
         </button>
       </div>
     </div>
