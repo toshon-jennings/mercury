@@ -2,6 +2,7 @@
    MERCURY for Hermes Agent — Clean Design System
    Mercury palette: Pure White #ffffff · Obsidian #121212 · Slate Grey #707070
                     Crimson Accent #cd2927 · Cool Silver #a0a0a0
+                    Logo Gold #e8a000
    Dark + Light mode, no gradients, flat design
    ======================================================================== */
 
@@ -17,6 +18,8 @@
   --accent-hover: #b02422;
   --accent-subtle: rgba(205, 41, 39, 0.15);
   --accent-text: #cd2927;
+  --gold: #e8a000;
+  --gold-subtle: rgba(232, 160, 0, 0.12);
   --text-primary: #ffffff;
   --text-secondary: #a0a0a0;
   --text-muted: #707070;
@@ -27,8 +30,8 @@
   --success-bg: rgba(34, 197, 94, 0.1);
   --error: #ef4444;
   --error-bg: rgba(239, 68, 68, 0.1);
-  --warning: #f59e0b;
-  --warning-bg: rgba(245, 158, 11, 0.1);
+  --warning: #e8a000;
+  --warning-bg: rgba(232, 160, 0, 0.12);
   --user-bubble: #cd2927;
   --user-bubble-text: #ffffff;
   --agent-bubble: #242424;
@@ -51,6 +54,8 @@
   --accent-hover: #b02422;
   --accent-subtle: rgba(205, 41, 39, 0.08);
   --accent-text: #cd2927;
+  --gold: #b87800;
+  --gold-subtle: rgba(184, 120, 0, 0.08);
   --text-primary: #000000;
   --text-secondary: #444444;
   --text-muted: #777777;
@@ -61,8 +66,8 @@
   --success-bg: rgba(22, 163, 74, 0.08);
   --error: #dc2626;
   --error-bg: rgba(220, 38, 38, 0.06);
-  --warning: #d97706;
-  --warning-bg: rgba(217, 119, 6, 0.08);
+  --warning: #b87800;
+  --warning-bg: rgba(184, 120, 0, 0.08);
   --user-bubble: #cd2927;
   --user-bubble-text: #ffffff;
   --agent-bubble: #eeeeee;
@@ -872,6 +877,7 @@ body {
 }
 
 .sidebar-brand {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -909,7 +915,7 @@ body {
   font-size: 15px;
   font-weight: 900;
   letter-spacing: 0.15em;
-  color: var(--text-primary);
+  color: var(--gold);
   line-height: 1;
 }
 
@@ -921,6 +927,17 @@ body {
   margin-top: 3px;
   transform-origin: left center;
   letter-spacing: 0.05em;
+}
+
+.sidebar-brand::after {
+  content: "";
+  display: block;
+  position: absolute;
+  bottom: 0;
+  left: 24px;
+  right: 24px;
+  height: 1px;
+  background: linear-gradient(to right, var(--gold-subtle), transparent);
 }
 
 .sidebar-nav {
