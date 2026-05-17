@@ -68,9 +68,11 @@ const hermesAPI = {
     ipcRenderer.invoke("run-claw-migrate"),
 
   // Terminal
-  terminalStart: (
-    options?: { cols?: number; rows?: number; cwd?: string },
-  ): Promise<{ sessionId: string }> =>
+  terminalStart: (options?: {
+    cols?: number;
+    rows?: number;
+    cwd?: string;
+  }): Promise<{ sessionId: string }> =>
     ipcRenderer.invoke("terminal-start", options),
   terminalInput: (sessionId: string, input: string): Promise<boolean> =>
     ipcRenderer.invoke("terminal-input", sessionId, input),
@@ -138,7 +140,8 @@ const hermesAPI = {
 
   // Connection mode (local / remote / ssh)
   isRemoteMode: (): Promise<boolean> => ipcRenderer.invoke("is-remote-mode"),
-  isRemoteOnlyMode: (): Promise<boolean> => ipcRenderer.invoke("is-remote-only-mode"),
+  isRemoteOnlyMode: (): Promise<boolean> =>
+    ipcRenderer.invoke("is-remote-only-mode"),
   getConnectionConfig: (): Promise<{
     mode: "local" | "remote" | "ssh";
     remoteUrl: string;
@@ -168,7 +171,15 @@ const hermesAPI = {
     remotePort: number,
     localPort: number,
   ): Promise<boolean> =>
-    ipcRenderer.invoke("set-ssh-config", host, port, username, keyPath, remotePort, localPort),
+    ipcRenderer.invoke(
+      "set-ssh-config",
+      host,
+      port,
+      username,
+      keyPath,
+      remotePort,
+      localPort,
+    ),
 
   testRemoteConnection: (url: string, apiKey?: string): Promise<boolean> =>
     ipcRenderer.invoke("test-remote-connection", url, apiKey),
@@ -180,7 +191,14 @@ const hermesAPI = {
     keyPath: string,
     remotePort: number,
   ): Promise<boolean> =>
-    ipcRenderer.invoke("test-ssh-connection", host, port, username, keyPath, remotePort),
+    ipcRenderer.invoke(
+      "test-ssh-connection",
+      host,
+      port,
+      username,
+      keyPath,
+      remotePort,
+    ),
 
   isSshTunnelActive: (): Promise<boolean> =>
     ipcRenderer.invoke("is-ssh-tunnel-active"),
@@ -188,8 +206,7 @@ const hermesAPI = {
   startSshTunnel: (): Promise<boolean> =>
     ipcRenderer.invoke("start-ssh-tunnel"),
 
-  stopSshTunnel: (): Promise<boolean> =>
-    ipcRenderer.invoke("stop-ssh-tunnel"),
+  stopSshTunnel: (): Promise<boolean> => ipcRenderer.invoke("stop-ssh-tunnel"),
 
   // Chat
   sendMessage: (
@@ -197,6 +214,7 @@ const hermesAPI = {
     profile?: string,
     resumeSessionId?: string,
     history?: Array<{ role: string; content: string }>,
+    cwd?: string,
   ): Promise<{ response: string; sessionId?: string }> =>
     ipcRenderer.invoke(
       "send-message",
@@ -204,7 +222,10 @@ const hermesAPI = {
       profile,
       resumeSessionId,
       history,
+      cwd,
     ),
+  selectChatFolder: (): Promise<string | null> =>
+    ipcRenderer.invoke("select-chat-folder"),
 
   abortChat: (): Promise<void> => ipcRenderer.invoke("abort-chat"),
 
@@ -576,10 +597,8 @@ const hermesAPI = {
   onSystemThemeUpdated: (
     callback: (info: { shouldUseDarkColors: boolean }) => void,
   ): (() => void) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      info: unknown,
-    ): void => callback(info as { shouldUseDarkColors: boolean });
+    const handler = (_event: Electron.IpcRendererEvent, info: unknown): void =>
+      callback(info as { shouldUseDarkColors: boolean });
     ipcRenderer.on("system-theme-updated", handler);
     return () => ipcRenderer.removeListener("system-theme-updated", handler);
   },

@@ -9,6 +9,8 @@ export default {
   send: "发送",
   custom: "自定义",
   typeModelName: "输入模型名称...",
+  chooseFolder: "选择文件夹",
+  clearFolder: "清除文件夹",
   emptyTitle: "今天我可以帮你做什么？",
   emptyHint: "你可以让我写代码、回答问题、搜索网页等",
   suggestionSearch: "搜索网页",

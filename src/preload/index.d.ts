@@ -131,7 +131,9 @@ interface HermesAPI {
     profile?: string,
     resumeSessionId?: string,
     history?: Array<{ role: string; content: string }>,
+    cwd?: string,
   ) => Promise<{ response: string; sessionId?: string }>;
+  selectChatFolder: () => Promise<string | null>;
   abortChat: () => Promise<void>;
   onChatChunk: (callback: (chunk: string) => void) => () => void;
   onChatDone: (callback: (sessionId?: string) => void) => () => void;
