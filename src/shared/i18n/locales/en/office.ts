@@ -16,11 +16,24 @@ export default {
   starting: "Starting...",
   openInBrowser: "Open in Browser",
   viewLogs: "View Logs",
-  portInUseWarning: "Port {{port}} is in use. Please change the port in settings or stop other processes.",
+  portInUseWarning:
+    "Port {{port}} is in use. Please change the port in settings or stop other processes.",
   close: "Close",
   cannotLoadClaw3d: "Cannot load Claw3D",
   startingClaw3dService: "Starting Claw3D service...",
-  clickToStart: "Click \"Start\" to launch your interactive office. This will start a local server and load the 3D visualization where your agents work and interact.",
-  setupDesc1: "Claw3D (Office) is an interactive 3D visualization environment for your Hermes agents. It allows you to watch your agents collaborate, manage tasks, and perform work in a real-time office space.",
-  setupDesc2: "Ready to go? Click below to download and set up the Office. We'll handle the installation so you can start seeing your agents in action.",
+  terminalAgentsTitle: "Terminal agents",
+  terminalAgentsSubtitle: "Live CLI sessions appear here while Office is open.",
+  terminalAgentsCount: "{{count}} live",
+  terminalAgentsUnavailable: "Unable to load live terminal agents right now.",
+  terminalAgentLabel: "CLI agent",
+  terminalAgentUntitled: "Terminal agent {{id}}",
+  terminalAgentStatus: "Working now",
+  terminalAgentMessages: "{{count}} msgs",
+  terminalAgentsEmpty: "Start a CLI session and its agent will show up here.",
+  clickToStart:
+    'Click "Start" to launch your interactive office. This will start a local server and load the 3D visualization where your agents work and interact.',
+  setupDesc1:
+    "Claw3D (Office) is an interactive 3D visualization environment for your Hermes agents. It allows you to watch your agents collaborate, manage tasks, and perform work in a real-time office space.",
+  setupDesc2:
+    "Ready to go? Click below to download and set up the Office. We'll handle the installation so you can start seeing your agents in action.",
 } as const;
