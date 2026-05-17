@@ -1,6 +1,7 @@
-import { existsSync } from "fs";
+import { accessSync, chmodSync, existsSync, readdirSync } from "fs";
 import { homedir } from "os";
 import { randomUUID } from "crypto";
+import { dirname, join } from "path";
 import type { WebContents } from "electron";
 import { getEnhancedPath } from "./installer";
 
@@ -39,6 +40,26 @@ function resolveCwd(cwd?: string): string {
   return homedir();
 }
 
+function ensureNodePtySpawnHelper(): void {
+  if (process.platform === "win32") return;
+
+  try {
+    const nodePtyPackage = require.resolve("node-pty/package.json");
+    const prebuildsDir = join(dirname(nodePtyPackage), "prebuilds");
+    for (const platformDir of readdirSync(prebuildsDir)) {
+      const helperPath = join(prebuildsDir, platformDir, "spawn-helper");
+      if (!existsSync(helperPath)) continue;
+      try {
+        accessSync(helperPath, 1);
+      } catch {
+        chmodSync(helperPath, 0o755);
+      }
+    }
+  } catch (error) {
+    console.warn("[Terminal] Unable to verify node-pty spawn-helper mode:", error);
+  }
+}
+
 export async function startTerminalSession({
   owner,
   cols,
@@ -51,6 +72,7 @@ export async function startTerminalSession({
   cwd?: string;
 }): Promise<{ sessionId: string }> {
   const pty = await import("node-pty");
+  ensureNodePtySpawnHelper();
   const sessionId = randomUUID();
   const shell = resolveShell();
   const ptyProcess = pty.spawn(shell, process.platform === "win32" ? [] : ["-l"], {
