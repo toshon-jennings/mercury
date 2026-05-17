@@ -103,6 +103,13 @@ import {
 import { readSoul, writeSoul, resetSoul } from "./soul";
 import { getToolsets, setToolsetEnabled } from "./tools";
 import {
+  killAllTerminalSessions,
+  killTerminalSession,
+  resizeTerminalSession,
+  startTerminalSession,
+  writeTerminalInput,
+} from "./terminal";
+import {
   listInstalledSkills,
   listBundledSkills,
   getSkillContent,
@@ -369,6 +376,29 @@ function setupIPC(): void {
       return { success: false, error: (err as Error).message };
     }
   });
+
+  // Terminal
+  ipcMain.handle(
+    "terminal-start",
+    async (event, options?: { cols?: number; rows?: number; cwd?: string }) =>
+      startTerminalSession({
+        owner: event.sender,
+        cols: options?.cols,
+        rows: options?.rows,
+        cwd: options?.cwd,
+      }),
+  );
+  ipcMain.handle("terminal-input", (_event, sessionId: string, input: string) =>
+    writeTerminalInput(sessionId, input),
+  );
+  ipcMain.handle(
+    "terminal-resize",
+    (_event, sessionId: string, cols: number, rows: number) =>
+      resizeTerminalSession(sessionId, cols, rows),
+  );
+  ipcMain.handle("terminal-kill", (_event, sessionId: string) =>
+    killTerminalSession(sessionId),
+  );
 
   // Configuration (profile-aware)
   ipcMain.handle("get-locale", () => getAppLocale());
@@ -1216,6 +1246,7 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
+    killAllTerminalSessions();
     stopGateway();
     stopSshTunnel();
     stopClaw3d();
@@ -1224,6 +1255,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  killAllTerminalSessions();
   stopHealthPolling();
   if (currentChatAbort) {
     currentChatAbort();

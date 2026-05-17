@@ -13,6 +13,7 @@ import Office from "../Office/Office";
 import Models from "../Models/Models";
 import Providers from "../Providers/Providers";
 import Schedules from "../Schedules/Schedules";
+import Terminal from "../Terminal/Terminal";
 import RemoteNotice from "../../components/RemoteNotice";
 import VerifyWarningBanner from "../../components/VerifyWarningBanner";
 import {
@@ -29,6 +30,7 @@ import {
   Layers,
   KeyRound,
   Timer,
+  Terminal as TerminalIcon,
   Download,
 } from "../../assets/icons";
 import type { LucideIcon } from "lucide-react";
@@ -45,6 +47,7 @@ type View =
   | "soul"
   | "memory"
   | "tools"
+  | "terminal"
   | "schedules"
   | "gateway"
   | "settings";
@@ -60,6 +63,7 @@ const NAV_ITEMS: { view: View; icon: LucideIcon; labelKey: string }[] = [
   { view: "soul", icon: Sparkles, labelKey: "navigation.soul" },
   { view: "memory", icon: Brain, labelKey: "navigation.memory" },
   { view: "tools", icon: Wrench, labelKey: "navigation.tools" },
+  { view: "terminal", icon: TerminalIcon, labelKey: "navigation.terminal" },
   { view: "schedules", icon: Timer, labelKey: "navigation.schedules" },
   { view: "gateway", icon: Signal, labelKey: "navigation.gateway" },
   { view: "settings", icon: SettingsIcon, labelKey: "navigation.settings" },
@@ -373,6 +377,16 @@ function Layout({
               <RemoteNotice feature="Tools" />
             ) : (
               <Tools profile={activeProfile} />
+            )}
+          </div>
+        )}
+
+        {visitedViews.has("terminal") && (
+          <div style={paneStyle("terminal")}>
+            {remoteMode ? (
+              <RemoteNotice feature="Terminal" />
+            ) : (
+              <Terminal />
             )}
           </div>
         )}

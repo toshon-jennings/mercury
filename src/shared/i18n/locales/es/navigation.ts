@@ -9,6 +9,7 @@ export default {
   soul: "Persona",
   memory: "Memoria",
   tools: "Herramientas",
+  terminal: "Terminal",
   schedules: "Programaciones",
   gateway: "Gateway",
   settings: "Configuración",

@@ -67,6 +67,42 @@ const hermesAPI = {
   runClawMigrate: (): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke("run-claw-migrate"),
 
+  // Terminal
+  terminalStart: (
+    options?: { cols?: number; rows?: number; cwd?: string },
+  ): Promise<{ sessionId: string }> =>
+    ipcRenderer.invoke("terminal-start", options),
+  terminalInput: (sessionId: string, input: string): Promise<boolean> =>
+    ipcRenderer.invoke("terminal-input", sessionId, input),
+  terminalResize: (
+    sessionId: string,
+    cols: number,
+    rows: number,
+  ): Promise<boolean> =>
+    ipcRenderer.invoke("terminal-resize", sessionId, cols, rows),
+  terminalKill: (sessionId: string): Promise<boolean> =>
+    ipcRenderer.invoke("terminal-kill", sessionId),
+  onTerminalData: (
+    callback: (payload: { sessionId: string; data: string }) => void,
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: unknown,
+    ): void => callback(payload as { sessionId: string; data: string });
+    ipcRenderer.on("terminal-data", handler);
+    return () => ipcRenderer.removeListener("terminal-data", handler);
+  },
+  onTerminalExit: (
+    callback: (payload: { sessionId: string; exitCode: number }) => void,
+  ): (() => void) => {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: unknown,
+    ): void => callback(payload as { sessionId: string; exitCode: number });
+    ipcRenderer.on("terminal-exit", handler);
+    return () => ipcRenderer.removeListener("terminal-exit", handler);
+  },
+
   getLocale: (): Promise<AppLocale> => ipcRenderer.invoke("get-locale"),
   setLocale: (locale: AppLocale): Promise<AppLocale> =>
     ipcRenderer.invoke("set-locale", locale),

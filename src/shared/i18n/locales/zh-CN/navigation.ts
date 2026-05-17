@@ -9,6 +9,7 @@ export default {
   soul: "人格",
   memory: "记忆",
   tools: "工具",
+  terminal: "终端",
   schedules: "计划任务",
   gateway: "网关",
   settings: "设置",

@@ -20,6 +20,7 @@ export {
   Signal,
   Sparkles,
   Sun,
+  Terminal,
   Timer,
   Users,
   Wrench,
