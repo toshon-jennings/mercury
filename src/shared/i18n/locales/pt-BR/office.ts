@@ -9,18 +9,34 @@ export default {
   installClaw3d: "Instalar Claw3D",
   setupFailed: "Falha na configuração",
   startFailed: "Falha ao iniciar o Claw3D",
-  portInUse: "A porta {{port}} está em uso. Altere nas configurações para iniciar.",
+  portInUse:
+    "A porta {{port}} está em uso. Altere nas configurações para iniciar.",
   websocketUrl: "URL do WebSocket",
   viewOnGithub: "Ver no GitHub",
   waitingToStart: "Aguardando para iniciar...",
   starting: "Iniciando...",
   openInBrowser: "Abrir no Navegador",
   viewLogs: "Ver Logs",
-  portInUseWarning: "A porta {{port}} está em uso. Por favor, altere a porta nas configurações ou pare outros processos.",
+  portInUseWarning:
+    "A porta {{port}} está em uso. Por favor, altere a porta nas configurações ou pare outros processos.",
   close: "Fechar",
   cannotLoadClaw3d: "Não foi possível carregar o Claw3D",
   startingClaw3dService: "Iniciando serviço Claw3D...",
-  clickToStart: "Clique em \"Iniciar\" para rodar o Claw3D",
-  setupDesc1: "Claw3D é um ambiente de visualização 3D para seus agentes Mercury. Ele permite que você veja seus agentes trabalhando em um espaço de escritório interativo.",
-  setupDesc2: "Clique abaixo para baixar e configurar automaticamente o Claw3D. Isso clonará o repositório e instalará todas as dependências.",
+  terminalAgentsTitle: "Agentes do terminal",
+  terminalAgentsSubtitle:
+    "As sessões ativas de CLI aparecem aqui enquanto o Office estiver aberto.",
+  terminalAgentsCount: "{{count}} ativos",
+  terminalAgentsUnavailable:
+    "Não foi possível carregar os agentes ativos do terminal agora.",
+  terminalAgentLabel: "Agente CLI",
+  terminalAgentUntitled: "Agente de terminal {{id}}",
+  terminalAgentStatus: "Trabalhando agora",
+  terminalAgentMessages: "{{count}} msgs",
+  terminalAgentsEmpty:
+    "Inicie uma sessão de CLI e o agente dela aparecerá aqui.",
+  clickToStart: 'Clique em "Iniciar" para rodar o Claw3D',
+  setupDesc1:
+    "Claw3D é um ambiente de visualização 3D para seus agentes Mercury. Ele permite que você veja seus agentes trabalhando em um espaço de escritório interativo.",
+  setupDesc2:
+    "Clique abaixo para baixar e configurar automaticamente o Claw3D. Isso clonará o repositório e instalará todas as dependências.",
 } as const;

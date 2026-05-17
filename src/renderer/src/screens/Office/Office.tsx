@@ -1,5 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Refresh, ExternalLink, Settings } from "../../assets/icons";
+import {
+  Refresh,
+  ExternalLink,
+  Settings,
+  Terminal,
+  Clock,
+} from "../../assets/icons";
 import { useI18n } from "../../components/useI18n";
 import HermesLogo from "../../components/common/HermesLogo";
 
@@ -18,6 +24,52 @@ interface SetupProgress {
   log: string;
 }
 
+interface OfficeSessionSummary {
+  id: string;
+  source: string;
+  startedAt: number;
+  endedAt: number | null;
+  messageCount: number;
+  model: string;
+  title: string | null;
+}
+
+interface OfficeWebviewElement extends HTMLWebViewElement {
+  insertCSS: (css: string) => Promise<unknown>;
+  executeJavaScript: (code: string) => Promise<unknown>;
+}
+
+const LIVE_OFFICE_SESSION_SOURCES = new Set(["cli", "terminal"]);
+const LIVE_OFFICE_SESSION_MAX_AGE_SECONDS = 24 * 60 * 60;
+
+function formatSessionTime(ts: number): string {
+  return new Date(ts * 1000).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatModel(model: string): string {
+  const name = model.split("/").pop() || model;
+  return name.split(":")[0];
+}
+
+function getLiveOfficeSessions(
+  sessions: OfficeSessionSummary[],
+  now = Math.floor(Date.now() / 1000),
+): OfficeSessionSummary[] {
+  return sessions
+    .filter((session) => {
+      const source = session.source.trim().toLowerCase();
+      return (
+        LIVE_OFFICE_SESSION_SOURCES.has(source) &&
+        session.endedAt === null &&
+        session.startedAt >= now - LIVE_OFFICE_SESSION_MAX_AGE_SECONDS
+      );
+    })
+    .sort((a, b) => b.startedAt - a.startedAt);
+}
+
 function Office({ visible }: { visible?: boolean }): React.JSX.Element {
   const { t } = useI18n();
   const [state, setState] = useState<OfficeState>("checking");
@@ -33,6 +85,8 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  const [liveSessions, setLiveSessions] = useState<OfficeSessionSummary[]>([]);
+  const [liveSessionsError, setLiveSessionsError] = useState("");
   const [progress, setProgress] = useState<SetupProgress>({
     step: 0,
     totalSteps: 2,
@@ -44,13 +98,16 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
   const [webviewError, setWebviewError] = useState("");
   const logRef = useRef<HTMLDivElement>(null);
   const webviewRef = useRef<HTMLWebViewElement>(null);
+  const startingRef = useRef(starting);
+  const runningRef = useRef(running);
+  const errorRef = useRef(error);
 
   useEffect(() => {
-    const webview = webviewRef.current;
+    const webview = webviewRef.current as OfficeWebviewElement | null;
     if (!webview) return;
     const handleDomReady = (): void => {
       // Force scrollbars inside the webview content
-      void (webview as any).insertCSS(`
+      void webview.insertCSS(`
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: rgba(0,0,0,0.05); }
         ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
@@ -62,15 +119,13 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
   }, [running]);
 
   // Refs to avoid restarting the poll interval on every state change
-  const startingRef = useRef(starting);
-  const runningRef = useRef(running);
-  const errorRef = useRef(error);
-  startingRef.current = starting;
-  runningRef.current = running;
-  errorRef.current = error;
+  useEffect(() => {
+    startingRef.current = starting;
+    runningRef.current = running;
+    errorRef.current = error;
+  }, [starting, running, error]);
 
   const checkStatus = useCallback(async (): Promise<void> => {
-    setState("checking");
     const status = await window.hermesAPI.claw3dStatus();
     setRunning(status.running);
     setPort(status.port);
@@ -87,9 +142,29 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
     }
   }, []);
 
+  const loadLiveSessions = useCallback(async (): Promise<void> => {
+    try {
+      const sessions = await window.hermesAPI.listSessions(25);
+      setLiveSessions(getLiveOfficeSessions(sessions));
+      setLiveSessionsError("");
+    } catch (err) {
+      setLiveSessions([]);
+      setLiveSessionsError(
+        err instanceof Error
+          ? err.message
+          : t("office.terminalAgentsUnavailable"),
+      );
+    }
+  }, [t]);
+
   useEffect(() => {
-    checkStatus();
-  }, [checkStatus]);
+    const loadOffice = async (): Promise<void> => {
+      await checkStatus();
+      await loadLiveSessions();
+    };
+
+    void loadOffice();
+  }, [checkStatus, loadLiveSessions]);
 
   // Poll status only when tab is visible and in ready state
   useEffect(() => {
@@ -111,9 +186,10 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
         setRunning(false);
         if (status.error) setError(status.error);
       }
+      void loadLiveSessions();
     }, 5000);
     return () => clearInterval(interval);
-  }, [state, visible]);
+  }, [state, visible, loadLiveSessions]);
 
   // Auto-scroll log
   useEffect(() => {
@@ -124,31 +200,24 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
 
   // Webview load/error handling
   useEffect(() => {
-    const wv = webviewRef.current as unknown as {
-      addEventListener: (e: string, fn: (evt?: unknown) => void) => void;
-      removeEventListener: (e: string, fn: (evt?: unknown) => void) => void;
-      executeJavaScript?: (code: string) => Promise<unknown>;
-      insertCSS?: (css: string) => Promise<unknown>;
-    };
+    const wv = webviewRef.current as OfficeWebviewElement | null;
     if (!wv) return;
     const onLoad = (): void => {
       setWebviewReady(true);
       setWebviewError("");
-      if (wv.executeJavaScript) {
-        wv.executeJavaScript(
-          `try { localStorage.setItem("claw3d:onboarding:completed", "true") } catch(e) {}`,
-        ).catch(() => {});
-      }
+      wv.executeJavaScript(
+        `try { localStorage.setItem("claw3d:onboarding:completed", "true") } catch(e) {}`,
+      ).catch(() => {});
       // Ensure the page is scrollable and scrollbars are always visible
-      if (wv.insertCSS) {
-        wv.insertCSS(`
-          html, body { overflow-y: auto !important; }
-          ::-webkit-scrollbar { width: 8px !important; height: 8px !important; }
-          ::-webkit-scrollbar-track { background: transparent !important; }
-          ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.4) !important; border-radius: 4px !important; }
-          ::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.7) !important; }
-        `).catch(() => {});
-      }
+      wv.insertCSS(
+        `
+        html, body { overflow-y: auto !important; }
+        ::-webkit-scrollbar { width: 8px !important; height: 8px !important; }
+        ::-webkit-scrollbar-track { background: transparent !important; }
+        ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.4) !important; border-radius: 4px !important; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.7) !important; }
+      `,
+      ).catch(() => {});
     };
     const onFail = (evt: unknown): void => {
       setWebviewReady(false);
@@ -278,12 +347,8 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
         <div className="office-center">
           <div className="office-setup-card">
             <h2 className="office-setup-title">{t("office.setupTitle")}</h2>
-            <p className="office-setup-desc">
-              {t("office.setupDesc1")}
-            </p>
-            <p className="office-setup-desc">
-              {t("office.setupDesc2")}
-            </p>
+            <p className="office-setup-desc">{t("office.setupDesc1")}</p>
+            <p className="office-setup-desc">{t("office.setupDesc2")}</p>
             {error && <div className="office-error">{error}</div>}
             <div className="office-setup-actions">
               <button className="btn btn-primary" onClick={handleInstall}>
@@ -297,7 +362,8 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
                   )
                 }
               >
-                <ExternalLink size={14} />{t("office.viewOnGithub")}
+                <ExternalLink size={14} />
+                {t("office.viewOnGithub")}
               </button>
             </div>
           </div>
@@ -395,6 +461,68 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
             <Settings size={16} />
           </button>
         </div>
+      </div>
+
+      <div className="office-agents-strip">
+        <div className="office-agents-strip-header">
+          <div>
+            <div className="office-agents-strip-title">
+              {t("office.terminalAgentsTitle")}
+            </div>
+            <div className="office-agents-strip-subtitle">
+              {t("office.terminalAgentsSubtitle")}
+            </div>
+          </div>
+          <span className="office-agents-strip-count">
+            {t("office.terminalAgentsCount", { count: liveSessions.length })}
+          </span>
+        </div>
+
+        {liveSessionsError ? (
+          <div className="office-agents-strip-empty">{liveSessionsError}</div>
+        ) : liveSessions.length > 0 ? (
+          <div className="office-agents-list">
+            {liveSessions.map((session) => (
+              <div key={session.id} className="office-agent-card">
+                <div className="office-agent-card-header">
+                  <div className="office-agent-card-badge">
+                    <Terminal size={14} />
+                    <span>{t("office.terminalAgentLabel")}</span>
+                  </div>
+                  <span className="office-agent-card-time">
+                    <Clock size={12} />
+                    {formatSessionTime(session.startedAt)}
+                  </span>
+                </div>
+                <div className="office-agent-card-title">
+                  {session.title?.trim() ||
+                    t("office.terminalAgentUntitled", {
+                      id: session.id.slice(-6),
+                    })}
+                </div>
+                <div className="office-agent-card-meta">
+                  <span className="office-agent-card-pill">
+                    {t("office.terminalAgentStatus")}
+                  </span>
+                  <span className="office-agent-card-pill">
+                    {t("office.terminalAgentMessages", {
+                      count: session.messageCount,
+                    })}
+                  </span>
+                  {session.model && (
+                    <span className="office-agent-card-pill">
+                      {formatModel(session.model)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="office-agents-strip-empty">
+            {t("office.terminalAgentsEmpty")}
+          </div>
+        )}
       </div>
 
       {showSettings && (
@@ -524,21 +652,35 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
           </>
         ) : !showLogs ? (
           <div className="office-center" style={{ gap: 0 }}>
-            <div className="office-setup-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div
+              className="office-setup-card"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+              }}
+            >
               <div style={{ marginBottom: 24 }}>
                 <HermesLogo size={64} />
               </div>
-              <h1 className="welcome-title" style={{ fontSize: 28, marginBottom: 12 }}>{t("office.title")}</h1>
+              <h1
+                className="welcome-title"
+                style={{ fontSize: 28, marginBottom: 12 }}
+              >
+                {t("office.title")}
+              </h1>
               <p className="welcome-subtitle" style={{ marginBottom: 32 }}>
                 {t("office.setupDesc1")}
               </p>
-              
+
               <div className="welcome-actions">
                 <button
                   className="btn btn-primary welcome-button"
                   onClick={handleStartStop}
-                  disabled={starting || ((portInUse || adapterPortInUse) && !running)}
-                  style={{ width: 'auto', minWidth: 160 }}
+                  disabled={
+                    starting || ((portInUse || adapterPortInUse) && !running)
+                  }
+                  style={{ width: "auto", minWidth: 160 }}
                 >
                   {starting
                     ? t("office.starting")
@@ -546,7 +688,7 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
                       ? t("common.stop")
                       : t("common.start")}
                 </button>
-                
+
                 <p className="welcome-note" style={{ marginTop: 8 }}>
                   {portInUse && !running
                     ? t("office.portInUse", { port })
