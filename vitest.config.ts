@@ -6,6 +6,10 @@ export default defineConfig({
     alias: {
       "@renderer": resolve(__dirname, "src/renderer/src"),
       "@shared": resolve(__dirname, "src/shared"),
+      "react-intlayer": resolve(
+        __dirname,
+        "src/renderer/src/test/mocks/react-intlayer.ts",
+      ),
     },
   },
   test: {

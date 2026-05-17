@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { IntlayerProviderContent } from "react-intlayer";
 import { I18nextProvider, initReactI18next } from "react-i18next";
 import {
   APP_LOCALES,
@@ -8,6 +9,7 @@ import {
   type AppLocale,
 } from "../../../shared/i18n";
 import { I18nContext, type I18nContextValue } from "./I18nContext";
+import { fromIntlayerLocale, toIntlayerLocale } from "./intlayerLocale";
 
 void sharedI18n.use(initReactI18next);
 
@@ -41,8 +43,10 @@ export function I18nProvider({
     void window.hermesAPI
       ?.getLocale?.()
       .then((mainLocale) => {
-        if (cancelled || !mainLocale || mainLocale === locale) return;
-        setLocaleState(mainLocale);
+        if (cancelled || !mainLocale) return;
+        setLocaleState((currentLocale) =>
+          currentLocale === mainLocale ? currentLocale : mainLocale,
+        );
       })
       .catch(() => {
         /* ignore */
@@ -77,7 +81,14 @@ export function I18nProvider({
 
   return (
     <I18nContext.Provider value={value}>
-      <I18nextProvider i18n={sharedI18n}>{children}</I18nextProvider>
+      <IntlayerProviderContent
+        locale={toIntlayerLocale(locale)}
+        setLocale={(nextLocale) =>
+          setLocaleState(fromIntlayerLocale(nextLocale))
+        }
+      >
+        <I18nextProvider i18n={sharedI18n}>{children}</I18nextProvider>
+      </IntlayerProviderContent>
     </I18nContext.Provider>
   );
 }
