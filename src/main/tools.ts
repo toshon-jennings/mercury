@@ -111,7 +111,7 @@ function localizeToolDefs(
 }
 
 /**
- * Parse the platform_toolsets.cli list from config.yaml.
+ * Parse a platform_toolsets list from config.yaml.
  * The yaml structure looks like:
  *   platform_toolsets:
  *     cli:
@@ -120,12 +120,16 @@ function localizeToolDefs(
  *       ...
  * We use line-by-line parsing to stay consistent with config.ts (no yaml dep).
  */
-function parseEnabledToolsets(configContent: string): Set<string> {
+function parseEnabledToolsets(
+  configContent: string,
+  platform = "cli",
+): Set<string> {
   const enabled = new Set<string>();
   const lines = configContent.split("\n");
 
   let inPlatformToolsets = false;
-  let inCli = false;
+  let inPlatform = false;
+  const platformRe = new RegExp(`^\\s+${platform}\\s*:`);
 
   for (const line of lines) {
     const trimmed = line.trimEnd();
@@ -133,31 +137,31 @@ function parseEnabledToolsets(configContent: string): Set<string> {
     // Detect section headers
     if (/^\s*platform_toolsets\s*:/.test(trimmed)) {
       inPlatformToolsets = true;
-      inCli = false;
+      inPlatform = false;
       continue;
     }
 
-    if (inPlatformToolsets && /^\s+cli\s*:/.test(trimmed)) {
-      inCli = true;
+    if (inPlatformToolsets && platformRe.test(trimmed)) {
+      inPlatform = true;
       continue;
     }
 
     // Exit sections on un-indent
     if (inPlatformToolsets && /^\S/.test(trimmed) && !/^\s*$/.test(trimmed)) {
       inPlatformToolsets = false;
-      inCli = false;
+      inPlatform = false;
       continue;
     }
 
-    if (inCli && /^\s{4}\S/.test(trimmed) && !/^\s{4,}-/.test(trimmed)) {
-      // A new key at the same level as cli — we've left the cli section
-      inCli = false;
+    if (inPlatform && /^\s{2,}\S/.test(trimmed) && !/^\s+-\s/.test(trimmed)) {
+      // A new key at the same level as the platform — we've left the section
+      inPlatform = false;
       continue;
     }
 
-    // Parse list items inside cli:
-    if (inCli) {
-      const match = trimmed.match(/^\s+-\s+["']?(\w+)["']?/);
+    // Parse list items inside the selected platform:
+    if (inPlatform) {
+      const match = trimmed.match(/^\s+-\s+["']?([\w-]+)["']?/);
       if (match) {
         enabled.add(match[1]);
       }
@@ -165,6 +169,77 @@ function parseEnabledToolsets(configContent: string): Set<string> {
   }
 
   return enabled;
+}
+
+function buildPlatformSection(platform: string, toolsets: Set<string>): string {
+  const toolsetLines = Array.from(toolsets)
+    .sort()
+    .map((t) => `  - ${t}`)
+    .join("\n");
+
+  return `  ${platform}:\n${toolsetLines}`;
+}
+
+function setPlatformToolsets(
+  content: string,
+  platform: string,
+  toolsets: Set<string>,
+): string {
+  const newSection = buildPlatformSection(platform, toolsets);
+
+  if (!content.includes("platform_toolsets")) {
+    return content.trimEnd() + "\n\nplatform_toolsets:\n" + newSection + "\n";
+  }
+
+  const lines = content.split("\n");
+  const result: string[] = [];
+  let inPlatformToolsets = false;
+  let inPlatform = false;
+  let inserted = false;
+  const platformRe = new RegExp(`^\\s+${platform}\\s*:`);
+
+  for (const line of lines) {
+    const trimmed = line.trimEnd();
+
+    if (/^\s*platform_toolsets\s*:/.test(trimmed)) {
+      inPlatformToolsets = true;
+      result.push(line);
+      continue;
+    }
+
+    if (inPlatformToolsets && platformRe.test(trimmed)) {
+      inPlatform = true;
+      result.push(newSection);
+      inserted = true;
+      continue;
+    }
+
+    if (inPlatform) {
+      if (/^\s+-\s/.test(trimmed)) continue;
+      if (/^\s{2,}\S/.test(trimmed) || /^\S/.test(trimmed) || trimmed === "") {
+        inPlatform = false;
+        result.push(line);
+        continue;
+      }
+      continue;
+    }
+
+    if (inPlatformToolsets && /^\S/.test(trimmed) && trimmed !== "") {
+      inPlatformToolsets = false;
+      if (!inserted) {
+        result.push(newSection);
+        inserted = true;
+      }
+    }
+
+    result.push(line);
+  }
+
+  if (inPlatformToolsets && !inserted) {
+    result.push(newSection);
+  }
+
+  return result.join("\n");
 }
 
 export function getToolsets(profile?: string): ToolsetInfo[] {
@@ -177,7 +252,10 @@ export function getToolsets(profile?: string): ToolsetInfo[] {
 
   try {
     const content = readFileSync(configFile, "utf-8");
-    const enabledSet = parseEnabledToolsets(content);
+    const apiServerEnabledSet = parseEnabledToolsets(content, "api_server");
+    const cliEnabledSet = parseEnabledToolsets(content, "cli");
+    const enabledSet =
+      apiServerEnabledSet.size > 0 ? apiServerEnabledSet : cliEnabledSet;
 
     // If no platform_toolsets.cli section exists, all are enabled by default
     if (enabledSet.size === 0 && !content.includes("platform_toolsets")) {
@@ -200,7 +278,12 @@ export function setToolsetEnabled(
 
   try {
     const content = readFileSync(configFile, "utf-8");
-    const currentEnabled = parseEnabledToolsets(content);
+    const currentEnabled = parseEnabledToolsets(content, "api_server");
+    if (currentEnabled.size === 0) {
+      for (const key of parseEnabledToolsets(content, "cli")) {
+        currentEnabled.add(key);
+      }
+    }
 
     if (enabled) {
       currentEnabled.add(key);
@@ -208,83 +291,13 @@ export function setToolsetEnabled(
       currentEnabled.delete(key);
     }
 
-    // Rebuild the platform_toolsets.cli section
-    const toolsetLines = Array.from(currentEnabled)
-      .sort()
-      .map((t) => `      - ${t}`)
-      .join("\n");
-
-    const newSection = `  cli:\n${toolsetLines}`;
-
-    // Check if platform_toolsets section exists
-    if (content.includes("platform_toolsets")) {
-      // Replace existing cli section within platform_toolsets
-      const lines = content.split("\n");
-      const result: string[] = [];
-      let inPlatformToolsets = false;
-      let inCli = false;
-      let cliInserted = false;
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const trimmed = line.trimEnd();
-
-        if (/^\s*platform_toolsets\s*:/.test(trimmed)) {
-          inPlatformToolsets = true;
-          result.push(line);
-          continue;
-        }
-
-        if (inPlatformToolsets && /^\s+cli\s*:/.test(trimmed)) {
-          inCli = true;
-          // Output the new cli section
-          result.push(newSection);
-          cliInserted = true;
-          continue;
-        }
-
-        if (inCli) {
-          // Skip old list items
-          if (/^\s+-\s/.test(trimmed)) continue;
-          // End of cli section
-          if (
-            /^\s{4}\S/.test(trimmed) ||
-            /^\S/.test(trimmed) ||
-            trimmed === ""
-          ) {
-            inCli = false;
-            if (
-              trimmed === "" &&
-              i + 1 < lines.length &&
-              /^\S/.test(lines[i + 1].trimEnd())
-            ) {
-              result.push(line);
-              continue;
-            }
-            result.push(line);
-            continue;
-          }
-          continue;
-        }
-
-        if (inPlatformToolsets && /^\S/.test(trimmed) && trimmed !== "") {
-          inPlatformToolsets = false;
-          if (!cliInserted) {
-            result.push(newSection);
-            cliInserted = true;
-          }
-        }
-
-        result.push(line);
-      }
-
-      safeWriteFile(configFile, result.join("\n"));
-    } else {
-      // Append platform_toolsets section at end
-      const newContent =
-        content.trimEnd() + "\n\nplatform_toolsets:\n" + newSection + "\n";
-      safeWriteFile(configFile, newContent);
-    }
+    const updatedCli = setPlatformToolsets(content, "cli", currentEnabled);
+    const updatedApiServer = setPlatformToolsets(
+      updatedCli,
+      "api_server",
+      currentEnabled,
+    );
+    safeWriteFile(configFile, updatedApiServer);
 
     return true;
   } catch {

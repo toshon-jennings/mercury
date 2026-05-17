@@ -236,6 +236,7 @@ function Chat({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isLoadingRef = useRef(false);
+  const chatErrorHandledRef = useRef(false);
   const userScrolledUpRef = useRef(false);
 
   // Model picker state
@@ -432,6 +433,7 @@ function Chat({
     });
 
     const cleanupError = window.hermesAPI.onChatError((error) => {
+      chatErrorHandledRef.current = true;
       setMessages((prev) => [
         ...prev,
         {
@@ -533,6 +535,7 @@ function Chat({
     }
 
     setIsLoading(true);
+    chatErrorHandledRef.current = false;
     setMessages((prev) => [
       ...prev,
       { id: `user-${Date.now()}`, role: "user", content: text },
@@ -547,8 +550,19 @@ function Chat({
         messages.map((m) => ({ role: m.role, content: m.content })),
         selectedFolder || undefined,
       );
-    } catch {
-      // Error already handled by onChatError IPC listener — avoid duplicate
+    } catch (error) {
+      if (!chatErrorHandledRef.current) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `error-${Date.now()}`,
+            role: "agent",
+            content: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ]);
+        setToolProgress(null);
+        setIsLoading(false);
+      }
     }
   }
 
@@ -559,6 +573,7 @@ function Chat({
     setInput("");
     if (inputRef.current) inputRef.current.style.height = "auto";
     setIsLoading(true);
+    chatErrorHandledRef.current = false;
     setMessages((prev) => [
       ...prev,
       { id: `user-btw-${Date.now()}`, role: "user", content: `💭 ${text}` },
@@ -571,8 +586,19 @@ function Chat({
         messages.map((m) => ({ role: m.role, content: m.content })),
         selectedFolder || undefined,
       );
-    } catch {
-      // Error already handled by onChatError IPC listener — avoid duplicate
+    } catch (error) {
+      if (!chatErrorHandledRef.current) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `error-${Date.now()}`,
+            role: "agent",
+            content: `Error: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ]);
+        setToolProgress(null);
+        setIsLoading(false);
+      }
     }
   }
 
