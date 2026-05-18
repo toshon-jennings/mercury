@@ -13,13 +13,33 @@ type TerminalSession = {
   owner: WebContents;
 };
 
+export interface TerminalSessionHooks {
+  onStarted?: (payload: {
+    sessionId: string;
+    cwd: string;
+  }) => void | Promise<void>;
+  onInput?: (payload: {
+    sessionId: string;
+    input: string;
+  }) => void | Promise<void>;
+  onEnded?: (payload: {
+    sessionId: string;
+    exitCode: number;
+  }) => void | Promise<void>;
+}
+
 const sessions = new Map<string, TerminalSession>();
+const terminalEnded = new Set<string>();
+let terminalSessionHooks: TerminalSessionHooks | null = null;
 // eslint-disable-next-line no-control-regex
 const DEVICE_ATTRIBUTE_RESPONSE_PATTERN = /\x1b\[\??[\d;]*c/g;
 const PLAIN_DEVICE_ATTRIBUTE_RESPONSE_PATTERN = /^(?:\?1;2c|1;2c)+$/;
 
 function stripTerminalGeneratedInput(input: string): string {
-  const withoutEscapedResponse = input.replace(DEVICE_ATTRIBUTE_RESPONSE_PATTERN, "");
+  const withoutEscapedResponse = input.replace(
+    DEVICE_ATTRIBUTE_RESPONSE_PATTERN,
+    "",
+  );
   return PLAIN_DEVICE_ATTRIBUTE_RESPONSE_PATTERN.test(withoutEscapedResponse)
     ? ""
     : withoutEscapedResponse;
@@ -56,8 +76,31 @@ function ensureNodePtySpawnHelper(): void {
       }
     }
   } catch (error) {
-    console.warn("[Terminal] Unable to verify node-pty spawn-helper mode:", error);
+    console.warn(
+      "[Terminal] Unable to verify node-pty spawn-helper mode:",
+      error,
+    );
   }
+}
+
+export function registerTerminalSessionHooks(
+  hooks: TerminalSessionHooks | null,
+): void {
+  terminalSessionHooks = hooks;
+}
+
+function notifyTerminalEnded(sessionId: string, exitCode: number): void {
+  if (terminalEnded.has(sessionId)) return;
+  terminalEnded.add(sessionId);
+  if (!terminalSessionHooks?.onEnded) return;
+  Promise.resolve(
+    terminalSessionHooks.onEnded({
+      sessionId,
+      exitCode,
+    }),
+  ).catch((err: unknown) => {
+    console.warn("[Terminal] onEnded hook failed:", err);
+  });
 }
 
 export async function startTerminalSession({
@@ -75,23 +118,40 @@ export async function startTerminalSession({
   ensureNodePtySpawnHelper();
   const sessionId = randomUUID();
   const shell = resolveShell();
-  const ptyProcess = pty.spawn(shell, process.platform === "win32" ? [] : ["-l"], {
-    name: "xterm-256color",
-    cols: Math.max(20, Math.floor(cols || 80)),
-    rows: Math.max(8, Math.floor(rows || 24)),
-    cwd: resolveCwd(cwd),
-    env: {
-      ...process.env,
-      PATH: getEnhancedPath(),
-      TERM: "xterm-256color",
-      COLORTERM: "truecolor",
-      LANG: process.env.LANG || "en_US.UTF-8",
-      LC_ALL: process.env.LC_ALL || "en_US.UTF-8",
+  const resolvedCwd = resolveCwd(cwd);
+  const ptyProcess = pty.spawn(
+    shell,
+    process.platform === "win32" ? [] : ["-l"],
+    {
+      name: "xterm-256color",
+      cols: Math.max(20, Math.floor(cols || 80)),
+      rows: Math.max(8, Math.floor(rows || 24)),
+      cwd: resolvedCwd,
+      env: {
+        ...process.env,
+        PATH: getEnhancedPath(),
+        TERM: "xterm-256color",
+        COLORTERM: "truecolor",
+        LANG: process.env.LANG || "en_US.UTF-8",
+        LC_ALL: process.env.LC_ALL || "en_US.UTF-8",
+      },
     },
-  });
+  );
 
   const session: TerminalSession = { id: sessionId, ptyProcess, owner };
   sessions.set(sessionId, session);
+  terminalEnded.delete(sessionId);
+
+  if (terminalSessionHooks?.onStarted) {
+    Promise.resolve(
+      terminalSessionHooks.onStarted({
+        sessionId,
+        cwd: resolvedCwd,
+      }),
+    ).catch((err: unknown) => {
+      console.warn("[Terminal] onStarted hook failed:", err);
+    });
+  }
 
   ptyProcess.onData((data) => {
     if (!owner.isDestroyed()) {
@@ -101,6 +161,7 @@ export async function startTerminalSession({
 
   ptyProcess.onExit(({ exitCode }) => {
     sessions.delete(sessionId);
+    notifyTerminalEnded(sessionId, exitCode);
     if (!owner.isDestroyed()) {
       owner.send("terminal-exit", { sessionId, exitCode });
     }
@@ -119,6 +180,16 @@ export function writeTerminalInput(sessionId: string, input: string): boolean {
   const safeInput = stripTerminalGeneratedInput(input);
   if (!safeInput) return true;
   session.ptyProcess.write(safeInput);
+  if (terminalSessionHooks?.onInput) {
+    Promise.resolve(
+      terminalSessionHooks.onInput({
+        sessionId,
+        input: safeInput,
+      }),
+    ).catch((err: unknown) => {
+      console.warn("[Terminal] onInput hook failed:", err);
+    });
+  }
   return true;
 }
 
@@ -141,6 +212,7 @@ export function killTerminalSession(sessionId: string): boolean {
   const session = sessions.get(sessionId);
   if (!session) return false;
   sessions.delete(sessionId);
+  notifyTerminalEnded(sessionId, -1);
   try {
     session.ptyProcess.kill();
   } catch {
