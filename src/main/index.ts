@@ -106,10 +106,12 @@ import { getToolsets, setToolsetEnabled } from "./tools";
 import {
   killAllTerminalSessions,
   killTerminalSession,
+  registerTerminalSessionHooks,
   resizeTerminalSession,
   startTerminalSession,
   writeTerminalInput,
 } from "./terminal";
+import { officeTerminalAgentBridge } from "./office-terminal-agents";
 import {
   listInstalledSkills,
   listBundledSkills,
@@ -303,6 +305,15 @@ function createWindow(): void {
 }
 
 function setupIPC(): void {
+  registerTerminalSessionHooks({
+    onStarted: ({ sessionId, cwd }) =>
+      officeTerminalAgentBridge.onTerminalStarted({ sessionId, cwd }),
+    onInput: ({ sessionId, input }) =>
+      officeTerminalAgentBridge.onTerminalInput({ sessionId, input }),
+    onEnded: ({ sessionId, exitCode }) =>
+      officeTerminalAgentBridge.onTerminalEnded({ sessionId, exitCode }),
+  });
+
   // Installation
   ipcMain.handle("check-install", () => {
     return checkInstallStatus();
@@ -1322,6 +1333,7 @@ app.on("window-all-closed", () => {
 app.on("before-quit", () => {
   killAllTerminalSessions();
   stopHealthPolling();
+  officeTerminalAgentBridge.dispose();
   if (currentChatAbort) {
     currentChatAbort();
     currentChatAbort = null;
