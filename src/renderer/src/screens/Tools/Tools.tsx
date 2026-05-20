@@ -338,7 +338,10 @@ function Tools({ profile }: ToolsProps): React.JSX.Element {
           <div className="page-header" style={{ marginTop: 32 }}>
             <div>
               <h2 className="page-title">{t("tools.mcpServers")}</h2>
-              <p className="page-subtitle" dangerouslySetInnerHTML={{ __html: t("tools.mcpDescription") }} />
+              <p
+                className="page-subtitle"
+                dangerouslySetInnerHTML={{ __html: t("tools.mcpDescription") }}
+              />
             </div>
           </div>
           <div className="tools-grid">

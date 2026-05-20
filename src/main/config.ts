@@ -274,7 +274,7 @@ export function setModelConfig(
     // Append base_url line after the provider line in the model section
     content = content.replace(
       /^(\s*provider:\s*"[^"]*"\s*\n)/m,
-      `$1  base_url: "${baseUrl}"\n`
+      `$1  base_url: "${baseUrl}"\n`,
     );
   }
 
