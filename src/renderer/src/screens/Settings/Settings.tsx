@@ -5,6 +5,7 @@ import { useI18n } from "../../components/useI18n";
 import { APP_LOCALES, type AppLocale } from "../../../../shared/i18n";
 import openclawLogo from "../../assets/openclaw-color.png";
 import { Download, Upload, FileText, Send } from "lucide-react";
+import { Trans } from "react-i18next";
 
 const TELEGRAM_COMMUNITY_URL = "https://t.me/hermes_agent_desktop";
 
@@ -209,7 +210,11 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
         18642,
       );
     } else {
-      await window.hermesAPI.setConnectionConfig(connMode, connRemoteUrl, connApiKey);
+      await window.hermesAPI.setConnectionConfig(
+        connMode,
+        connRemoteUrl,
+        connApiKey,
+      );
     }
     setConnStatus("Saved");
     setTimeout(() => setConnStatus(null), 2000);
@@ -234,10 +239,16 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
       setConnStatus(ok ? "SSH tunnel connected!" : "Could not connect via SSH");
     } else {
       const url = connRemoteUrl.trim();
-      if (!url) { setConnStatus("Please enter a URL"); return; }
+      if (!url) {
+        setConnStatus("Please enter a URL");
+        return;
+      }
       setConnTesting(true);
       setConnStatus(null);
-      const ok = await window.hermesAPI.testRemoteConnection(url, connApiKey.trim());
+      const ok = await window.hermesAPI.testRemoteConnection(
+        url,
+        connApiKey.trim(),
+      );
       setConnTesting(false);
       setConnStatus(ok ? "Connected successfully!" : "Could not reach server");
     }
@@ -546,8 +557,8 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
             {connMode === "local"
               ? t("settings.modeLocalHint")
               : connMode === "ssh"
-              ? "Tunnel to a remote Hermes over SSH — no exposed ports or API keys needed."
-              : t("settings.modeRemoteHint")}
+                ? "Tunnel to a remote Hermes over SSH — no exposed ports or API keys needed."
+                : t("settings.modeRemoteHint")}
           </div>
         </div>
 
@@ -591,9 +602,14 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
                 onClick={handleTestConnection}
                 disabled={connTesting}
               >
-                {connTesting ? t("settings.testingConnection") : t("settings.testConnection")}
+                {connTesting
+                  ? t("settings.testingConnection")
+                  : t("settings.testConnection")}
               </button>
-              <button className="btn btn-primary" onClick={handleSaveConnection}>
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveConnection}
+              >
                 {t("settings.save")}
               </button>
             </div>
@@ -635,7 +651,9 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
             <div className="settings-field">
               <label className="settings-field-label">
                 Private Key Path{" "}
-                <span style={{ fontWeight: 400, opacity: 0.6 }}>(optional, defaults to ~/.ssh/id_rsa)</span>
+                <span style={{ fontWeight: 400, opacity: 0.6 }}>
+                  (optional, defaults to ~/.ssh/id_rsa)
+                </span>
               </label>
               <input
                 className="input"
@@ -648,7 +666,9 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
             <div className="settings-field">
               <label className="settings-field-label">
                 Remote Hermes Port{" "}
-                <span style={{ fontWeight: 400, opacity: 0.6 }}>(default 8642)</span>
+                <span style={{ fontWeight: 400, opacity: 0.6 }}>
+                  (default 8642)
+                </span>
               </label>
               <input
                 className="input"
@@ -658,8 +678,16 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
                 placeholder="8642"
               />
               <div className="settings-field-hint">
-                Make sure you can run <code style={{ fontFamily: "monospace" }}>ssh {sshUser || "user"}@{sshHost || "host"}</code> without a password prompt.
-                The first connection trusts the host key and stores it in <code style={{ fontFamily: "monospace" }}>~/.ssh/known_hosts</code>; SSH will fail closed if that key changes later.
+                Make sure you can run{" "}
+                <code style={{ fontFamily: "monospace" }}>
+                  ssh {sshUser || "user"}@{sshHost || "host"}
+                </code>{" "}
+                without a password prompt. The first connection trusts the host
+                key and stores it in{" "}
+                <code style={{ fontFamily: "monospace" }}>
+                  ~/.ssh/known_hosts
+                </code>
+                ; SSH will fail closed if that key changes later.
               </div>
             </div>
             <div className="settings-hermes-actions">
@@ -670,7 +698,10 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
               >
                 {connTesting ? "Testing SSH…" : "Test SSH Connection"}
               </button>
-              <button className="btn btn-primary" onClick={handleSaveConnection}>
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveConnection}
+              >
                 {t("settings.save")}
               </button>
             </div>
@@ -685,14 +716,13 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
               <div className="settings-migration-title">
                 {t("settings.migrationDetected")}
               </div>
-              <div
-                className="settings-migration-desc"
-                dangerouslySetInnerHTML={{
-                  __html: t("settings.migrationDesc", {
-                    path: openclawPath || "",
-                  }),
-                }}
-              />
+              <div className="settings-migration-desc">
+                <Trans
+                  i18nKey="settings.migrationDesc"
+                  values={{ path: openclawPath || "" }}
+                  components={{ code: <code /> }}
+                />
+              </div>
             </div>
             <button
               className="btn-ghost settings-migration-dismiss"
@@ -856,10 +886,12 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
           <div className="settings-section-title">
             {t("settings.serverConfigTitle")}
           </div>
-          <div
-            className="settings-field-hint"
-            dangerouslySetInnerHTML={{ __html: t("settings.serverConfigHint") }}
-          />
+          <div className="settings-field-hint">
+            <Trans
+              i18nKey="settings.serverConfigHint"
+              components={{ code: <code /> }}
+            />
+          </div>
         </div>
       )}
 
