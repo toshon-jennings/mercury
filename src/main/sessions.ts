@@ -102,7 +102,14 @@ export function searchSessions(query: string, limit = 20): SearchResult[] {
       .trim()
       .split(/\s+/)
       .filter((w) => w.length > 0)
-      .map((w) => `"${w.replace(/"/g, "")}"*`)
+      .map((w) => {
+        // Escape existing double quotes by doubling them
+        // Remove null bytes as they can cause issues in SQLite FTS
+        // eslint-disable-next-line no-control-regex
+        const escaped = w.replace(/"/g, '""').replace(/\x00/g, "");
+        return escaped ? `"${escaped}"*` : "";
+      })
+      .filter((w) => w.length > 0)
       .join(" ");
 
     if (!sanitized) return [];
