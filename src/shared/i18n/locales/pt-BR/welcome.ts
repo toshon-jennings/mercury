@@ -12,11 +12,13 @@ export default {
   dividerOr: "ou",
   connectRemote: "Conectar ao Mercury Remoto",
   connectRemoteTitle: "Conectar ao Mercury Remoto",
-  connectRemoteSubtitle: "Insira a URL de um servidor da API do Mercury em execução.",
+  connectRemoteSubtitle:
+    "Insira a URL de um servidor da API do Mercury em execução.",
   remoteServerUrl: "URL do Servidor",
   remoteApiKey: "Chave da API (opcional)",
   remoteApiKeyPlaceholder: "Token Bearer (API_SERVER_KEY)",
   testingConnection: "Testando",
   connect: "Conectar",
-  remoteHint: "Deixe a chave vazia se o servidor aceitar requisições não autenticadas (ex: via túnel SSH para o localhost).",
+  remoteHint:
+    "Deixe a chave vazia se o servidor aceitar requisições não autenticadas (ex: via túnel SSH para o localhost).",
 } as const;

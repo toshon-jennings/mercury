@@ -12,7 +12,8 @@ import { createConnection } from "net";
 import { getEnhancedPath, HERMES_HOME } from "./installer";
 import { stripAnsi, safeWriteFile } from "./utils";
 
-const HERMES_OFFICE_REPO = "https://github.com/toshon-jennings/hermes-office.git";
+const HERMES_OFFICE_REPO =
+  "https://github.com/toshon-jennings/hermes-office.git";
 const HERMES_OFFICE_DIR = join(HERMES_HOME, "hermes-office");
 const DEV_PID_FILE = join(HERMES_HOME, "claw3d-dev.pid");
 const ADAPTER_PID_FILE = join(HERMES_HOME, "claw3d-adapter.pid");
@@ -653,7 +654,10 @@ export function stopAdapter(): void {
   cleanupPid(ADAPTER_PID_FILE);
 }
 
-export async function startAll(): Promise<{ success: boolean; error?: string }> {
+export async function startAll(): Promise<{
+  success: boolean;
+  error?: string;
+}> {
   if (!existsSync(join(HERMES_OFFICE_DIR, "node_modules"))) {
     return {
       success: false,
