@@ -19,14 +19,19 @@ export default {
     "ex: Nome: Alex. Desenvolvedor sênior. Prefere respostas concisas. Usa macOS com zsh. Fuso horário: PST.",
   noProvidersFound: "Nenhum provedor de memória encontrado nesta instalação.",
   openProviderWebsite: "Abrir site do provedor",
-  noMemoriesYet: "Nenhuma memória ainda. O Mercury salvará fatos importantes conforme vocês conversam.",
+  noMemoriesYet:
+    "Nenhuma memória ainda. O Mercury salvará fatos importantes conforme vocês conversam.",
   noMemoryEntries: "Nenhuma entrada de memória ainda.",
   noToolsetsFound: "Nenhum conjunto de ferramentas encontrado.",
-  addManuallyHint: "Você também pode adicionar memórias manualmente usando o botão acima.",
-  userProfileHint: "Conte ao Mercury sobre você — nome, cargo, preferências, estilo de comunicação.",
-  providersHint: "Provedores de memória plugáveis dão ao Mercury uma memória de longo prazo avançada. A memória integrada (acima) está sempre ativa ao lado do provedor selecionado.",
+  addManuallyHint:
+    "Você também pode adicionar memórias manualmente usando o botão acima.",
+  userProfileHint:
+    "Conte ao Mercury sobre você — nome, cargo, preferências, estilo de comunicação.",
+  providersHint:
+    "Provedores de memória plugáveis dão ao Mercury uma memória de longo prazo avançada. A memória integrada (acima) está sempre ativa ao lado do provedor selecionado.",
   providersHintActive: "Ativo: <strong>{{provider}}</strong>",
-  providersHintInactive: "Nenhum provedor externo ativo — usando apenas a integrada.",
+  providersHintInactive:
+    "Nenhum provedor externo ativo — usando apenas a integrada.",
   enterEnvKey: "Digite {{key}}",
   chars: "{{count}} caracteres",
   cancel: "Cancelar",
@@ -41,13 +46,19 @@ export default {
   activating: "Ativando...",
   activate: "Ativar",
   providers: {
-    honcho: "Modelagem de usuário entre sessões nativa de IA com Q&A dialético e busca semântica",
-    hindsight: "Memória de longo prazo com grafo de conhecimento e recuperação multi-estratégia",
+    honcho:
+      "Modelagem de usuário entre sessões nativa de IA com Q&A dialético e busca semântica",
+    hindsight:
+      "Memória de longo prazo com grafo de conhecimento e recuperação multi-estratégia",
     mem0: "Extração de fatos por LLM no lado do servidor com busca semântica e auto-deduplicação",
     retaindb: "API de memória em nuvem com busca híbrida e 7 tipos de memória",
-    supermemory: "Memória semântica de longo prazo com recuperação de perfil e extração de entidades",
-    holographic: "Armazenamento local de fatos em SQLite com busca FTS5 e pontuação de confiança (sem necessidade de chave de API)",
-    openviking: "Memória gerenciada por sessão com recuperação em camadas e navegação de conhecimento",
-    byterover: "Árvore de conhecimento persistente com recuperação em camadas via CLI brv",
+    supermemory:
+      "Memória semântica de longo prazo com recuperação de perfil e extração de entidades",
+    holographic:
+      "Armazenamento local de fatos em SQLite com busca FTS5 e pontuação de confiança (sem necessidade de chave de API)",
+    openviking:
+      "Memória gerenciada por sessão com recuperação em camadas e navegação de conhecimento",
+    byterover:
+      "Árvore de conhecimento persistente com recuperação em camadas via CLI brv",
   },
 } as const;
