@@ -196,7 +196,9 @@ function Sessions({
   }, [searchQuery]);
 
   const collapsibleGroups: DateGroup[] = ["yesterday", "thisWeek", "earlier"];
-  const [collapsed, setCollapsed] = useState<Set<DateGroup>>(new Set(collapsibleGroups));
+  const [collapsed, setCollapsed] = useState<Set<DateGroup>>(
+    new Set(collapsibleGroups),
+  );
 
   function toggleGroup(label: DateGroup): void {
     setCollapsed((prev) => {
@@ -291,7 +293,10 @@ function Sessions({
                     {r.source}
                   </span>
                   <span className="sessions-tag">
-                    {r.messageCount} {r.messageCount !== 1 ? t("sessions.messages") : t("sessions.messageSingular")}
+                    {r.messageCount}{" "}
+                    {r.messageCount !== 1
+                      ? t("sessions.messages")
+                      : t("sessions.messageSingular")}
                   </span>
                   {r.model && (
                     <span className="sessions-tag sessions-tag--model">
@@ -329,7 +334,9 @@ function Sessions({
                     />
                   </button>
                 ) : (
-                  <div className="sessions-group-label">{t(`sessions.${group.label}`)}</div>
+                  <div className="sessions-group-label">
+                    {t(`sessions.${group.label}`)}
+                  </div>
                 )}
                 {!isCollapsed &&
                   group.sessions.map((s) => (

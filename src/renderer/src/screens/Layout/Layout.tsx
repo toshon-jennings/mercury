@@ -259,8 +259,14 @@ function Layout({
             </button>
           )}
           <div className="sidebar-footer-text">
-            <span>{activeProfile === "default" ? t("common.shortAppName") : activeProfile}</span>
-            {appVersion && <span className="sidebar-version">v{appVersion}</span>}
+            <span>
+              {activeProfile === "default"
+                ? t("common.shortAppName")
+                : activeProfile}
+            </span>
+            {appVersion && (
+              <span className="sidebar-version">v{appVersion}</span>
+            )}
           </div>
         </div>
       </aside>
@@ -314,10 +320,12 @@ function Layout({
         )}
 
         {visitedViews.has("office") && (
-          <div style={{
-            ...paneStyle("office"),
-            overflow: "auto", // Office manages its own internal scroll; paneStyle's overflow:hidden blocks it
-          }}>
+          <div
+            style={{
+              ...paneStyle("office"),
+              overflow: "auto", // Office manages its own internal scroll; paneStyle's overflow:hidden blocks it
+            }}
+          >
             <Office visible={view === "office"} />
           </div>
         )}
@@ -383,11 +391,7 @@ function Layout({
 
         {visitedViews.has("terminal") && (
           <div style={paneStyle("terminal")}>
-            {remoteMode ? (
-              <RemoteNotice feature="Terminal" />
-            ) : (
-              <Terminal />
-            )}
+            {remoteMode ? <RemoteNotice feature="Terminal" /> : <Terminal />}
           </div>
         )}
 
