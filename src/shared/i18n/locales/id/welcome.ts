@@ -12,7 +12,8 @@ export default {
   dividerOr: "atau",
   connectRemote: "Hubungkan ke Mercury Remote",
   connectRemoteTitle: "Hubungkan ke Mercury Remote",
-  connectRemoteSubtitle: "Masukkan URL server Mercury API yang sedang berjalan.",
+  connectRemoteSubtitle:
+    "Masukkan URL server Mercury API yang sedang berjalan.",
   remoteServerUrl: "URL Server",
   remoteApiKey: "API Key (opsional)",
   remoteApiKeyPlaceholder: "Bearer token (API_SERVER_KEY)",

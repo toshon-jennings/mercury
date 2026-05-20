@@ -172,9 +172,7 @@ function App(): React.JSX.Element {
       <ErrorBoundary>
         <div className="app">
           {isMac && <div className="drag-region" />}
-          <div className="app-content">
-            {renderScreen()}
-          </div>
+          <div className="app-content">{renderScreen()}</div>
         </div>
       </ErrorBoundary>
     </ThemeProvider>
