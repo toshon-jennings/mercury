@@ -211,7 +211,8 @@ function Terminal(): React.JSX.Element {
     const resetSequence =
       "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?1015l\x1b[?1l\x1b[?1049l\x1b[?25h\x1b[0m";
     const sessionId = sessionIdRef.current;
-    if (sessionId) void window.hermesAPI.terminalInput(sessionId, resetSequence);
+    if (sessionId)
+      void window.hermesAPI.terminalInput(sessionId, resetSequence);
     termRef.current?.reset();
     requestAnimationFrame(fitTerminal);
   };

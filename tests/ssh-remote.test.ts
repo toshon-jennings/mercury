@@ -17,9 +17,12 @@ describe("ssh remote config writes", () => {
     ["backslash", "bad\\value"],
     ["newline", "bad\nvalue"],
     ["carriage return", "bad\rvalue"],
-  ])("rejects YAML-breaking %s values before remote writes", async (_name, value) => {
-    await expect(
-      sshSetConfigValue(sshConfig, "base_url", value),
-    ).rejects.toThrow("Config value contains illegal characters");
-  });
+  ])(
+    "rejects YAML-breaking %s values before remote writes",
+    async (_name, value) => {
+      await expect(
+        sshSetConfigValue(sshConfig, "base_url", value),
+      ).rejects.toThrow("Config value contains illegal characters");
+    },
+  );
 });
