@@ -22,14 +22,16 @@ export default {
   cannotLoadClaw3d: "Cannot load Claw3D",
   startingClaw3dService: "Starting Claw3D service...",
   terminalAgentsTitle: "Terminal agents",
-  terminalAgentsSubtitle: "Live CLI sessions appear here while Office is open.",
-  terminalAgentsCount: "{{count}} live",
-  terminalAgentsUnavailable: "Unable to load live terminal agents right now.",
+  terminalAgentsSubtitle:
+    "Tracked CLI sessions appear here, even if they are running in the background.",
+  terminalAgentsCount: "{{count}} tracked",
+  terminalAgentsUnavailable: "Unable to load tracked terminal sessions right now.",
   terminalAgentLabel: "CLI agent",
   terminalAgentUntitled: "Terminal agent {{id}}",
-  terminalAgentStatus: "Working now",
+  terminalAgentStatus: "Tracked session",
   terminalAgentMessages: "{{count}} msgs",
-  terminalAgentsEmpty: "Start a CLI session and its agent will show up here.",
+  terminalAgentsEmpty:
+    "Start a CLI session and Hermes will show its tracked record here.",
   clickToStart:
     'Click "Start" to launch your interactive office. This will start a local server and load the 3D visualization where your agents work and interact.',
   setupDesc1:

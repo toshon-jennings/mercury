@@ -124,6 +124,8 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: "/version", description: "Show Hermes version", category: "info" },
 ];
 
+const CHAT_REQUEST_TIMEOUT_MS = 90000;
+
 function HermesAvatar({ size = 30 }: { size?: number }): React.JSX.Element {
   return (
     <div className="chat-avatar chat-avatar-agent">
@@ -237,6 +239,7 @@ function Chat({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isLoadingRef = useRef(false);
   const chatErrorHandledRef = useRef(false);
+  const sendTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userScrolledUpRef = useRef(false);
 
   // Model picker state
@@ -256,6 +259,32 @@ function Chat({
 
   // Keep ref in sync for use in IPC callbacks
   isLoadingRef.current = isLoading;
+
+  const clearSendTimeout = useCallback((): void => {
+    if (sendTimeoutRef.current) {
+      clearTimeout(sendTimeoutRef.current);
+      sendTimeoutRef.current = null;
+    }
+  }, []);
+
+  const startSendTimeout = useCallback((): void => {
+    clearSendTimeout();
+    sendTimeoutRef.current = setTimeout(() => {
+      if (!isLoadingRef.current) return;
+      window.hermesAPI.abortChat();
+      setToolProgress(null);
+      setIsLoading(false);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `timeout-${Date.now()}`,
+          role: "agent",
+          content:
+            "Error: Request timed out waiting for the model response. Please retry or switch models.",
+        },
+      ]);
+    }, CHAT_REQUEST_TIMEOUT_MS);
+  }, [clearSendTimeout, setMessages]);
 
   // Filtered slash commands based on current input
   const filteredSlashCommands = useMemo(
@@ -427,12 +456,14 @@ function Chat({
     });
 
     const cleanupDone = window.hermesAPI.onChatDone((sessionId) => {
+      clearSendTimeout();
       if (sessionId) setHermesSessionId(sessionId);
       setToolProgress(null);
       setIsLoading(false);
     });
 
     const cleanupError = window.hermesAPI.onChatError((error) => {
+      clearSendTimeout();
       chatErrorHandledRef.current = true;
       setMessages((prev) => [
         ...prev,
@@ -460,13 +491,14 @@ function Chat({
     });
 
     return () => {
+      clearSendTimeout();
       cleanupChunk();
       cleanupDone();
       cleanupError();
       cleanupToolProgress();
       cleanupUsage();
     };
-  }, [setMessages]);
+  }, [clearSendTimeout, setMessages]);
 
   useEffect(() => {
     scrollToBottom();
@@ -536,6 +568,7 @@ function Chat({
 
     setIsLoading(true);
     chatErrorHandledRef.current = false;
+    startSendTimeout();
     setMessages((prev) => [
       ...prev,
       { id: `user-${Date.now()}`, role: "user", content: text },
@@ -552,6 +585,7 @@ function Chat({
       );
     } catch (error) {
       if (!chatErrorHandledRef.current) {
+        clearSendTimeout();
         setMessages((prev) => [
           ...prev,
           {
@@ -574,6 +608,7 @@ function Chat({
     if (inputRef.current) inputRef.current.style.height = "auto";
     setIsLoading(true);
     chatErrorHandledRef.current = false;
+    startSendTimeout();
     setMessages((prev) => [
       ...prev,
       { id: `user-btw-${Date.now()}`, role: "user", content: `💭 ${text}` },
@@ -588,6 +623,7 @@ function Chat({
       );
     } catch (error) {
       if (!chatErrorHandledRef.current) {
+        clearSendTimeout();
         setMessages((prev) => [
           ...prev,
           {
@@ -854,6 +890,7 @@ function Chat({
 
   function handleAbort(): void {
     window.hermesAPI.abortChat();
+    clearSendTimeout();
     setIsLoading(false);
     // Refocus input after aborting
     setTimeout(() => inputRef.current?.focus(), 50);
@@ -863,6 +900,7 @@ function Chat({
     // Abort any in-flight request before clearing
     if (isLoading) {
       window.hermesAPI.abortChat();
+      clearSendTimeout();
       setIsLoading(false);
     }
     setMessages([]);
@@ -874,6 +912,7 @@ function Chat({
   const handleApprove = useCallback(() => {
     setInput("");
     setIsLoading(true);
+    startSendTimeout();
     setMessages((prev) => [
       ...prev,
       { id: `user-approve-${Date.now()}`, role: "user", content: "/approve" },
@@ -881,12 +920,23 @@ function Chat({
     const history = messages.map((m) => ({ role: m.role, content: m.content }));
     window.hermesAPI
       .sendMessage("/approve", profile, hermesSessionId || undefined, history)
-      .catch(() => setIsLoading(false));
-  }, [profile, hermesSessionId, setMessages, messages]);
+      .catch(() => {
+        clearSendTimeout();
+        setIsLoading(false);
+      });
+  }, [
+    clearSendTimeout,
+    profile,
+    hermesSessionId,
+    setMessages,
+    messages,
+    startSendTimeout,
+  ]);
 
   const handleDeny = useCallback(() => {
     setInput("");
     setIsLoading(true);
+    startSendTimeout();
     setMessages((prev) => [
       ...prev,
       { id: `user-deny-${Date.now()}`, role: "user", content: "/deny" },
@@ -894,8 +944,18 @@ function Chat({
     const history = messages.map((m) => ({ role: m.role, content: m.content }));
     window.hermesAPI
       .sendMessage("/deny", profile, hermesSessionId || undefined, history)
-      .catch(() => setIsLoading(false));
-  }, [profile, hermesSessionId, setMessages, messages]);
+      .catch(() => {
+        clearSendTimeout();
+        setIsLoading(false);
+      });
+  }, [
+    clearSendTimeout,
+    profile,
+    hermesSessionId,
+    setMessages,
+    messages,
+    startSendTimeout,
+  ]);
 
   const visibleMessages = useMemo(
     () => messages.filter((m) => (m.content || "").trim()),
