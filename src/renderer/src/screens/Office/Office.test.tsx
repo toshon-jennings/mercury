@@ -12,7 +12,7 @@ describe("Office", () => {
   beforeEach(() => {
     claw3dStatus.mockResolvedValue({
       running: true,
-      port: 3000,
+      port: 18643,
       portInUse: false,
       adapterPort: 18642,
       adapterPortInUse: false,

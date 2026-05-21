@@ -41,6 +41,8 @@ interface OfficeWebviewElement extends HTMLWebViewElement {
 
 const LIVE_OFFICE_SESSION_SOURCES = new Set(["cli", "terminal"]);
 const LIVE_OFFICE_SESSION_MAX_AGE_SECONDS = 24 * 60 * 60;
+const DEFAULT_OFFICE_PORT = 18643;
+const DEFAULT_OFFICE_WS_URL = "ws://localhost:18642";
 
 function formatSessionTime(ts: number): string {
   return new Date(ts * 1000).toLocaleTimeString([], {
@@ -75,12 +77,12 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
   const [state, setState] = useState<OfficeState>("checking");
   const [running, setRunning] = useState(false);
   const [starting, setStarting] = useState(false);
-  const [port, setPort] = useState(3000);
-  const [portInput, setPortInput] = useState("3000");
+  const [port, setPort] = useState(DEFAULT_OFFICE_PORT);
+  const [portInput, setPortInput] = useState(String(DEFAULT_OFFICE_PORT));
   const [portInUse, setPortInUse] = useState(false);
   const [adapterPort, setAdapterPort] = useState(18642);
   const [adapterPortInUse, setAdapterPortInUse] = useState(false);
-  const [wsUrlInput, setWsUrlInput] = useState("ws://localhost:18642");
+  const [wsUrlInput, setWsUrlInput] = useState(DEFAULT_OFFICE_WS_URL);
   const [error, setError] = useState("");
   const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState("");
@@ -133,7 +135,7 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
     setPortInUse(status.portInUse);
     setAdapterPort(status.adapterPort);
     setAdapterPortInUse(status.adapterPortInUse);
-    setWsUrlInput(status.wsUrl || "ws://localhost:18642");
+    setWsUrlInput(status.wsUrl || DEFAULT_OFFICE_WS_URL);
     if (status.error) setError(status.error);
     if (status.installed) {
       setState("ready");

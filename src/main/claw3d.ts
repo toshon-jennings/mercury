@@ -19,8 +19,10 @@ const DEV_PID_FILE = join(HERMES_HOME, "claw3d-dev.pid");
 const ADAPTER_PID_FILE = join(HERMES_HOME, "claw3d-adapter.pid");
 const PORT_FILE = join(HERMES_HOME, "claw3d-port");
 const WS_URL_FILE = join(HERMES_HOME, "claw3d-ws-url");
-const DEFAULT_PORT = 3000;
-const DEFAULT_WS_URL = "ws://localhost:18642";
+const LEGACY_DEFAULT_PORT = 3000;
+const DEFAULT_ADAPTER_PORT = 18642;
+const DEFAULT_PORT = 18643;
+const DEFAULT_WS_URL = `ws://localhost:${DEFAULT_ADAPTER_PORT}`;
 const CLAW3D_SETTINGS_DIR = join(homedir(), ".openclaw", "claw3d");
 
 let devServerProcess: ChildProcess | null = null;
@@ -30,17 +32,29 @@ let adapterLogs = "";
 let devServerError = "";
 let adapterError = "";
 
+export function normalizeClaw3dPort(port: number): number {
+  if (!Number.isInteger(port)) return DEFAULT_PORT;
+  if (port === LEGACY_DEFAULT_PORT || port === DEFAULT_ADAPTER_PORT) {
+    return DEFAULT_PORT;
+  }
+  return port;
+}
+
 function getSavedPort(): number {
   try {
-    const port = parseInt(readFileSync(PORT_FILE, "utf-8").trim(), 10);
-    return isNaN(port) ? DEFAULT_PORT : port;
+    const savedPort = parseInt(readFileSync(PORT_FILE, "utf-8").trim(), 10);
+    const port = normalizeClaw3dPort(savedPort);
+    if (port !== savedPort) {
+      safeWriteFile(PORT_FILE, String(port));
+    }
+    return port;
   } catch {
     return DEFAULT_PORT;
   }
 }
 
 export function setClaw3dPort(port: number): void {
-  safeWriteFile(PORT_FILE, String(port));
+  safeWriteFile(PORT_FILE, String(normalizeClaw3dPort(port)));
   // Re-write .env with updated port
   writeClaw3dSettings();
 }
@@ -81,7 +95,7 @@ function getAdapterPort(): number {
   } catch {
     /* fallback */
   }
-  return 18642;
+  return DEFAULT_ADAPTER_PORT;
 }
 
 /**
@@ -91,7 +105,7 @@ function getAdapterPort(): number {
 function writeClaw3dSettings(wsUrl?: string): void {
   const url = wsUrl || getSavedWsUrl();
 
-  let adapterPort = 18642;
+  let adapterPort = DEFAULT_ADAPTER_PORT;
   try {
     // Basic regex to extract port from ws://localhost:18642 or similar
     const portMatch = url.match(/:(\d+)\/?$/);
@@ -243,7 +257,7 @@ export async function getClaw3dStatus(): Promise<Claw3dStatus> {
   const port = getSavedPort();
   const wsUrl = getSavedWsUrl();
 
-  let adapterPort = 18642;
+  let adapterPort = DEFAULT_ADAPTER_PORT;
   try {
     const portMatch = wsUrl.match(/:(\d+)\/?$/);
     if (portMatch) {
@@ -579,7 +593,7 @@ export function startAdapter(): boolean {
   adapterError = "";
   adapterLogs = "";
 
-  let adapterPort = 18642;
+  let adapterPort = DEFAULT_ADAPTER_PORT;
   try {
     const url = getSavedWsUrl();
     const portMatch = url.match(/:(\d+)\/?$/);
