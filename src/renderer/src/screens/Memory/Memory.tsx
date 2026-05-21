@@ -396,6 +396,7 @@ function Memory({ profile }: { profile?: string }): React.JSX.Element {
                         <button
                           className="btn-ghost memory-entry-btn"
                           onClick={() => setConfirmDelete(entry.index)}
+                          aria-label={t("memory.deleteConfirm")}
                         >
                           <Trash size={13} />
                         </button>
