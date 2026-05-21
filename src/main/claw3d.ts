@@ -1,4 +1,4 @@
-import { spawn, ChildProcess, execSync } from "child_process";
+import { spawn, ChildProcess, execFileSync } from "child_process";
 import {
   existsSync,
   readFileSync,
@@ -326,9 +326,12 @@ function findNpm(): string {
 
   // Fallback: which/where (blocks main thread — only runs once)
   try {
-    const npmPath = execSync("which npm 2>/dev/null || where npm 2>/dev/null", {
+    const isWin = process.platform === "win32";
+    const cmd = isWin ? "where" : "which";
+    const npmPath = execFileSync(cmd, ["npm"], {
       env: { ...process.env, PATH: getEnhancedPath() },
       timeout: 5000,
+      stdio: ["ignore", "pipe", "ignore"]
     })
       .toString()
       .trim()
