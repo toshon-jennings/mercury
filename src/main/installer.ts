@@ -339,7 +339,7 @@ export async function runClawMigrate(
   emit(`Migrating from ${openclaw.path}...\n`);
 
   return new Promise((resolve, reject) => {
-    const args = hermesCliArgs(["claw", "migrate", "--preset", "full"]);
+    const args = hermesCliArgs(["claw", "migrate", "--preset", "full", "--yes"]);
 
     const proc = spawn(HERMES_PYTHON, args, {
       cwd: HERMES_REPO,
