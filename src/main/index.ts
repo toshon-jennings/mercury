@@ -17,9 +17,11 @@ import {
   verifyInstall,
   runInstall,
   getHermesVersion,
+  getHermesInstallHealth,
   clearVersionCache,
   runHermesDoctor,
   runHermesUpdate,
+  normalizeHermesToOfficial,
   checkOpenClawExists,
   runClawMigrate,
   runHermesBackup,
@@ -338,6 +340,7 @@ function setupIPC(): void {
     if (conn.mode === "ssh" && conn.ssh) return sshGetHermesVersion(conn.ssh);
     return getHermesVersion();
   });
+  ipcMain.handle("get-hermes-install-health", () => getHermesInstallHealth());
   ipcMain.handle("refresh-hermes-version", async () => {
     const conn = getConnectionConfig();
     if (conn.mode === "ssh" && conn.ssh) return sshGetHermesVersion(conn.ssh);
@@ -373,6 +376,32 @@ function setupIPC(): void {
       return { success: true };
     } catch (err) {
       return { success: false, error: (err as Error).message };
+    }
+  });
+  ipcMain.handle("normalize-hermes-to-official", async (event) => {
+    try {
+      const conn = getConnectionConfig();
+      if (conn.mode !== "local") {
+        return {
+          success: false,
+          action: "none",
+          message: "Repair from Mercury currently supports local Hermes installs only.",
+          affectsMercury: false,
+          error:
+            "Repair from Mercury currently supports local Hermes installs only.",
+        };
+      }
+      return await normalizeHermesToOfficial((progress: InstallProgress) => {
+        event.sender.send("install-progress", progress);
+      });
+    } catch (err) {
+      return {
+        success: false,
+        action: "none",
+        message: "Hermes maintenance failed.",
+        affectsMercury: false,
+        error: (err as Error).message,
+      };
     }
   });
 

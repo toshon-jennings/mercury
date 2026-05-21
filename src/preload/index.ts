@@ -1,5 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { AppLocale } from "../shared/i18n/types";
+import type {
+  HermesInstallHealth,
+  HermesMaintenanceResult,
+} from "../main/installer";
 
 const electronAPI = {
   process: {
@@ -54,12 +58,16 @@ const hermesAPI = {
   // Hermes engine info
   getHermesVersion: (): Promise<string | null> =>
     ipcRenderer.invoke("get-hermes-version"),
+  getHermesInstallHealth: (): Promise<HermesInstallHealth> =>
+    ipcRenderer.invoke("get-hermes-install-health"),
   refreshHermesVersion: (): Promise<string | null> =>
     ipcRenderer.invoke("refresh-hermes-version"),
   runHermesDoctor: (): Promise<string> =>
     ipcRenderer.invoke("run-hermes-doctor"),
   runHermesUpdate: (): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke("run-hermes-update"),
+  normalizeHermesToOfficial: (): Promise<HermesMaintenanceResult> =>
+    ipcRenderer.invoke("normalize-hermes-to-official"),
 
   // OpenClaw migration
   checkOpenClaw: (): Promise<{ found: boolean; path: string | null }> =>

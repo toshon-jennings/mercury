@@ -1,4 +1,8 @@
 import type { AppLocale } from "../shared/i18n/types";
+import type {
+  HermesInstallHealth,
+  HermesMaintenanceResult,
+} from "../main/installer";
 
 interface ElectronAPI {
   process: {
@@ -37,9 +41,11 @@ interface HermesAPI {
 
   // Hermes engine info
   getHermesVersion: () => Promise<string | null>;
+  getHermesInstallHealth: () => Promise<HermesInstallHealth>;
   refreshHermesVersion: () => Promise<string | null>;
   runHermesDoctor: () => Promise<string>;
   runHermesUpdate: () => Promise<{ success: boolean; error?: string }>;
+  normalizeHermesToOfficial: () => Promise<HermesMaintenanceResult>;
 
   // OpenClaw migration
   checkOpenClaw: () => Promise<{ found: boolean; path: string | null }>;

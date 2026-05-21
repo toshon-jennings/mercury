@@ -22,7 +22,6 @@ import schedulesEn from "./locales/en/schedules";
 import skillsEn from "./locales/en/skills";
 import gatewayEn from "./locales/en/gateway";
 import agentsEn from "./locales/en/agents";
-import soulEn from "./locales/en/soul";
 import memoryEn from "./locales/en/memory";
 import installEn from "./locales/en/install";
 import constantsEn from "./locales/en/constants";
@@ -42,7 +41,6 @@ import schedulesEs from "./locales/es/schedules";
 import skillsEs from "./locales/es/skills";
 import gatewayEs from "./locales/es/gateway";
 import agentsEs from "./locales/es/agents";
-import soulEs from "./locales/es/soul";
 import memoryEs from "./locales/es/memory";
 import installEs from "./locales/es/install";
 import constantsEs from "./locales/es/constants";
@@ -62,7 +60,6 @@ import schedulesId from "./locales/id/schedules";
 import skillsId from "./locales/id/skills";
 import gatewayId from "./locales/id/gateway";
 import agentsId from "./locales/id/agents";
-import soulId from "./locales/id/soul";
 import memoryId from "./locales/id/memory";
 import installId from "./locales/id/install";
 import constantsId from "./locales/id/constants";
@@ -82,7 +79,6 @@ import schedulesZh from "./locales/zh-CN/schedules";
 import skillsZh from "./locales/zh-CN/skills";
 import gatewayZh from "./locales/zh-CN/gateway";
 import agentsZh from "./locales/zh-CN/agents";
-import soulZh from "./locales/zh-CN/soul";
 import memoryZh from "./locales/zh-CN/memory";
 import installZh from "./locales/zh-CN/install";
 import constantsZh from "./locales/zh-CN/constants";
@@ -102,7 +98,6 @@ import schedulesPt from "./locales/pt-BR/schedules";
 import skillsPt from "./locales/pt-BR/skills";
 import gatewayPt from "./locales/pt-BR/gateway";
 import agentsPt from "./locales/pt-BR/agents";
-import soulPt from "./locales/pt-BR/soul";
 import memoryPt from "./locales/pt-BR/memory";
 import installPt from "./locales/pt-BR/install";
 import constantsPt from "./locales/pt-BR/constants";
@@ -126,7 +121,6 @@ export const resources = {
       skills: skillsEn,
       gateway: gatewayEn,
       agents: agentsEn,
-      soul: soulEn,
       memory: memoryEn,
       install: installEn,
       constants: constantsEn,
@@ -150,7 +144,6 @@ export const resources = {
       skills: skillsEs,
       gateway: gatewayEs,
       agents: agentsEs,
-      soul: soulEs,
       memory: memoryEs,
       install: installEs,
       constants: constantsEs,
@@ -174,7 +167,6 @@ export const resources = {
       skills: skillsId,
       gateway: gatewayId,
       agents: agentsId,
-      soul: soulId,
       memory: memoryId,
       install: installId,
       constants: constantsId,
@@ -198,7 +190,6 @@ export const resources = {
       skills: skillsZh,
       gateway: gatewayZh,
       agents: agentsZh,
-      soul: soulZh,
       memory: memoryZh,
       install: installZh,
       constants: constantsZh,
@@ -222,7 +213,6 @@ export const resources = {
       skills: skillsPt,
       gateway: gatewayPt,
       agents: agentsPt,
-      soul: soulPt,
       memory: memoryPt,
       install: installPt,
       constants: constantsPt,

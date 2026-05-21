@@ -1,6 +1,7 @@
 import { spawn, execFile, execFileSync } from "child_process";
 import {
   existsSync,
+  mkdirSync,
   readFileSync,
   readdirSync,
   writeFileSync,
@@ -51,6 +52,476 @@ export interface InstallProgress {
   title: string;
   detail: string;
   log: string;
+}
+
+export type HermesMaintenanceMode =
+  | "up_to_date"
+  | "update_available"
+  | "customized"
+  | "repair_needed"
+  | "not_installed";
+
+export interface HermesInstallHealth {
+  mode: HermesMaintenanceMode;
+  summary: string;
+  detail: string;
+  affectsMercury: false;
+  backupRecommended: boolean;
+  canAutoFix: boolean;
+  canStandardUpdate: boolean;
+  canNormalizeToOfficial: boolean;
+  localVersion: string | null;
+  currentBranch: string | null;
+  remotes: {
+    origin?: string | null;
+    upstream?: string | null;
+    officialRemote?: string | null;
+    forkRemote?: string | null;
+  };
+  git: {
+    isRepo: boolean;
+    isDirty: boolean;
+    hasUntrackedFiles: boolean;
+    aheadOfOfficial: number | null;
+    behindOfficial: number | null;
+    aheadOfFork: number | null;
+    behindOfFork: number | null;
+  };
+  warnings: string[];
+}
+
+export interface HermesMaintenanceResult {
+  success: boolean;
+  action:
+    | "standard_update"
+    | "normalized_to_official"
+    | "repair_attempted"
+    | "none";
+  message: string;
+  affectsMercury: false;
+  backupPath?: string;
+  previousBranch?: string | null;
+  previousHead?: string | null;
+  currentHead?: string | null;
+  error?: string;
+  warnings?: string[];
+}
+
+interface GitResult {
+  ok: boolean;
+  stdout: string;
+  stderr: string;
+}
+
+export interface HermesRepoSnapshot {
+  isRepo: boolean;
+  remotes: Record<string, string>;
+  currentBranch: string | null;
+  workingTree: { isDirty: boolean; hasUntrackedFiles: boolean; raw: string };
+  officialRemote: string | null;
+  forkRemote: string | null;
+  aheadOfOfficial: number | null;
+  behindOfficial: number | null;
+  aheadOfFork: number | null;
+  behindOfFork: number | null;
+}
+
+function runGit(args: string[]): GitResult {
+  try {
+    const stdout = execFileSync("git", args, {
+      cwd: HERMES_REPO,
+      env: {
+        ...process.env,
+        PATH: getEnhancedPath(),
+        HOME: homedir(),
+        HERMES_HOME,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 20000,
+    });
+    return {
+      ok: true,
+      stdout: stdout.toString(),
+      stderr: "",
+    };
+  } catch (err) {
+    const error = err as { stdout?: Buffer; stderr?: Buffer };
+    return {
+      ok: false,
+      stdout: error.stdout?.toString() || "",
+      stderr: error.stderr?.toString() || "",
+    };
+  }
+}
+
+function normalizeGitUrl(url: string): string {
+  const trimmed = url.trim().replace(/\.git$/i, "");
+  return trimmed
+    .replace(/^ssh:\/\/git@github\.com\//i, "github.com/")
+    .replace(/^git@github\.com:/i, "github.com/")
+    .replace(/^https?:\/\/github\.com\//i, "github.com/")
+    .toLowerCase();
+}
+
+function isOfficialHermesRemote(url: string | null): boolean {
+  if (!url) return false;
+  return normalizeGitUrl(url) === "github.com/nousresearch/hermes-agent";
+}
+
+function isGitHubRemote(url: string): boolean {
+  return normalizeGitUrl(url).startsWith("github.com/");
+}
+
+function getGitRemoteMap(): Record<string, string> {
+  const result = runGit(["remote", "-v"]);
+  if (!result.ok) return {};
+  const remotes: Record<string, string> = {};
+  for (const line of result.stdout.split("\n")) {
+    const match = line.trim().match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/);
+    if (!match) continue;
+    const [, name, url] = match;
+    if (!(name in remotes)) remotes[name] = url;
+  }
+  return remotes;
+}
+
+function getCurrentBranch(): string | null {
+  const branch = runGit(["branch", "--show-current"]);
+  if (!branch.ok) return null;
+  const value = branch.stdout.trim();
+  if (!value || value === "HEAD") return null;
+  return value;
+}
+
+function getWorkingTreeStatus(): {
+  isDirty: boolean;
+  hasUntrackedFiles: boolean;
+  raw: string;
+} {
+  const result = runGit(["status", "--porcelain=v1"]);
+  if (!result.ok) {
+    return { isDirty: false, hasUntrackedFiles: false, raw: "" };
+  }
+
+  const raw = result.stdout;
+  let isDirty = false;
+  let hasUntrackedFiles = false;
+  for (const line of raw.split("\n")) {
+    if (!line.trim()) continue;
+    if (line.startsWith("??")) {
+      hasUntrackedFiles = true;
+      continue;
+    }
+    if (line.length >= 2) {
+      const indexStatus = line[0] || " ";
+      const workTreeStatus = line[1] || " ";
+      if (indexStatus.trim() || workTreeStatus.trim()) {
+        isDirty = true;
+      }
+    }
+  }
+
+  return { isDirty, hasUntrackedFiles, raw };
+}
+
+function getAheadBehind(baseRef: string, headRef: string): {
+  ahead: number | null;
+  behind: number | null;
+} {
+  const result = runGit(["rev-list", "--left-right", "--count", `${baseRef}...${headRef}`]);
+  if (!result.ok) return { ahead: null, behind: null };
+  const match = result.stdout.trim().match(/^(\d+)\s+(\d+)$/);
+  if (!match) return { ahead: null, behind: null };
+  const behind = Number.parseInt(match[1] || "0", 10);
+  const ahead = Number.parseInt(match[2] || "0", 10);
+  return {
+    ahead: Number.isNaN(ahead) ? null : ahead,
+    behind: Number.isNaN(behind) ? null : behind,
+  };
+}
+
+function getHermesRepoSnapshot(): HermesRepoSnapshot {
+  const repoExists = existsSync(HERMES_REPO);
+  const remotes = repoExists ? getGitRemoteMap() : {};
+  const currentBranch = repoExists ? getCurrentBranch() : null;
+  const workingTree = repoExists
+    ? getWorkingTreeStatus()
+    : { isDirty: false, hasUntrackedFiles: false, raw: "" };
+  const officialRemoteEntry = Object.entries(remotes).find(([, url]) =>
+    isOfficialHermesRemote(url),
+  );
+  const forkRemoteEntry = Object.entries(remotes).find(
+    ([name, url]) => !isOfficialHermesRemote(url) && isGitHubRemote(url) && name !== officialRemoteEntry?.[0],
+  );
+  const officialRemote = officialRemoteEntry?.[0] || null;
+  const forkRemote = forkRemoteEntry?.[0] || null;
+
+  let aheadOfOfficial: number | null = null;
+  let behindOfficial: number | null = null;
+  let aheadOfFork: number | null = null;
+  let behindOfFork: number | null = null;
+  if (officialRemote && currentBranch) {
+    const counts = getAheadBehind(`${officialRemote}/main`, "HEAD");
+    aheadOfOfficial = counts.ahead;
+    behindOfficial = counts.behind;
+  }
+  if (forkRemote && currentBranch) {
+    const counts = getAheadBehind(`${forkRemote}/main`, "HEAD");
+    aheadOfFork = counts.ahead;
+    behindOfFork = counts.behind;
+  }
+
+  return {
+    isRepo: repoExists && runGit(["rev-parse", "--is-inside-work-tree"]).ok,
+    remotes,
+    currentBranch,
+    workingTree,
+    officialRemote,
+    forkRemote,
+    aheadOfOfficial,
+    behindOfficial,
+    aheadOfFork,
+    behindOfFork,
+  };
+}
+
+export function classifyHermesInstallHealth(
+  snapshot: HermesRepoSnapshot,
+  localVersion: string | null,
+  installed = true,
+): HermesInstallHealth {
+  const warnings: string[] = [];
+  const hasOfficialRemote = Boolean(snapshot.officialRemote);
+  const hasForkRemote = Boolean(snapshot.forkRemote);
+  const originUrl = snapshot.remotes.origin || null;
+  const upstreamUrl = snapshot.remotes.upstream || null;
+  const branch = snapshot.currentBranch;
+  const dirty = snapshot.workingTree.isDirty;
+  const untracked = snapshot.workingTree.hasUntrackedFiles;
+  const isMainBranch = branch === "main";
+  const aheadOfOfficial = snapshot.aheadOfOfficial;
+  const behindOfficial = snapshot.behindOfficial;
+  const aheadOfFork = snapshot.aheadOfFork;
+  const behindOfFork = snapshot.behindOfFork;
+
+  if (untracked) warnings.push("Untracked files detected in Hermes install");
+  if (dirty) warnings.push("Local Hermes files have been modified");
+  if (branch && branch !== "main")
+    warnings.push("Local Hermes branch differs from official main");
+  if (!hasOfficialRemote) warnings.push("Official remote could not be confirmed");
+  if (hasOfficialRemote && hasForkRemote)
+    warnings.push("Custom fork remote detected alongside official remote");
+  if (
+    originUrl &&
+    upstreamUrl &&
+    isOfficialHermesRemote(originUrl) &&
+    !isOfficialHermesRemote(upstreamUrl)
+  ) {
+    warnings.push("Hermes remotes appear reversed");
+  }
+
+  if (!installed) {
+    return {
+      mode: "not_installed",
+      summary: "Hermes is not installed",
+      detail: "Mercury could not find a local Hermes install.",
+      affectsMercury: false,
+      backupRecommended: false,
+      canAutoFix: false,
+      canStandardUpdate: false,
+      canNormalizeToOfficial: false,
+      localVersion,
+      currentBranch: null,
+      remotes: {
+        origin: null,
+        upstream: null,
+        officialRemote: null,
+        forkRemote: null,
+      },
+      git: {
+        isRepo: false,
+        isDirty: false,
+        hasUntrackedFiles: false,
+        aheadOfOfficial: null,
+        behindOfficial: null,
+        aheadOfFork: null,
+        behindOfFork: null,
+      },
+      warnings: [],
+    };
+  }
+
+  if (!snapshot.isRepo) {
+    return {
+      mode: "repair_needed",
+      summary: "Hermes needs repair",
+      detail: "Mercury found a local Hermes state it cannot safely update without repair.",
+      affectsMercury: false,
+      backupRecommended: false,
+      canAutoFix: false,
+      canStandardUpdate: false,
+      canNormalizeToOfficial: false,
+      localVersion,
+      currentBranch: branch,
+      remotes: {
+        origin: snapshot.remotes.origin || null,
+        upstream: snapshot.remotes.upstream || null,
+        officialRemote: snapshot.officialRemote,
+        forkRemote: snapshot.forkRemote,
+      },
+      git: {
+        isRepo: false,
+        isDirty: dirty,
+        hasUntrackedFiles: untracked,
+        aheadOfOfficial,
+        behindOfficial,
+        aheadOfFork,
+        behindOfFork,
+      },
+      warnings,
+    };
+  }
+
+  if (!hasOfficialRemote) {
+    return {
+      mode: "repair_needed",
+      summary: "Hermes needs repair",
+      detail: "Mercury found a local Hermes state it cannot safely update without repair.",
+      affectsMercury: false,
+      backupRecommended: false,
+      canAutoFix: false,
+      canStandardUpdate: false,
+      canNormalizeToOfficial: false,
+      localVersion,
+      currentBranch: branch,
+      remotes: {
+        origin: snapshot.remotes.origin || null,
+        upstream: snapshot.remotes.upstream || null,
+        officialRemote: snapshot.officialRemote,
+        forkRemote: snapshot.forkRemote,
+      },
+      git: {
+        isRepo: true,
+        isDirty: dirty,
+        hasUntrackedFiles: untracked,
+        aheadOfOfficial,
+        behindOfficial,
+        aheadOfFork,
+        behindOfFork,
+      },
+      warnings,
+    };
+  }
+
+  const hasRecoverableCustomization =
+    dirty ||
+    untracked ||
+    !isMainBranch ||
+    (aheadOfOfficial !== null && aheadOfOfficial > 0) ||
+    (aheadOfFork !== null && aheadOfFork > 0) ||
+    (behindOfFork !== null && behindOfFork > 0) ||
+    (originUrl &&
+      upstreamUrl &&
+      isOfficialHermesRemote(originUrl) &&
+      !isOfficialHermesRemote(upstreamUrl));
+
+  if (hasRecoverableCustomization) {
+    return {
+      mode: "customized",
+      summary: "Hermes is using a customized install",
+      detail:
+        "Mercury can safely back up the current Hermes install and switch you to the official Hermes version. This changes Hermes Agent only, not Mercury.",
+      affectsMercury: false,
+      backupRecommended: true,
+      canAutoFix: true,
+      canStandardUpdate: false,
+      canNormalizeToOfficial: true,
+      localVersion,
+      currentBranch: branch,
+      remotes: {
+        origin: snapshot.remotes.origin || null,
+        upstream: snapshot.remotes.upstream || null,
+        officialRemote: snapshot.officialRemote,
+        forkRemote: snapshot.forkRemote,
+      },
+      git: {
+        isRepo: true,
+        isDirty: dirty,
+        hasUntrackedFiles: untracked,
+        aheadOfOfficial,
+        behindOfficial,
+        aheadOfFork,
+        behindOfFork,
+      },
+      warnings,
+    };
+  }
+
+  if (
+    isMainBranch &&
+    behindOfficial !== null &&
+    aheadOfOfficial === 0 &&
+    behindOfficial > 0
+  ) {
+    return {
+      mode: "update_available",
+      summary: "Hermes update available",
+      detail:
+        "Mercury can update Hermes Agent to the latest official version.",
+      affectsMercury: false,
+      backupRecommended: true,
+      canAutoFix: true,
+      canStandardUpdate: true,
+      canNormalizeToOfficial: true,
+      localVersion,
+      currentBranch: branch,
+      remotes: {
+        origin: snapshot.remotes.origin || null,
+        upstream: snapshot.remotes.upstream || null,
+        officialRemote: snapshot.officialRemote,
+        forkRemote: snapshot.forkRemote,
+      },
+      git: {
+        isRepo: true,
+        isDirty: false,
+        hasUntrackedFiles: false,
+        aheadOfOfficial,
+        behindOfficial,
+        aheadOfFork,
+        behindOfFork,
+      },
+      warnings,
+    };
+  }
+
+  return {
+    mode: "up_to_date",
+    summary: "Hermes is up to date",
+    detail: "Your Hermes install matches the official Hermes release.",
+    affectsMercury: false,
+    backupRecommended: false,
+    canAutoFix: false,
+    canStandardUpdate: false,
+    canNormalizeToOfficial: true,
+    localVersion,
+    currentBranch: branch,
+    remotes: {
+      origin: snapshot.remotes.origin || null,
+      upstream: snapshot.remotes.upstream || null,
+      officialRemote: snapshot.officialRemote,
+      forkRemote: snapshot.forkRemote,
+    },
+    git: {
+      isRepo: true,
+      isDirty: false,
+      hasUntrackedFiles: false,
+      aheadOfOfficial: aheadOfOfficial ?? 0,
+      behindOfficial: behindOfficial ?? 0,
+      aheadOfFork,
+      behindOfFork,
+    },
+    warnings,
+  };
 }
 
 export function getEnhancedPath(): string {
@@ -273,8 +744,54 @@ export async function getHermesVersion(): Promise<string | null> {
   });
 }
 
+function getHermesVersionSync(): string | null {
+  if (!existsSync(HERMES_PYTHON) || !existsSync(HERMES_SCRIPT)) return null;
+  try {
+    const output = execFileSync(HERMES_PYTHON, hermesCliArgs(["--version"]), {
+      cwd: HERMES_REPO,
+      env: {
+        ...process.env,
+        PATH: getEnhancedPath(),
+        HOME: homedir(),
+        HERMES_HOME,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 15000,
+    });
+    return output.toString().trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 export function clearVersionCache(): void {
   _cachedVersion = null;
+}
+
+export function getHermesInstallHealth(): HermesInstallHealth {
+  if (!existsSync(HERMES_PYTHON) || !existsSync(HERMES_SCRIPT)) {
+    return classifyHermesInstallHealth(
+      {
+        isRepo: false,
+        remotes: {},
+        currentBranch: null,
+        workingTree: { isDirty: false, hasUntrackedFiles: false, raw: "" },
+        officialRemote: null,
+        forkRemote: null,
+        aheadOfOfficial: null,
+        behindOfficial: null,
+        aheadOfFork: null,
+        behindOfFork: null,
+      },
+      null,
+      false,
+    );
+  }
+
+  const snapshot = getHermesRepoSnapshot();
+  const localVersion = getHermesVersionSync();
+
+  return classifyHermesInstallHealth(snapshot, localVersion);
 }
 
 export function runHermesDoctor(): string {
@@ -431,6 +948,313 @@ export async function runHermesUpdate(
       reject(new Error(`Failed to run update: ${err.message}`));
     });
   });
+}
+
+function makeMaintenanceProgressEmitter(
+  onProgress: (progress: InstallProgress) => void,
+  title: string,
+): (detail: string) => void {
+  let log = "";
+  return (detail: string) => {
+    log += detail;
+    onProgress({
+      step: 1,
+      totalSteps: 1,
+      title,
+      detail: detail.trim().slice(0, 120),
+      log,
+    });
+  };
+}
+
+function runCommandStream(
+  command: string,
+  args: string[],
+  onLine: (line: string) => void,
+  options?: { cwd?: string; timeout?: number; env?: NodeJS.ProcessEnv },
+): Promise<{ code: number | null; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const stdoutChunks: string[] = [];
+    const stderrChunks: string[] = [];
+    const proc = spawn(command, args, {
+      cwd: options?.cwd ?? HERMES_REPO,
+      env: {
+        ...process.env,
+        PATH: getEnhancedPath(),
+        HOME: homedir(),
+        HERMES_HOME,
+        TERM: "dumb",
+        ...(options?.env ?? {}),
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    const timeout = options?.timeout
+      ? setTimeout(() => {
+          proc.kill();
+          reject(new Error(`${command} ${args.join(" ")} timed out.`));
+        }, options.timeout)
+      : null;
+
+    proc.stdout?.on("data", (data: Buffer) => {
+      const text = stripAnsi(data.toString());
+      stdoutChunks.push(text);
+      onLine(text);
+    });
+
+    proc.stderr?.on("data", (data: Buffer) => {
+      const text = stripAnsi(data.toString());
+      stderrChunks.push(text);
+      onLine(text);
+    });
+
+    proc.on("error", (err) => {
+      if (timeout) clearTimeout(timeout);
+      reject(err);
+    });
+
+    proc.on("close", (code) => {
+      if (timeout) clearTimeout(timeout);
+      resolve({
+        code,
+        stdout: stdoutChunks.join(""),
+        stderr: stderrChunks.join(""),
+      });
+    });
+  });
+}
+
+async function performHermesMaintenance(
+  action: HermesMaintenanceResult["action"],
+  onProgress: (progress: InstallProgress) => void,
+): Promise<HermesMaintenanceResult> {
+  const health = getHermesInstallHealth();
+  if (health.mode === "not_installed") {
+    return {
+      success: false,
+      action,
+      message: "Hermes is not installed.",
+      affectsMercury: false,
+      error: "Hermes is not installed.",
+    };
+  }
+  if (!existsSync(HERMES_REPO)) {
+    return {
+      success: false,
+      action,
+      message: "Hermes repo is missing.",
+      affectsMercury: false,
+      error: "Hermes repo is missing.",
+    };
+  }
+  if (!health.remotes.officialRemote) {
+    return {
+      success: false,
+      action,
+      message: "Official Hermes remote could not be confirmed.",
+      affectsMercury: false,
+      error: "Official Hermes remote could not be confirmed.",
+      warnings: health.warnings,
+    };
+  }
+
+  const emit = makeMaintenanceProgressEmitter(
+    onProgress,
+    action === "repair_attempted" ? "Repairing Hermes" : "Restoring official Hermes",
+  );
+  const backupRoot = join(HERMES_HOME, "maintenance-backups");
+  mkdirSync(backupRoot, { recursive: true });
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const backupBundle = join(backupRoot, `hermes-agent-${timestamp}.bundle`);
+  const previousBranch = health.currentBranch;
+  const previousHead = runGit(["rev-parse", "HEAD"]).ok
+    ? runGit(["rev-parse", "HEAD"]).stdout.trim() || null
+    : null;
+  const officialRemote = health.remotes.officialRemote;
+  const backupWarnings: string[] = [...health.warnings];
+
+  emit("Creating Hermes backup bundle...\n");
+  const bundleResult = runGit(["bundle", "create", backupBundle, "--all"]);
+  if (!bundleResult.ok) {
+    return {
+      success: false,
+      action,
+      message: "Mercury could not create a Hermes backup bundle.",
+      affectsMercury: false,
+      error: stripAnsi(bundleResult.stderr || bundleResult.stdout || "Backup failed."),
+      warnings: backupWarnings,
+    };
+  }
+
+  if (health.git.isDirty || health.git.hasUntrackedFiles) {
+    emit("Saving a git stash backup for local file changes...\n");
+    const stash = runGit([
+      "stash",
+      "push",
+      "--all",
+      "-m",
+      `Mercury Hermes maintenance backup ${timestamp}`,
+    ]);
+    if (!stash.ok) {
+      return {
+        success: false,
+        action,
+        message: "Mercury could not back up local Hermes changes.",
+        affectsMercury: false,
+        error: stripAnsi(stash.stderr || stash.stdout || "Stash backup failed."),
+        backupPath: backupBundle,
+        warnings: backupWarnings,
+      };
+    }
+    backupWarnings.push("Local Hermes changes were saved to a git stash backup");
+  }
+
+  emit("Fetching official Hermes remote...\n");
+  const fetchResult = await runCommandStream(
+    "git",
+    ["fetch", "--prune", officialRemote, "main"],
+    (line) => emit(line),
+    { timeout: 120000 },
+  );
+  if (fetchResult.code !== 0) {
+    return {
+      success: false,
+      action,
+      message: "Mercury could not fetch the official Hermes release.",
+      affectsMercury: false,
+      error: stripAnsi(fetchResult.stderr || fetchResult.stdout || "Fetch failed."),
+      backupPath: backupBundle,
+      warnings: backupWarnings,
+    };
+  }
+
+  emit("Switching Hermes to official main...\n");
+  const checkoutResult = await runCommandStream(
+    "git",
+    ["checkout", "-B", "main", `${officialRemote}/main`],
+    (line) => emit(line),
+    { timeout: 120000 },
+  );
+  if (checkoutResult.code !== 0) {
+    return {
+      success: false,
+      action,
+      message: "Mercury could not switch Hermes to the official branch.",
+      affectsMercury: false,
+      error: stripAnsi(checkoutResult.stderr || checkoutResult.stdout || "Checkout failed."),
+      backupPath: backupBundle,
+      warnings: backupWarnings,
+    };
+  }
+
+  emit("Resetting Hermes to the official release...\n");
+  const resetResult = await runCommandStream(
+    "git",
+    ["reset", "--hard", `${officialRemote}/main`],
+    (line) => emit(line),
+    { timeout: 120000 },
+  );
+  if (resetResult.code !== 0) {
+    return {
+      success: false,
+      action,
+      message: "Mercury could not reset Hermes to the official release.",
+      affectsMercury: false,
+      error: stripAnsi(resetResult.stderr || resetResult.stdout || "Reset failed."),
+      backupPath: backupBundle,
+      warnings: backupWarnings,
+    };
+  }
+
+  emit("Ensuring Python packaging tools are available...\n");
+  const ensurepip = await runCommandStream(
+    HERMES_PYTHON,
+    ["-m", "ensurepip", "--upgrade"],
+    (line) => emit(line),
+    { timeout: 120000 },
+  );
+  if (ensurepip.code !== 0) {
+    return {
+      success: false,
+      action,
+      message: "Mercury could not prepare Hermes dependencies.",
+      affectsMercury: false,
+      error: stripAnsi(ensurepip.stderr || ensurepip.stdout || "ensurepip failed."),
+      backupPath: backupBundle,
+      warnings: backupWarnings,
+    };
+  }
+
+  emit("Upgrading pip tooling...\n");
+  const pipTools = await runCommandStream(
+    HERMES_PYTHON,
+    ["-m", "pip", "install", "--upgrade", "pip", "setuptools", "wheel"],
+    (line) => emit(line),
+    { timeout: 240000 },
+  );
+  if (pipTools.code !== 0) {
+    return {
+      success: false,
+      action,
+      message: "Mercury could not upgrade Hermes packaging tools.",
+      affectsMercury: false,
+      error: stripAnsi(pipTools.stderr || pipTools.stdout || "pip upgrade failed."),
+      backupPath: backupBundle,
+      warnings: backupWarnings,
+    };
+  }
+
+  emit("Reinstalling Hermes dependencies...\n");
+  const installDeps = await runCommandStream(
+    HERMES_PYTHON,
+    ["-m", "pip", "install", "-e", ".[all]"],
+    (line) => emit(line),
+    { timeout: 600000 },
+  );
+  if (installDeps.code !== 0) {
+    return {
+      success: false,
+      action,
+      message: "Mercury could not reinstall Hermes dependencies.",
+      affectsMercury: false,
+      error: stripAnsi(installDeps.stderr || installDeps.stdout || "Dependency install failed."),
+      backupPath: backupBundle,
+      warnings: backupWarnings,
+    };
+  }
+
+  clearVersionCache();
+  const currentHeadResult = runGit(["rev-parse", "HEAD"]);
+  const currentHead = currentHeadResult.ok
+    ? currentHeadResult.stdout.trim() || null
+    : null;
+
+  return {
+    success: true,
+    action,
+    message:
+      action === "repair_attempted"
+        ? "Hermes repair completed."
+        : "Hermes was restored to the official version.",
+    affectsMercury: false,
+    backupPath: backupBundle,
+    previousBranch,
+    previousHead,
+    currentHead,
+    warnings: backupWarnings,
+  };
+}
+
+export async function normalizeHermesToOfficial(
+  onProgress: (progress: InstallProgress) => void,
+): Promise<HermesMaintenanceResult> {
+  return performHermesMaintenance("normalized_to_official", onProgress);
+}
+
+export async function repairHermesInstall(
+  onProgress: (progress: InstallProgress) => void,
+): Promise<HermesMaintenanceResult> {
+  return performHermesMaintenance("repair_attempted", onProgress);
 }
 
 function getShellProfile(home: string): string | null {
