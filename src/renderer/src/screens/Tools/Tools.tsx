@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useI18n } from "../../components/useI18n";
+import { Trans } from "react-i18next";
 
 interface ToolsetInfo {
   key: string;
@@ -338,10 +339,12 @@ function Tools({ profile }: ToolsProps): React.JSX.Element {
           <div className="page-header" style={{ marginTop: 32 }}>
             <div>
               <h2 className="page-title">{t("tools.mcpServers")}</h2>
-              <p
-                className="page-subtitle"
-                dangerouslySetInnerHTML={{ __html: t("tools.mcpDescription") }}
-              />
+              <p className="page-subtitle">
+                <Trans
+                  i18nKey="tools.mcpDescription"
+                  components={{ code: <code /> }}
+                />
+              </p>
             </div>
           </div>
           <div className="tools-grid">

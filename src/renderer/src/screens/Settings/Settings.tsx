@@ -5,6 +5,7 @@ import { useI18n } from "../../components/useI18n";
 import { APP_LOCALES, type AppLocale } from "../../../../shared/i18n";
 import openclawLogo from "../../assets/openclaw-color.png";
 import { Download, Upload, FileText, Send } from "lucide-react";
+import { Trans } from "react-i18next";
 
 const TELEGRAM_COMMUNITY_URL = "https://t.me/hermes_agent_desktop";
 
@@ -715,14 +716,13 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
               <div className="settings-migration-title">
                 {t("settings.migrationDetected")}
               </div>
-              <div
-                className="settings-migration-desc"
-                dangerouslySetInnerHTML={{
-                  __html: t("settings.migrationDesc", {
-                    path: openclawPath || "",
-                  }),
-                }}
-              />
+              <div className="settings-migration-desc">
+                <Trans
+                  i18nKey="settings.migrationDesc"
+                  values={{ path: openclawPath || "" }}
+                  components={{ code: <code /> }}
+                />
+              </div>
             </div>
             <button
               className="btn-ghost settings-migration-dismiss"
@@ -886,10 +886,12 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
           <div className="settings-section-title">
             {t("settings.serverConfigTitle")}
           </div>
-          <div
-            className="settings-field-hint"
-            dangerouslySetInnerHTML={{ __html: t("settings.serverConfigHint") }}
-          />
+          <div className="settings-field-hint">
+            <Trans
+              i18nKey="settings.serverConfigHint"
+              components={{ code: <code /> }}
+            />
+          </div>
         </div>
       )}
 
