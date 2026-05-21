@@ -65,6 +65,12 @@ describe("Office", () => {
     expect(await screen.findByText("Terminal agents")).toBeInTheDocument();
     expect(await screen.findByText("Ship the release")).toBeInTheDocument();
     expect(screen.getByText("CLI agent")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Tracked CLI sessions appear here, even if they are running in the background.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Tracked session")).toBeInTheDocument();
     expect(screen.queryByText("Closed session")).not.toBeInTheDocument();
   });
 });

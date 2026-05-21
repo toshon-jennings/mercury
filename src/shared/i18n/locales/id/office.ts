@@ -23,14 +23,17 @@ export default {
   cannotLoadClaw3d: "Tidak dapat memuat Claw3D",
   startingClaw3dService: "Memulai layanan Claw3D...",
   terminalAgentsTitle: "Agen terminal",
-  terminalAgentsSubtitle: "Sesi CLI aktif muncul di sini saat Office terbuka.",
-  terminalAgentsCount: "{{count}} aktif",
-  terminalAgentsUnavailable: "Tidak dapat memuat agen terminal aktif saat ini.",
+  terminalAgentsSubtitle:
+    "Sesi CLI yang dilacak muncul di sini, bahkan saat berjalan di latar belakang.",
+  terminalAgentsCount: "{{count}} terlacak",
+  terminalAgentsUnavailable:
+    "Tidak dapat memuat sesi terminal yang dilacak saat ini.",
   terminalAgentLabel: "Agen CLI",
   terminalAgentUntitled: "Agen terminal {{id}}",
-  terminalAgentStatus: "Sedang bekerja",
+  terminalAgentStatus: "Sesi terlacak",
   terminalAgentMessages: "{{count}} pesan",
-  terminalAgentsEmpty: "Mulai sesi CLI dan agennya akan muncul di sini.",
+  terminalAgentsEmpty:
+    "Mulai sesi CLI dan Hermes akan menampilkan catatan terlacaknya di sini.",
   clickToStart: 'Klik "Mulai" untuk menjalankan Claw3D',
   setupDesc1:
     "Claw3D adalah lingkungan visualisasi 3D untuk agent Mercury Anda. Ini memungkinkan Anda melihat agent bekerja di ruang office interaktif.",

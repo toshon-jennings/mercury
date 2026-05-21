@@ -24,16 +24,16 @@ export default {
   startingClaw3dService: "Iniciando serviço Claw3D...",
   terminalAgentsTitle: "Agentes do terminal",
   terminalAgentsSubtitle:
-    "As sessões ativas de CLI aparecem aqui enquanto o Office estiver aberto.",
-  terminalAgentsCount: "{{count}} ativos",
+    "As sessões de CLI rastreadas aparecem aqui, mesmo quando estão em segundo plano.",
+  terminalAgentsCount: "{{count}} rastreadas",
   terminalAgentsUnavailable:
-    "Não foi possível carregar os agentes ativos do terminal agora.",
+    "Não foi possível carregar as sessões rastreadas do terminal agora.",
   terminalAgentLabel: "Agente CLI",
   terminalAgentUntitled: "Agente de terminal {{id}}",
-  terminalAgentStatus: "Trabalhando agora",
+  terminalAgentStatus: "Sessão rastreada",
   terminalAgentMessages: "{{count}} msgs",
   terminalAgentsEmpty:
-    "Inicie uma sessão de CLI e o agente dela aparecerá aqui.",
+    "Inicie uma sessão de CLI e o Hermes mostrará o registro rastreado aqui.",
   clickToStart: 'Clique em "Iniciar" para rodar o Claw3D',
   setupDesc1:
     "Claw3D é um ambiente de visualização 3D para seus agentes Mercury. Ele permite que você veja seus agentes trabalhando em um espaço de escritório interativo.",
