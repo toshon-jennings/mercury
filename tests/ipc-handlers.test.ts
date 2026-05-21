@@ -65,6 +65,8 @@ describe("New IPC handlers from v0.8/v0.9 features", () => {
     "run-hermes-dump",
     "list-mcp-servers",
     "discover-memory-providers",
+    "get-hermes-install-health",
+    "normalize-hermes-to-official",
   ];
 
   for (const ch of newChannels) {
@@ -85,6 +87,7 @@ describe("Legacy IPC handlers preserved", () => {
     "check-install",
     "start-install",
     "get-hermes-version",
+    "get-hermes-install-health",
     "run-hermes-doctor",
     "run-hermes-update",
     "get-env",

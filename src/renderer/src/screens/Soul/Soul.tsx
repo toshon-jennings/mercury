@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useIntlayer } from "react-intlayer";
 import { Refresh } from "../../assets/icons";
-import { useI18n } from "../../components/useI18n";
 
 interface SoulProps {
   profile?: string;
 }
 
 function Soul({ profile }: SoulProps): React.JSX.Element {
-  const { t } = useI18n();
-  const [content, setContent] = useState("");
+  const content = useIntlayer("soul");
+  const [soulText, setSoulText] = useState("");
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [showReset, setShowReset] = useState(false);
@@ -19,7 +19,7 @@ function Soul({ profile }: SoulProps): React.JSX.Element {
     loaded.current = false;
     setLoading(true);
     const text = await window.hermesAPI.readSoul(profile);
-    setContent(text);
+    setSoulText(text);
     setLoading(false);
     setTimeout(() => {
       loaded.current = true;
@@ -44,17 +44,17 @@ function Soul({ profile }: SoulProps): React.JSX.Element {
     if (!loaded.current) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      saveSoul(content);
+      saveSoul(soulText);
     }, 500);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [content, saveSoul]);
+  }, [soulText, saveSoul]);
 
   async function handleReset(): Promise<void> {
     const newContent = await window.hermesAPI.resetSoul(profile);
     loaded.current = false;
-    setContent(newContent);
+    setSoulText(newContent);
     setShowReset(false);
     setSaved(true);
     setTimeout(() => {
@@ -78,33 +78,33 @@ function Soul({ profile }: SoulProps): React.JSX.Element {
       <div className="page-header">
         <div>
           <h2 className="page-title">
-            {t("soul.title")}
-            {saved && <span className="soul-saved">{t("common.saved")}</span>}
+            {content.title}
+            {saved && <span className="soul-saved">{content.saved}</span>}
           </h2>
-          <p className="page-subtitle">{t("soul.subtitle")}</p>
+          <p className="page-subtitle">{content.subtitle}</p>
         </div>
         <button
           className="btn btn-secondary btn-sm"
           onClick={() => setShowReset(true)}
-          title={t("soul.resetTitle")}
+          title={content.resetTitle}
         >
           <Refresh size={14} />
-          {t("soul.reset")}
+          {content.reset}
         </button>
       </div>
 
       {showReset && (
         <div className="soul-reset-confirm">
-          <span>{t("soul.resetConfirm")}</span>
+          <span>{content.resetConfirm}</span>
           <div className="soul-reset-actions">
             <button className="btn btn-primary btn-sm" onClick={handleReset}>
-              {t("soul.reset")}
+              {content.reset}
             </button>
             <button
               className="btn btn-secondary btn-sm"
               onClick={() => setShowReset(false)}
             >
-              {t("common.cancel")}
+              {content.cancel}
             </button>
           </div>
         </div>
@@ -112,13 +112,13 @@ function Soul({ profile }: SoulProps): React.JSX.Element {
 
       <textarea
         className="soul-editor"
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder={t("soul.placeholder")}
+        value={soulText}
+        onChange={(e) => setSoulText(e.target.value)}
+        placeholder={content.placeholder}
         spellCheck={false}
       />
 
-      <div className="soul-hint">{t("soul.hint")}</div>
+      <div className="soul-hint">{content.hint}</div>
     </div>
   );
 }

@@ -3,6 +3,10 @@ import { useTheme } from "../../components/ThemeProvider";
 import { THEME_OPTIONS } from "../../constants";
 import { useI18n } from "../../components/useI18n";
 import { APP_LOCALES, type AppLocale } from "../../../../shared/i18n";
+import type {
+  HermesInstallHealth,
+  HermesMaintenanceResult,
+} from "../../../../main/installer";
 import openclawLogo from "../../assets/openclaw-color.png";
 import { Download, Upload, FileText, Send } from "lucide-react";
 
@@ -15,6 +19,35 @@ const LANGUAGE_LABEL_KEYS: Record<AppLocale, string> = {
   "pt-BR": "settings.language.portuguese",
   "zh-CN": "settings.language.chinese",
 };
+
+export function getHermesPrimaryAction(
+  health: HermesInstallHealth | null,
+): {
+  label: string;
+  disabled: boolean;
+  kind: "install" | "update" | "normalize" | "repair" | "none";
+} {
+  if (!health) {
+    return { label: "Checking Hermes…", disabled: true, kind: "none" };
+  }
+
+  switch (health.mode) {
+    case "up_to_date":
+      return { label: "Up to date", disabled: true, kind: "none" };
+    case "update_available":
+      return { label: "Update Hermes", disabled: false, kind: "update" };
+    case "customized":
+      return {
+        label: "Restore official Hermes",
+        disabled: false,
+        kind: "normalize",
+      };
+    case "repair_needed":
+      return { label: "Repair Hermes", disabled: false, kind: "repair" };
+    case "not_installed":
+      return { label: "Install Hermes", disabled: false, kind: "install" };
+  }
+}
 
 // Read cached values from localStorage for instant display
 function getCachedVersion(): string | null {
@@ -43,14 +76,21 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
   const [hermesVersion, setHermesVersion] = useState<string | null>(
     getCachedVersion,
   );
+  const [hermesHealth, setHermesHealth] = useState<HermesInstallHealth | null>(
+    null,
+  );
   const [appVersion, setAppVersion] = useState("");
   const [doctorOutput, setDoctorOutput] = useState<string | null>(null);
   const [doctorRunning, setDoctorRunning] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [maintenanceRunning, setMaintenanceRunning] = useState(false);
   const [updateResult, setUpdateResult] = useState<string | null>(null);
   const [updateResultType, setUpdateResultType] = useState<
     "success" | "error" | null
   >(null);
+  const [maintenanceResult, setMaintenanceResult] =
+    useState<HermesMaintenanceResult | null>(null);
+  const [maintenanceLog, setMaintenanceLog] = useState("");
 
   // OpenClaw migration — initialize from localStorage cache
   const cachedClaw = getCachedOpenClaw();
@@ -145,6 +185,10 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
         }
       }
     });
+    window.hermesAPI
+      .getHermesInstallHealth()
+      .then(setHermesHealth)
+      .catch(() => setHermesHealth(null));
 
     if (localStorage.getItem("hermes-openclaw-dismissed") !== "true") {
       window.hermesAPI.checkOpenClaw().then((claw) => {
@@ -323,6 +367,15 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
     });
   }
 
+  async function refreshHealth(): Promise<void> {
+    try {
+      const health = await window.hermesAPI.getHermesInstallHealth();
+      setHermesHealth(health);
+    } catch {
+      setHermesHealth(null);
+    }
+  }
+
   async function handleUpdateHermes(): Promise<void> {
     setUpdating(true);
     setUpdateResult(null);
@@ -332,13 +385,71 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
       setUpdateResult(t("settings.updateSuccess"));
       setUpdateResultType("success");
       refreshVersion();
+      void refreshHealth();
     } else {
       setUpdateResult(result.error || t("settings.updateFailed"));
       setUpdateResultType("error");
     }
   }
 
-  // Parse "Hermes Agent v0.7.0 (2026.4.3) Project: ... Python: 3.11.15 OpenAI SDK: 2.30.0 Update available: ..."
+  async function handleNormalizeHermes(): Promise<void> {
+    setMaintenanceRunning(true);
+    setUpdateResult(null);
+    setMaintenanceResult(null);
+    setMaintenanceLog("");
+    const cleanup = window.hermesAPI.onInstallProgress((progress) => {
+      setMaintenanceLog(progress.log);
+    });
+    try {
+      const result = await window.hermesAPI.normalizeHermesToOfficial();
+      if (result.success) {
+        setUpdateResult(result.message);
+        setUpdateResultType("success");
+        setMaintenanceResult(result);
+        refreshVersion();
+        void refreshHealth();
+      } else {
+        setUpdateResult(result.error || result.message || "Repair failed.");
+        setUpdateResultType("error");
+        setMaintenanceResult(result);
+      }
+    } catch (err) {
+      setUpdateResult((err as Error).message || "Repair failed.");
+      setUpdateResultType("error");
+    } finally {
+      cleanup();
+      setMaintenanceRunning(false);
+    }
+  }
+
+  async function handleInstallHermes(): Promise<void> {
+    setMaintenanceRunning(true);
+    setUpdateResult(null);
+    setMaintenanceLog("");
+    const cleanup = window.hermesAPI.onInstallProgress((progress) => {
+      setMaintenanceLog(progress.log);
+    });
+    try {
+      const result = await window.hermesAPI.startInstall();
+      if (result.success) {
+        setUpdateResult("Hermes installed.");
+        setUpdateResultType("success");
+        refreshVersion();
+        void refreshHealth();
+      } else {
+        setUpdateResult(result.error || "Hermes install failed.");
+        setUpdateResultType("error");
+      }
+    } catch (err) {
+      setUpdateResult((err as Error).message || "Hermes install failed.");
+      setUpdateResultType("error");
+    } finally {
+      cleanup();
+      setMaintenanceRunning(false);
+    }
+  }
+
+  // Parse "Hermes Agent v0.7.0 (2026.4.3) Project: ... Python: 3.11.15 OpenAI SDK: 2.30.0"
   const parsedVersion = (() => {
     if (!hermesVersion) return null;
     const v = hermesVersion;
@@ -346,10 +457,23 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
     const date = v.match(/\(([\d.]+)\)/)?.[1] || "";
     const python = v.match(/Python:\s*([\d.]+)/)?.[1] || "";
     const sdk = v.match(/OpenAI SDK:\s*([\d.]+)/)?.[1] || "";
-    const updateMatch = v.match(/Update available:\s*(.+?)(?:\s*—|$)/);
-    const updateInfo = updateMatch?.[1]?.trim() || null;
-    return { version, date, python, sdk, updateInfo };
+    return { version, date, python, sdk };
   })();
+
+  const primaryAction = getHermesPrimaryAction(hermesHealth);
+  const primaryButtonLabel =
+    primaryAction.kind === "update" && updating
+      ? "Updating Hermes…"
+      : primaryAction.kind === "normalize" && maintenanceRunning
+        ? "Restoring official Hermes…"
+        : primaryAction.kind === "repair" && maintenanceRunning
+          ? "Repairing Hermes…"
+          : primaryAction.kind === "install" && maintenanceRunning
+            ? "Installing Hermes…"
+            : primaryAction.label;
+  const primaryButtonDisabled =
+    primaryAction.disabled ||
+    (primaryAction.kind === "update" ? updating : maintenanceRunning);
 
   return (
     <div className="screen-layout settings-container">
@@ -435,25 +559,77 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
               )}
             </div>
           </div>
-          {parsedVersion?.updateInfo && (
-            <div className="settings-hermes-update-badge">
-              {parsedVersion.updateInfo}
-            </div>
+          <div className="settings-field-hint" style={{ marginTop: 12 }}>
+            {hermesHealth?.summary || "Checking Hermes…"}
+          </div>
+          <div className="settings-field-hint" style={{ marginTop: 6 }}>
+            {hermesHealth?.detail ||
+              "Mercury is checking Hermes install health."}
+          </div>
+          <div className="settings-field-hint" style={{ marginTop: 6 }}>
+            This changes Hermes Agent only, not Mercury.
+          </div>
+          {hermesHealth && (
+            <details className="settings-field" style={{ marginTop: 12 }}>
+              <summary className="settings-field-label">
+                Advanced details
+              </summary>
+              <div className="settings-field-hint" style={{ marginTop: 8 }}>
+                Branch: {hermesHealth.currentBranch || "—"}
+              </div>
+              <div className="settings-field-hint">
+                Remotes: origin {hermesHealth.remotes.origin || "—"} · upstream{" "}
+                {hermesHealth.remotes.upstream || "—"}
+              </div>
+              <div className="settings-field-hint">
+                Official remote: {hermesHealth.remotes.officialRemote || "—"}
+              </div>
+              <div className="settings-field-hint">
+                Fork remote: {hermesHealth.remotes.forkRemote || "—"}
+              </div>
+              {hermesHealth.warnings.length > 0 && (
+                <div className="settings-field-hint" style={{ marginTop: 8 }}>
+                  Warnings:
+                  <ul style={{ margin: "6px 0 0 18px" }}>
+                    {hermesHealth.warnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {maintenanceResult?.backupPath && (
+                <div className="settings-field-hint" style={{ marginTop: 8 }}>
+                  Backup path: {maintenanceResult.backupPath}
+                </div>
+              )}
+              {maintenanceLog && (
+                <pre className="settings-hermes-doctor">{maintenanceLog}</pre>
+              )}
+            </details>
           )}
           <div className="settings-hermes-actions">
-            {parsedVersion?.updateInfo ? (
-              <button
-                className="btn btn-primary "
-                onClick={handleUpdateHermes}
-                disabled={updating}
-              >
-                {updating ? t("settings.updating") : t("settings.updateEngine")}
-              </button>
-            ) : (
-              <button className="btn btn-secondary" disabled>
-                {t("settings.latestVersion")}
-              </button>
-            )}
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                switch (primaryAction.kind) {
+                  case "update":
+                    void handleUpdateHermes();
+                    break;
+                  case "normalize":
+                  case "repair":
+                    void handleNormalizeHermes();
+                    break;
+                  case "install":
+                    void handleInstallHermes();
+                    break;
+                  default:
+                    break;
+                }
+              }}
+              disabled={primaryButtonDisabled}
+            >
+              {primaryButtonLabel}
+            </button>
             <button
               className="btn btn-secondary"
               onClick={handleDoctor}
