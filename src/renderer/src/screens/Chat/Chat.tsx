@@ -1002,6 +1002,7 @@ function Chat({
               className="btn-ghost chat-clear-btn"
               onClick={handleClear}
               title={t("chat.clearChat")}
+              aria-label={t("chat.clearChat")}
             >
               <Trash size={16} />
             </button>
