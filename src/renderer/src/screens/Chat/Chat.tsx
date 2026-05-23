@@ -1016,6 +1016,7 @@ function Chat({
                 className="chat-folder-clear"
                 onClick={() => setSelectedFolder(null)}
                 title={t("chat.clearFolder")}
+                aria-label={t("chat.clearFolder")}
                 type="button"
               >
                 <X size={12} />
@@ -1053,6 +1054,7 @@ function Chat({
               className="btn-ghost chat-clear-btn"
               onClick={onNewChat}
               title={t("chat.newChat")}
+              aria-label={t("chat.newChat")}
             >
               <Plus size={16} />
             </button>
@@ -1062,6 +1064,7 @@ function Chat({
               className="btn-ghost chat-clear-btn"
               onClick={handleClear}
               title={t("chat.clearChat")}
+              aria-label={t("chat.clearChat")}
             >
               <Trash size={16} />
             </button>
@@ -1222,6 +1225,7 @@ function Chat({
               className="chat-send-btn chat-stop-btn"
               onClick={handleAbort}
               title={t("common.stop")}
+              aria-label={t("common.stop")}
             >
               <Stop size={14} />
             </button>
@@ -1232,6 +1236,7 @@ function Chat({
                   className="chat-btw-btn"
                   onClick={handleQuickAsk}
                   title={t("chat.quickAskTitle")}
+                  aria-label={t("chat.quickAskTitle")}
                 >
                   💭
                 </button>
@@ -1241,6 +1246,7 @@ function Chat({
                 onClick={handleSend}
                 disabled={!input.trim()}
                 title={t("chat.send")}
+                aria-label={t("chat.send")}
               >
                 <Send size={16} />
               </button>
