@@ -604,6 +604,7 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
                     data-tooltip={t("schedules.delete")}
                     onClick={() => setConfirmDelete(job.id)}
                     disabled={actionInProgress === job.id}
+                    aria-label={t("schedules.delete")}
                   >
                     <Trash size={14} />
                   </button>

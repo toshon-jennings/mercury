@@ -233,6 +233,7 @@ function Models(): React.JSX.Element {
                       setConfirmDelete(m.id);
                     }}
                     title={t("models.deleteModelTitle")}
+                    aria-label={t("models.deleteModelTitle")}
                   >
                     <Trash size={14} />
                   </button>
