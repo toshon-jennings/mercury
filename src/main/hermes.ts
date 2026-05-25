@@ -22,6 +22,7 @@ import { stripAnsi } from "./utils";
 import { readModels } from "./models";
 
 const LOCAL_API_URL = "http://127.0.0.1:8642";
+const CHAT_STREAM_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
 export function getApiUrl(): string {
   const conn = getConnectionConfig();
@@ -348,7 +349,7 @@ function sendMessageViaApi(
       method: "POST",
       headers,
       signal: controller.signal,
-      timeout: 120000,
+      timeout: CHAT_STREAM_IDLE_TIMEOUT_MS,
     },
     (res) => {
       const sid = res.headers["x-hermes-session-id"];
@@ -429,7 +430,7 @@ function sendMessageViaApi(
   req.on("timeout", () => {
     req.destroy();
     finish(
-      "API request timed out. Check the SSH tunnel and remote Hermes gateway.",
+      "API request timed out after several minutes without response activity. Check the SSH tunnel and remote Hermes gateway.",
     );
   });
 

@@ -124,7 +124,7 @@ const SLASH_COMMANDS: SlashCommand[] = [
   { name: "/version", description: "Show Hermes version", category: "info" },
 ];
 
-const CHAT_REQUEST_TIMEOUT_MS = 90000;
+const CHAT_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
 function HermesAvatar({ size = 30 }: { size?: number }): React.JSX.Element {
   return (
@@ -280,10 +280,10 @@ function Chat({
           id: `timeout-${Date.now()}`,
           role: "agent",
           content:
-            "Error: Request timed out waiting for the model response. Please retry or switch models.",
+            "Error: Request timed out after several minutes without response activity. Please retry or switch models.",
         },
       ]);
-    }, CHAT_REQUEST_TIMEOUT_MS);
+    }, CHAT_IDLE_TIMEOUT_MS);
   }, [clearSendTimeout, setMessages]);
 
   // Filtered slash commands based on current input
@@ -437,6 +437,7 @@ function Chat({
   // IPC listeners — stable callback refs, registered once
   useEffect(() => {
     const cleanupChunk = window.hermesAPI.onChatChunk((chunk) => {
+      startSendTimeout();
       setMessages((prev) => {
         const last = prev[prev.length - 1];
         // Append to existing agent message
@@ -478,6 +479,7 @@ function Chat({
     });
 
     const cleanupToolProgress = window.hermesAPI.onChatToolProgress((tool) => {
+      startSendTimeout();
       setToolProgress(tool);
     });
 
@@ -498,7 +500,7 @@ function Chat({
       cleanupToolProgress();
       cleanupUsage();
     };
-  }, [clearSendTimeout, setMessages]);
+  }, [clearSendTimeout, setMessages, startSendTimeout]);
 
   useEffect(() => {
     scrollToBottom();
