@@ -54,23 +54,29 @@ async function countSkills(profilePath: string): Promise<number> {
   const skillsDir = join(profilePath, "skills");
   try {
     const dirs = await fs.readdir(skillsDir);
-    let count = 0;
-    for (const d of dirs) {
-      const sub = join(skillsDir, d);
-      const stat = await fs.stat(sub);
-      if (stat.isDirectory()) {
-        const inner = await fs.readdir(sub);
-        for (const f of inner) {
-          try {
-            await fs.access(join(sub, f, "SKILL.md"));
-            count++;
-          } catch {
-            // not a skill
-          }
+
+    const checkSkillPromises = dirs.map(async (d) => {
+      try {
+        const sub = join(skillsDir, d);
+        const stat = await fs.stat(sub);
+        if (stat.isDirectory()) {
+          const inner = await fs.readdir(sub);
+          const innerPromises = inner.map(f =>
+            fs.access(join(sub, f, "SKILL.md"))
+              .then(() => 1)
+              .catch(() => 0)
+          );
+          const results = await Promise.all(innerPromises);
+          return results.reduce((acc, val) => acc + val, 0);
         }
+      } catch {
+        // error checking directory
       }
-    }
-    return count;
+      return 0;
+    });
+
+    const results = await Promise.all(checkSkillPromises);
+    return results.reduce((acc, val) => acc + val, 0);
   } catch {
     return 0;
   }
