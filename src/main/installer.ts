@@ -304,20 +304,21 @@ export function classifyHermesInstallHealth(
   const aheadOfFork = snapshot.aheadOfFork;
   const behindOfFork = snapshot.behindOfFork;
 
-  if (untracked) warnings.push("Untracked files detected in Hermes install");
-  if (dirty) warnings.push("Local Hermes files have been modified");
+  if (untracked) warnings.push("Extra files were found in the Hermes install");
+  if (dirty) warnings.push("Local Hermes files have been changed");
   if (branch && branch !== "main")
-    warnings.push("Local Hermes branch differs from official main");
-  if (!hasOfficialRemote) warnings.push("Official remote could not be confirmed");
+    warnings.push("Hermes is using a non-standard branch");
+  if (!hasOfficialRemote)
+    warnings.push("Mercury could not confirm the standard Hermes source");
   if (hasOfficialRemote && hasForkRemote)
-    warnings.push("Custom fork remote detected alongside official remote");
+    warnings.push("A custom Hermes source was detected alongside the standard one");
   if (
     originUrl &&
     upstreamUrl &&
     isOfficialHermesRemote(originUrl) &&
     !isOfficialHermesRemote(upstreamUrl)
   ) {
-    warnings.push("Hermes remotes appear reversed");
+    warnings.push("Hermes repository sources may be configured incorrectly");
   }
 
   if (!installed) {
@@ -428,9 +429,9 @@ export function classifyHermesInstallHealth(
   if (hasRecoverableCustomization) {
     return {
       mode: "customized",
-      summary: "Hermes is using a customized install",
+      summary: "Hermes has local customizations",
       detail:
-        "Mercury can safely back up the current Hermes install and switch you to the official Hermes version. This changes Hermes Agent only, not Mercury.",
+        "Mercury can back up your current Hermes install and restore the standard Hermes version. This changes Hermes Agent only, not Mercury.",
       affectsMercury: false,
       backupRecommended: true,
       canAutoFix: true,

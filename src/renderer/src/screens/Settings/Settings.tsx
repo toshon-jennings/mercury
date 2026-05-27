@@ -39,7 +39,7 @@ export function getHermesPrimaryAction(
       return { label: "Update Hermes", disabled: false, kind: "update" };
     case "customized":
       return {
-        label: "Restore official Hermes",
+        label: "Restore standard Hermes",
         disabled: false,
         kind: "normalize",
       };
@@ -564,8 +564,7 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
             {hermesHealth?.summary || "Checking Hermes…"}
           </div>
           <div className="settings-field-hint" style={{ marginTop: 6 }}>
-            {hermesHealth?.detail ||
-              "Mercury is checking Hermes install health."}
+            {hermesHealth?.detail || "Mercury is checking your Hermes installation."}
           </div>
           <div className="settings-field-hint" style={{ marginTop: 6 }}>
             This changes Hermes Agent only, not Mercury.
@@ -576,17 +575,17 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
                 Advanced details
               </summary>
               <div className="settings-field-hint" style={{ marginTop: 8 }}>
-                Branch: {hermesHealth.currentBranch || "—"}
+                Current branch: {hermesHealth.currentBranch || "—"}
               </div>
               <div className="settings-field-hint">
-                Remotes: origin {hermesHealth.remotes.origin || "—"} · upstream{" "}
+                Connected repositories: origin {hermesHealth.remotes.origin || "—"} · upstream{" "}
                 {hermesHealth.remotes.upstream || "—"}
               </div>
               <div className="settings-field-hint">
-                Official remote: {hermesHealth.remotes.officialRemote || "—"}
+                Standard Hermes source: {hermesHealth.remotes.officialRemote || "—"}
               </div>
               <div className="settings-field-hint">
-                Fork remote: {hermesHealth.remotes.forkRemote || "—"}
+                Custom source: {hermesHealth.remotes.forkRemote || "—"}
               </div>
               {hermesHealth.warnings.length > 0 && (
                 <div className="settings-field-hint" style={{ marginTop: 8 }}>
