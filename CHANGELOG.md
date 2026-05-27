@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.11] - 2026-05-27
+
+### Fixed
+- Updated the macOS application menu to use Mercury for system-provided labels
+  like About, Hide, and Quit instead of Hermes.
+
 ## [0.6.10] - 2026-05-27
 
 ### Changed
