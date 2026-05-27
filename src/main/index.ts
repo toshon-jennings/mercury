@@ -193,6 +193,7 @@ process.on("unhandledRejection", (reason) => {
 
 let mainWindow: BrowserWindow | null = null;
 let currentChatAbort: (() => void) | null = null;
+let currentChatSettleAbort: (() => void) | null = null;
 
 function openExternalUrl(rawUrl: unknown): void {
   if (!isAllowedExternalUrl(rawUrl)) {
@@ -678,6 +679,9 @@ function setupIPC(): void {
 
       if (currentChatAbort) {
         currentChatAbort();
+        currentChatSettleAbort?.();
+        currentChatAbort = null;
+        currentChatSettleAbort = null;
       }
 
       let fullResponse = "";
@@ -698,8 +702,12 @@ function setupIPC(): void {
             fullResponse += chunk;
             event.sender.send("chat-chunk", chunk);
           },
+          onActivity: () => {
+            event.sender.send("chat-activity");
+          },
           onDone: (sessionId) => {
             currentChatAbort = null;
+            currentChatSettleAbort = null;
             event.sender.send("chat-done", sessionId || "");
             resolveChat({ response: fullResponse, sessionId });
             // Desktop notification when window is not focused and response took >10s
@@ -720,6 +728,7 @@ function setupIPC(): void {
           },
           onError: (error) => {
             currentChatAbort = null;
+            currentChatSettleAbort = null;
             event.sender.send("chat-error", error);
             rejectChat(new Error(error));
             // Notify on error too if window not focused
@@ -744,6 +753,9 @@ function setupIPC(): void {
       );
 
       currentChatAbort = handle.abort;
+      currentChatSettleAbort = () => {
+        resolveChat({ response: fullResponse });
+      };
       return promise;
     },
   );
@@ -751,7 +763,9 @@ function setupIPC(): void {
   ipcMain.handle("abort-chat", () => {
     if (currentChatAbort) {
       currentChatAbort();
+      currentChatSettleAbort?.();
       currentChatAbort = null;
+      currentChatSettleAbort = null;
     }
   });
 

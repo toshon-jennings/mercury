@@ -160,6 +160,7 @@ platforms:
 // ────────────────────────────────────────────────────
 
 export interface ChatCallbacks {
+  onActivity?: () => void;
   onChunk: (text: string) => void;
   onDone: (sessionId?: string) => void;
   onError: (error: string) => void;
@@ -183,6 +184,7 @@ function sendMessageViaApi(
 ): ChatHandle {
   const mc = getModelConfig(profile);
   const controller = new AbortController();
+  let aborted = false;
 
   // Build full conversation from history + current message (standard OpenAI format)
   const messages: Array<{ role: string; content: string }> = [];
@@ -215,7 +217,7 @@ function sendMessageViaApi(
   const toolProgressRe = /^`([^\s`]+)\s+([^`]+)`$/;
 
   function finish(error?: string): void {
-    if (finished) return;
+    if (finished || aborted) return;
     finished = true;
     if (error) {
       cb.onError(error);
@@ -396,6 +398,7 @@ function sendMessageViaApi(
       }
 
       res.on("data", (chunk: Buffer) => {
+        cb.onActivity?.();
         buffer += chunk.toString();
         const parts = buffer.split("\n\n");
         buffer = parts.pop() || "";
@@ -419,12 +422,15 @@ function sendMessageViaApi(
         finish(hasContent ? undefined : lastError);
       });
 
-      res.on("error", (err) => finish(`Stream error: ${err.message}`));
+      res.on("error", (err) => {
+        if (aborted) return;
+        finish(`Stream error: ${err.message}`);
+      });
     },
   );
 
   req.on("error", (err) => {
-    if (err.name === "AbortError") return;
+    if (aborted || err.name === "AbortError") return;
     finish(`API request failed: ${err.message}`);
   });
   req.on("timeout", () => {
@@ -439,7 +445,9 @@ function sendMessageViaApi(
 
   return {
     abort: () => {
+      aborted = true;
       controller.abort();
+      req.destroy();
     },
   };
 }
@@ -589,8 +597,11 @@ function sendMessageViaCli(
   let hasOutput = false;
   let capturedSessionId = "";
   let outputBuffer = "";
+  let aborted = false;
 
   function processOutput(raw: Buffer): void {
+    if (aborted) return;
+    cb.onActivity?.();
     const text = stripAnsi(raw.toString());
     outputBuffer += text;
 
@@ -617,6 +628,8 @@ function sendMessageViaCli(
 
   let stderrBuffer = "";
   proc.stderr?.on("data", (data: Buffer) => {
+    if (aborted) return;
+    cb.onActivity?.();
     const text = stripAnsi(data.toString());
     if (
       !text.trim() ||
@@ -640,6 +653,7 @@ function sendMessageViaCli(
   });
 
   proc.on("close", (code) => {
+    if (aborted) return;
     if (code === 0 || hasOutput) {
       cb.onDone(capturedSessionId || undefined);
     } else {
@@ -653,11 +667,13 @@ function sendMessageViaCli(
   });
 
   proc.on("error", (err) => {
+    if (aborted) return;
     cb.onError(err.message);
   });
 
   return {
     abort: () => {
+      aborted = true;
       proc.kill("SIGTERM");
       setTimeout(() => {
         if (!proc.killed) proc.kill("SIGKILL");

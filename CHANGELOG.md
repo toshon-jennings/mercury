@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.6.10] - 2026-05-27
+
+### Changed
+- Added smarter Hermes maintenance states in Settings so Mercury can show
+  plain-English actions like Up to date, Update Hermes, Restore standard
+  Hermes, and Repair Hermes instead of relying on a raw "commits behind"
+  message.
+- Clarified that Hermes maintenance changes Hermes Agent only, not Mercury,
+  and softened advanced diagnostics copy for customized or repair-needed
+  installs.
+
+### Fixed
+- Improved Hermes maintenance recovery so Mercury can normalize a customized
+  local Hermes install back to the standard Hermes version and repair broken
+  local metadata more safely.
+- Fixed app chat stream timeout handling for a more reliable conversation
+  experience.
+
 ## [0.6.6] - 2025-05-20
 
 ### Fixed
