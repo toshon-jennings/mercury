@@ -25,7 +25,8 @@ export default {
   terminalAgentsSubtitle:
     "Tracked CLI sessions appear here, even if they are running in the background.",
   terminalAgentsCount: "{{count}} tracked",
-  terminalAgentsUnavailable: "Unable to load tracked terminal sessions right now.",
+  terminalAgentsUnavailable:
+    "Unable to load tracked terminal sessions right now.",
   terminalAgentLabel: "CLI agent",
   terminalAgentUntitled: "Terminal agent {{id}}",
   terminalAgentStatus: "Tracked session",

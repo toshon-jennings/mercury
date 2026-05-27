@@ -18,7 +18,7 @@ const installerSrc = readFileSync(join(ROOT, "src/main/installer.ts"), "utf-8");
 describe("Electron main process hardening", () => {
   it("brands the macOS application menu with Mercury", () => {
     expect(mainSrc).toContain('app.name = "Mercury"');
-    expect(mainSrc).toContain('label: app.name');
+    expect(mainSrc).toContain("label: app.name");
     expect(mainSrc).toContain('{ role: "about" as const }');
     expect(mainSrc).toContain('{ role: "quit" as const }');
   });

@@ -32,6 +32,7 @@ src/shared/     Types and i18n locales shared by main and renderer
 ### IPC contract
 
 All IPC channels are **defined in one place each side**:
+
 - `src/main/index.ts` — every `ipcMain.handle(...)` registration
 - `src/preload/index.ts` — the `hermesAPI` object exposed via `contextBridge`
 
@@ -83,7 +84,7 @@ Use the `useI18n` hook in renderer components:
 
 ```tsx
 const { t } = useI18n();
-<span>{t("navigation.chat")}</span>
+<span>{t("navigation.chat")}</span>;
 ```
 
 ### Config access pattern (main process)
@@ -94,10 +95,10 @@ Never read config files directly in IPC handlers; go through the helper function
 
 ### Path aliases
 
-| Alias | Resolves to |
-|---|---|
+| Alias       | Resolves to        |
+| ----------- | ------------------ |
 | `@renderer` | `src/renderer/src` |
-| `@shared` | `src/shared` |
+| `@shared`   | `src/shared`       |
 
 ### Icons
 

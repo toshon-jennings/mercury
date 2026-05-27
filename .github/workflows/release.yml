@@ -203,7 +203,8 @@ jobs:
 
   publish:
     name: Publish Release
-    needs: [prepare, release_mac, release_linux, release_windows, generate_winget]
+    needs:
+      [prepare, release_mac, release_linux, release_windows, generate_winget]
     if: needs.prepare.outputs.is_dry_run == 'false' && needs.prepare.outputs.tag_exists == 'false'
     runs-on: ubuntu-latest
     steps:

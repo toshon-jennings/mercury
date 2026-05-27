@@ -61,10 +61,11 @@ async function countSkills(profilePath: string): Promise<number> {
         const stat = await fs.stat(sub);
         if (stat.isDirectory()) {
           const inner = await fs.readdir(sub);
-          const innerPromises = inner.map(f =>
-            fs.access(join(sub, f, "SKILL.md"))
+          const innerPromises = inner.map((f) =>
+            fs
+              .access(join(sub, f, "SKILL.md"))
               .then(() => 1)
-              .catch(() => 0)
+              .catch(() => 0),
           );
           const results = await Promise.all(innerPromises);
           return results.reduce((acc, val) => acc + val, 0);

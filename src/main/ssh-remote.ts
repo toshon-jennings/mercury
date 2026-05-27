@@ -833,13 +833,35 @@ export async function sshSetModelConfig(
   baseUrl: string,
   profile?: string,
 ): Promise<void> {
-  await sshSetConfigValue(config, "provider", provider, profile);
-  await sshSetConfigValue(config, "default", model, profile);
-  await sshSetConfigValue(config, "base_url", baseUrl, profile);
+  if (
+    /["\\\n\r]/.test(provider) ||
+    /["\\\n\r]/.test(model) ||
+    /["\\\n\r]/.test(baseUrl)
+  ) {
+    throw new Error(
+      'Config value contains illegal characters: ", \\, or newline',
+    );
+  }
   const configPath = remoteConfigPath(profile);
   const content = await sshReadFile(config, configPath);
   if (!content) return;
-  let updated = content.replace(/^(\s*streaming:\s*)(\S+)/m, "$1true");
+
+  const updateKey = (text: string, key: string, value: string): string => {
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(
+      `^(\\s*#?\\s*${escapedKey}:\\s*)(?:["'].*?["']|[^\\n#]*)`,
+      "m",
+    );
+    return regex.test(text)
+      ? text.replace(regex, (match, p1) => `${p1}"${value}"`)
+      : text + `\n${key}: "${value}"`;
+  };
+
+  let updated = updateKey(content, "provider", provider);
+  updated = updateKey(updated, "default", model);
+  updated = updateKey(updated, "base_url", baseUrl);
+
+  updated = updated.replace(/^(\s*streaming:\s*)(\S+)/m, "$1true");
   const lines = updated.split("\n");
   for (let i = 0; i < lines.length; i++) {
     if (

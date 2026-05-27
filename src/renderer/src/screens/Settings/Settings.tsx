@@ -21,9 +21,7 @@ const LANGUAGE_LABEL_KEYS: Record<AppLocale, string> = {
   "zh-CN": "settings.language.chinese",
 };
 
-export function getHermesPrimaryAction(
-  health: HermesInstallHealth | null,
-): {
+export function getHermesPrimaryAction(health: HermesInstallHealth | null): {
   label: string;
   disabled: boolean;
   kind: "install" | "update" | "normalize" | "repair" | "none";
@@ -564,7 +562,8 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
             {hermesHealth?.summary || "Checking Hermes…"}
           </div>
           <div className="settings-field-hint" style={{ marginTop: 6 }}>
-            {hermesHealth?.detail || "Mercury is checking your Hermes installation."}
+            {hermesHealth?.detail ||
+              "Mercury is checking your Hermes installation."}
           </div>
           <div className="settings-field-hint" style={{ marginTop: 6 }}>
             This changes Hermes Agent only, not Mercury.
@@ -578,11 +577,13 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
                 Current branch: {hermesHealth.currentBranch || "—"}
               </div>
               <div className="settings-field-hint">
-                Connected repositories: origin {hermesHealth.remotes.origin || "—"} · upstream{" "}
+                Connected repositories: origin{" "}
+                {hermesHealth.remotes.origin || "—"} · upstream{" "}
                 {hermesHealth.remotes.upstream || "—"}
               </div>
               <div className="settings-field-hint">
-                Standard Hermes source: {hermesHealth.remotes.officialRemote || "—"}
+                Standard Hermes source:{" "}
+                {hermesHealth.remotes.officialRemote || "—"}
               </div>
               <div className="settings-field-hint">
                 Custom source: {hermesHealth.remotes.forkRemote || "—"}

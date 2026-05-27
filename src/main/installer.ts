@@ -224,11 +224,19 @@ function getWorkingTreeStatus(): {
   return { isDirty, hasUntrackedFiles, raw };
 }
 
-function getAheadBehind(baseRef: string, headRef: string): {
+function getAheadBehind(
+  baseRef: string,
+  headRef: string,
+): {
   ahead: number | null;
   behind: number | null;
 } {
-  const result = runGit(["rev-list", "--left-right", "--count", `${baseRef}...${headRef}`]);
+  const result = runGit([
+    "rev-list",
+    "--left-right",
+    "--count",
+    `${baseRef}...${headRef}`,
+  ]);
   if (!result.ok) return { ahead: null, behind: null };
   const match = result.stdout.trim().match(/^(\d+)\s+(\d+)$/);
   if (!match) return { ahead: null, behind: null };
@@ -251,7 +259,10 @@ function getHermesRepoSnapshot(): HermesRepoSnapshot {
     isOfficialHermesRemote(url),
   );
   const forkRemoteEntry = Object.entries(remotes).find(
-    ([name, url]) => !isOfficialHermesRemote(url) && isGitHubRemote(url) && name !== officialRemoteEntry?.[0],
+    ([name, url]) =>
+      !isOfficialHermesRemote(url) &&
+      isGitHubRemote(url) &&
+      name !== officialRemoteEntry?.[0],
   );
   const officialRemote = officialRemoteEntry?.[0] || null;
   const forkRemote = forkRemoteEntry?.[0] || null;
@@ -311,7 +322,9 @@ export function classifyHermesInstallHealth(
   if (!hasOfficialRemote)
     warnings.push("Mercury could not confirm the standard Hermes source");
   if (hasOfficialRemote && hasForkRemote)
-    warnings.push("A custom Hermes source was detected alongside the standard one");
+    warnings.push(
+      "A custom Hermes source was detected alongside the standard one",
+    );
   if (
     originUrl &&
     upstreamUrl &&
@@ -356,7 +369,8 @@ export function classifyHermesInstallHealth(
     return {
       mode: "repair_needed",
       summary: "Hermes needs repair",
-      detail: "Mercury found a local Hermes state it cannot safely update without repair.",
+      detail:
+        "Mercury found a local Hermes state it cannot safely update without repair.",
       affectsMercury: false,
       backupRecommended: false,
       canAutoFix: false,
@@ -387,7 +401,8 @@ export function classifyHermesInstallHealth(
     return {
       mode: "repair_needed",
       summary: "Hermes needs repair",
-      detail: "Mercury found a local Hermes state it cannot safely update without repair.",
+      detail:
+        "Mercury found a local Hermes state it cannot safely update without repair.",
       affectsMercury: false,
       backupRecommended: false,
       canAutoFix: false,
@@ -467,8 +482,7 @@ export function classifyHermesInstallHealth(
     return {
       mode: "update_available",
       summary: "Hermes update available",
-      detail:
-        "Mercury can update Hermes Agent to the latest official version.",
+      detail: "Mercury can update Hermes Agent to the latest official version.",
       affectsMercury: false,
       backupRecommended: true,
       canAutoFix: true,
@@ -857,7 +871,13 @@ export async function runClawMigrate(
   emit(`Migrating from ${openclaw.path}...\n`);
 
   return new Promise((resolve, reject) => {
-    const args = hermesCliArgs(["claw", "migrate", "--preset", "full", "--yes"]);
+    const args = hermesCliArgs([
+      "claw",
+      "migrate",
+      "--preset",
+      "full",
+      "--yes",
+    ]);
 
     const proc = spawn(HERMES_PYTHON, args, {
       cwd: HERMES_REPO,
@@ -1061,7 +1081,9 @@ async function performHermesMaintenance(
 
   const emit = makeMaintenanceProgressEmitter(
     onProgress,
-    action === "repair_attempted" ? "Repairing Hermes" : "Restoring official Hermes",
+    action === "repair_attempted"
+      ? "Repairing Hermes"
+      : "Restoring official Hermes",
   );
   const backupRoot = join(HERMES_HOME, "maintenance-backups");
   mkdirSync(backupRoot, { recursive: true });
@@ -1082,7 +1104,9 @@ async function performHermesMaintenance(
       action,
       message: "Mercury could not create a Hermes backup bundle.",
       affectsMercury: false,
-      error: stripAnsi(bundleResult.stderr || bundleResult.stdout || "Backup failed."),
+      error: stripAnsi(
+        bundleResult.stderr || bundleResult.stdout || "Backup failed.",
+      ),
       warnings: backupWarnings,
     };
   }
@@ -1102,12 +1126,16 @@ async function performHermesMaintenance(
         action,
         message: "Mercury could not back up local Hermes changes.",
         affectsMercury: false,
-        error: stripAnsi(stash.stderr || stash.stdout || "Stash backup failed."),
+        error: stripAnsi(
+          stash.stderr || stash.stdout || "Stash backup failed.",
+        ),
         backupPath: backupBundle,
         warnings: backupWarnings,
       };
     }
-    backupWarnings.push("Local Hermes changes were saved to a git stash backup");
+    backupWarnings.push(
+      "Local Hermes changes were saved to a git stash backup",
+    );
   }
 
   emit("Fetching official Hermes remote...\n");
@@ -1123,7 +1151,9 @@ async function performHermesMaintenance(
       action,
       message: "Mercury could not fetch the official Hermes release.",
       affectsMercury: false,
-      error: stripAnsi(fetchResult.stderr || fetchResult.stdout || "Fetch failed."),
+      error: stripAnsi(
+        fetchResult.stderr || fetchResult.stdout || "Fetch failed.",
+      ),
       backupPath: backupBundle,
       warnings: backupWarnings,
     };
@@ -1142,7 +1172,9 @@ async function performHermesMaintenance(
       action,
       message: "Mercury could not switch Hermes to the official branch.",
       affectsMercury: false,
-      error: stripAnsi(checkoutResult.stderr || checkoutResult.stdout || "Checkout failed."),
+      error: stripAnsi(
+        checkoutResult.stderr || checkoutResult.stdout || "Checkout failed.",
+      ),
       backupPath: backupBundle,
       warnings: backupWarnings,
     };
@@ -1161,7 +1193,9 @@ async function performHermesMaintenance(
       action,
       message: "Mercury could not reset Hermes to the official release.",
       affectsMercury: false,
-      error: stripAnsi(resetResult.stderr || resetResult.stdout || "Reset failed."),
+      error: stripAnsi(
+        resetResult.stderr || resetResult.stdout || "Reset failed.",
+      ),
       backupPath: backupBundle,
       warnings: backupWarnings,
     };
@@ -1180,7 +1214,9 @@ async function performHermesMaintenance(
       action,
       message: "Mercury could not prepare Hermes dependencies.",
       affectsMercury: false,
-      error: stripAnsi(ensurepip.stderr || ensurepip.stdout || "ensurepip failed."),
+      error: stripAnsi(
+        ensurepip.stderr || ensurepip.stdout || "ensurepip failed.",
+      ),
       backupPath: backupBundle,
       warnings: backupWarnings,
     };
@@ -1199,7 +1235,9 @@ async function performHermesMaintenance(
       action,
       message: "Mercury could not upgrade Hermes packaging tools.",
       affectsMercury: false,
-      error: stripAnsi(pipTools.stderr || pipTools.stdout || "pip upgrade failed."),
+      error: stripAnsi(
+        pipTools.stderr || pipTools.stdout || "pip upgrade failed.",
+      ),
       backupPath: backupBundle,
       warnings: backupWarnings,
     };
@@ -1218,7 +1256,11 @@ async function performHermesMaintenance(
       action,
       message: "Mercury could not reinstall Hermes dependencies.",
       affectsMercury: false,
-      error: stripAnsi(installDeps.stderr || installDeps.stdout || "Dependency install failed."),
+      error: stripAnsi(
+        installDeps.stderr ||
+          installDeps.stdout ||
+          "Dependency install failed.",
+      ),
       backupPath: backupBundle,
       warnings: backupWarnings,
     };

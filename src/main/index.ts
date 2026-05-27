@@ -386,7 +386,8 @@ function setupIPC(): void {
         return {
           success: false,
           action: "none",
-          message: "Repair from Mercury currently supports local Hermes installs only.",
+          message:
+            "Repair from Mercury currently supports local Hermes installs only.",
           affectsMercury: false,
           error:
             "Repair from Mercury currently supports local Hermes installs only.",

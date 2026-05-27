@@ -345,7 +345,7 @@ function findNpm(): string {
     const npmPath = execFileSync(cmd, ["npm"], {
       env: { ...process.env, PATH: getEnhancedPath() },
       timeout: 5000,
-      stdio: ["ignore", "pipe", "ignore"]
+      stdio: ["ignore", "pipe", "ignore"],
     })
       .toString()
       .trim()
