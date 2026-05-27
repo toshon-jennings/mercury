@@ -1160,7 +1160,7 @@ export async function sshStopGateway(config: SshConfig): Promise<void> {
       config,
       `hermes gateway stop 2>/dev/null || ` +
         `(if [ -f $HOME/.hermes/gateway.pid ]; then ` +
-        `pid=$(python3 -c "import json; d=json.load(open('$HOME/.hermes/gateway.pid')); print(d['pid'] if isinstance(d,dict) else d)" 2>/dev/null); ` +
+        `pid=$(python3 -c "import os, json; f=os.path.join(os.environ.get('HOME', ''), '.hermes/gateway.pid'); d=json.load(open(f)); p=str(d.get('pid', d) if isinstance(d,dict) else d); print(p if p.isdigit() else '')" 2>/dev/null); ` +
         `[ -n "$pid" ] && kill $pid 2>/dev/null; fi); true`,
     );
   } catch {
