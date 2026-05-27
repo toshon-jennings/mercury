@@ -1325,7 +1325,7 @@ function setupUpdater(): void {
 }
 
 app.whenReady().then(() => {
-  app.name = "Hermes";
+  app.name = "Mercury";
   electronApp.setAppUserModelId("com.nousresearch.hermes");
 
   app.on("browser-window-created", (_, window) => {
