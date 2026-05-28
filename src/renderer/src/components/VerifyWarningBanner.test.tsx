@@ -15,7 +15,7 @@ describe("VerifyWarningBanner", () => {
     getLocale.mockClear();
     setLocale.mockClear();
     try {
-      localStorage.removeItem("hermes-locale");
+      window.localStorage.removeItem("hermes-locale");
     } catch {
       /* ignore */
     }

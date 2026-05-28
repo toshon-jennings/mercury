@@ -39,12 +39,15 @@ describe("I18nProvider", () => {
   });
 
   afterEach(() => {
-    setSharedLocale(DEFAULT_ACTIVE_LOCALE);
     try {
-      localStorage.removeItem("hermes-locale");
+      window.localStorage.removeItem("hermes-locale");
     } catch {
       /* ignore */
     }
+  });
+
+  afterAll(() => {
+    setSharedLocale(DEFAULT_ACTIVE_LOCALE);
   });
 
   it("renders English translations by default", async () => {

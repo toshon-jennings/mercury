@@ -17,7 +17,7 @@ const STORAGE_KEY = "hermes-locale";
 
 function readStoredLocale(): AppLocale {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(STORAGE_KEY);
     if (raw && (APP_LOCALES as string[]).includes(raw)) {
       return raw as AppLocale;
     }
@@ -65,7 +65,7 @@ export function I18nProvider({
       /* ignore */
     });
     try {
-      localStorage.setItem(STORAGE_KEY, locale);
+      window.localStorage.setItem(STORAGE_KEY, locale);
     } catch {
       /* ignore */
     }
