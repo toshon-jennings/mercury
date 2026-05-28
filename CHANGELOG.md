@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.12] - 2026-05-27
+
+### Fixed
+- Cleaned up i18n test warning noise by removing React act(...) warnings from
+  the locale provider tests while keeping the macOS Mercury menu branding fix
+  in the current release line.
+
 ## [0.6.11] - 2026-05-27
 
 ### Fixed
