@@ -21,6 +21,8 @@ Mercury is a native desktop app for installing, configuring, and chatting with [
 
 Instead of managing the CLI by hand, the app walks through install, provider setup, and day-to-day usage in one place. It uses the official Hermes install script, stores Hermes in `~/.hermes`, and gives you a GUI for chat, sessions, profiles, memory, skills, tools, scheduling, messaging gateways, and more.
 
+**A genuine terminal experience is built right in.** Run shell commands, inspect output, and interact with your system — all without leaving the app.
+
 ## Install
 
 Download the latest build from the [Releases](https://github.com/toshon-jennings/mercury/releases/) page.
@@ -75,6 +77,7 @@ sudo dnf install ./mercury-<version>.rpm
 
 ## Features
 
+- **Built-in terminal** — a genuine terminal experience within the app. Run shell commands, inspect output, and interact with your system without leaving Mercury
 - **Guided first-run install** for Hermes Agent with progress tracking and dependency resolution
 - **Local or remote backend** — run Hermes locally on `127.0.0.1:8642`, or connect the desktop app to a remote Hermes API server with URL + API key
 - **Multi-provider support** — OpenRouter, Anthropic, OpenAI, Google (Gemini), xAI (Grok), Nous Portal, Qwen, MiniMax, Hugging Face, Groq, and local OpenAI-compatible endpoints (LM Studio, Ollama, vLLM, llama.cpp)
