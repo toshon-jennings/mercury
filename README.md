@@ -1,33 +1,29 @@
-<img width="100%" alt="HERMES DESKTOP" src="https://github.com/user-attachments/assets/80585955-3bae-4aee-af90-a1e61757ccb8" />
+<img width="100%" alt="MERCURY" src="https://github.com/user-attachments/assets/80585955-3bae-4aee-af90-a1e61757ccb8" />
 
 <br/>
 <p align="center">
   <a href="https://hermes-agent.nousresearch.com/docs/"><img src="https://img.shields.io/badge/Docs-hermes--agent.nousresearch.com-FFD700?style=for-the-badge" alt="Documentation"></a>
   <a href="https://t.me/hermes_agent_desktop"><img src="https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram"></a>
-  <a href="https://github.com/fathah/hermes-desktop/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
-  <a href="https://github.com/fathah/hermes-desktop/releases/"><img src="https://img.shields.io/badge/Download-Releases-FF6600?style=for-the-badge" alt="Releases"></a>
-<a href="https://github.com/fathah/hermes-desktop/stargazers">
-  <img src="https://img.shields.io/github/stars/fathah/hermes-desktop?style=for-the-badge&color=FFD700&label=Stars" alt="Stars">
-</a>
-  <a href="https://github.com/fathah/hermes-desktop/releases/">
-  <img src="https://img.shields.io/github/downloads/fathah/hermes-desktop/total?style=for-the-badge&color=00B496&label=Total%20Downloads" alt="Downloads">
-</a>
+  <a href="https://github.com/toshon-jennings/mercury/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://github.com/toshon-jennings/mercury/releases/"><img src="https://img.shields.io/badge/Download-Releases-FF6600?style=for-the-badge" alt="Releases"></a>
+  <a href="https://github.com/toshon-jennings/mercury/stargazers">
+    <img src="https://img.shields.io/github/stars/toshon-jennings/mercury?style=for-the-badge&color=FFD700&label=Stars" alt="Stars">
+  </a>
 </p>
 
-> **This project is in active development.** Features may change, and some things might break. If you run into a problem or have an idea, [open an issue](https://github.com/fathah/hermes-desktop/issues). Contributions are welcome!
+> **Mercury is a community fork of [fathah/hermes-desktop](https://github.com/fathah/hermes-desktop)** — the official desktop companion for [Hermes Agent](https://github.com/NousResearch/hermes-agent). It shares the same core vision: a native desktop app for installing, configuring, and chatting with Hermes Agent. Mercury diverges in UI choices and development direction. It is **not** the official Hermes Desktop app.
 
-## Languages
+> **This project is in active development.** Features may change, and some things might break. If you run into a problem or have an idea, [open an issue](https://github.com/toshon-jennings/mercury/issues). Contributions are welcome!
 
-- English: `README.md`
-- 简体中文: `README.zh-CN.md`
+## What Is Mercury?
 
-Hermes Desktop is a native desktop app for installing, configuring, and chatting with [Hermes Agent](https://github.com/NousResearch/hermes-agent) — a self-improving AI assistant with tool use, multi-platform messaging, and a closed learning loop.
+Mercury is a native desktop app for installing, configuring, and chatting with [Hermes Agent](https://github.com/NousResearch/hermes-agent) — a self-improving AI assistant with tool use, multi-platform messaging, and a closed learning loop.
 
 Instead of managing the CLI by hand, the app walks through install, provider setup, and day-to-day usage in one place. It uses the official Hermes install script, stores Hermes in `~/.hermes`, and gives you a GUI for chat, sessions, profiles, memory, skills, tools, scheduling, messaging gateways, and more.
 
 ## Install
 
-Download the latest build from the [Releases](https://github.com/fathah/hermes-desktop/releases/) page.
+Download the latest build from the [Releases](https://github.com/toshon-jennings/mercury/releases/) page.
 
 | Platform       | File                    |
 | -------------- | ----------------------- |
@@ -42,7 +38,7 @@ Download the latest build from the [Releases](https://github.com/fathah/hermes-d
 Once the manifest has been accepted into [`microsoft/winget-pkgs`](https://github.com/microsoft/winget-pkgs), you can install with:
 
 ```powershell
-winget install NousResearch.HermesDesktop
+winget install ToshonJennings.Mercury
 ```
 
 Until then, download the `.exe` from the Releases page.
@@ -57,12 +53,12 @@ Until then, download the `.exe` from the Releases page.
 > sudo rm /etc/sudoers.d/hermes-install
 > ```
 >
-> Tracked in [#109](https://github.com/fathah/hermes-desktop/issues/109).
+> Tracked in [#109](https://github.com/toshon-jennings/mercury/issues/109).
 
 ### Fedora (RPM)
 
 ```bash
-sudo dnf install ./hermes-desktop-<version>.rpm
+sudo dnf install ./mercury-<version>.rpm
 ```
 
 > **Fedora users:** The `.rpm` is not GPG-signed. If your system enforces signature checking, append `--nogpgcheck` to the install command. Auto-update is not supported for `.rpm` builds (limitation of `electron-updater`); reinstall the new `.rpm` to update.
@@ -72,7 +68,7 @@ sudo dnf install ./hermes-desktop-<version>.rpm
 > **macOS users:** The app is not code-signed or notarized. macOS will block it on first launch. To fix this, run the following after installing:
 >
 > ```bash
-> xattr -cr "/Applications/Hermes Agent.app"
+> xattr -cr "/Applications/Mercury.app"
 > ```
 >
 > Or right-click the app → **Open** → click **Open** in the confirmation dialog.
@@ -272,10 +268,9 @@ Hermes files are managed in:
 
 ## Contributing
 
-Contributions are welcome! Check out the [Contributing Guide](CONTRIBUTING.md) to get started. If you're not sure where to begin, take a look at the [open issues](https://github.com/NousResearch/hermes-desktop/issues). Found a bug or have a feature request? [File an issue](https://github.com/NousResearch/hermes-desktop/issues/new).
+Contributions are welcome! Check out the [Contributing Guide](CONTRIBUTING.md) to get started. If you're not sure where to begin, take a look at the [open issues](https://github.com/toshon-jennings/mercury/issues). Found a bug or have a feature request? [File an issue](https://github.com/toshon-jennings/mercury/issues/new).
 
-## Related Project
+## Related Projects
 
-For the core agent, docs, and CLI workflows, see the main Hermes Agent repository:
-
-- https://github.com/NousResearch/hermes-agent
+- [Hermes Agent](https://github.com/NousResearch/hermes-agent) — the core agent, docs, and CLI workflows
+- [Hermes Desktop](https://github.com/fathah/hermes-desktop) — the official desktop app (upstream)
