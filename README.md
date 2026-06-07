@@ -23,6 +23,8 @@ Instead of managing the CLI by hand, the app walks through install, provider set
 
 **A genuine terminal experience is built right in.** Run shell commands, inspect output, and interact with your system — all without leaving the app.
 
+**Local models, auto-discovered.** Mercury scans for running local model servers (Ollama, LM Studio, vLLM, llama.cpp) and configures them automatically — no manual URL or API key setup required.
+
 ## Install
 
 Download the latest build from the [Releases](https://github.com/toshon-jennings/mercury/releases/) page.
@@ -78,6 +80,7 @@ sudo dnf install ./mercury-<version>.rpm
 ## Features
 
 - **Built-in terminal** — a genuine terminal experience within the app. Run shell commands, inspect output, and interact with your system without leaving Mercury
+- **Auto-detect local models** — scans for running local model servers (Ollama, LM Studio, vLLM, llama.cpp) and configures them automatically. No manual URL or API key setup required
 - **Guided first-run install** for Hermes Agent with progress tracking and dependency resolution
 - **Local or remote backend** — run Hermes locally on `127.0.0.1:8642`, or connect the desktop app to a remote Hermes API server with URL + API key
 - **Multi-provider support** — OpenRouter, Anthropic, OpenAI, Google (Gemini), xAI (Grok), Nous Portal, Qwen, MiniMax, Hugging Face, Groq, and local OpenAI-compatible endpoints (LM Studio, Ollama, vLLM, llama.cpp)
