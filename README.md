@@ -6,7 +6,7 @@
 </p>
 
 > **Mercury is a community fork of [fathah/hermes-desktop](https://github.com/fathah/hermes-desktop)** — the official desktop companion for [Hermes Agent](https://github.com/NousResearch/hermes-agent). It shares the same core vision: a native desktop app for installing, configuring, and chatting with Hermes Agent. Mercury diverges in UI choices and development direction. It is **not** the official Hermes Desktop app.
-
+> 
 > **This project is in active development.** Features may change, and some things might break. If you run into a problem or have an idea, [open an issue](https://github.com/toshon-jennings/mercury/issues). Contributions are welcome!
 
 ## What Is Mercury?
