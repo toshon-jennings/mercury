@@ -21,55 +21,26 @@ Instead of managing the CLI by hand, the app walks through install, provider set
 
 ## Install
 
-Download the latest build from the [Releases](https://github.com/toshon-jennings/mercury/releases/) page.
+> **Note:** Mercury is in active development. Pre-built binaries are coming soon.
 
-| Platform       | File                    |
-| -------------- | ----------------------- |
-| macOS          | `.dmg`                  |
-| Linux (any)    | `.AppImage`             |
-| Linux (Debian) | `.deb`                  |
-| Linux (Fedora) | `.rpm`                  |
-| Windows        | `.exe` (NSIS installer) |
-
-### Windows (winget)
-
-Once the manifest has been accepted into [`microsoft/winget-pkgs`](https://github.com/microsoft/winget-pkgs), you can install with:
-
-```powershell
-winget install ToshonJennings.Mercury
-```
-
-Until then, download the `.exe` from the Releases page.
-
-> **Windows users:** The installer is not code-signed. Windows SmartScreen will warn on first launch — click "More info" → "Run anyway".
-
-> **WSL users:** If the installer stalls at `Switching to root user to install dependencies...`, Playwright is waiting for a sudo password that has no TTY to read from. Grant passwordless sudo for the install, then revert when finished:
->
-> ```bash
-> echo "$USER ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/hermes-install
-> # …re-run the installer; once it finishes:
-> sudo rm /etc/sudoers.d/hermes-install
-> ```
->
-> Tracked in [#109](https://github.com/toshon-jennings/mercury/issues/109).
-
-### Fedora (RPM)
+To build from source:
 
 ```bash
-sudo dnf install ./mercury-<version>.rpm
+git clone https://github.com/toshon-jennings/mercury.git
+cd mercury
+npm install
+npm run dev
 ```
 
-> **Fedora users:** The `.rpm` is not GPG-signed. If your system enforces signature checking, append `--nogpgcheck` to the install command. Auto-update is not supported for `.rpm` builds (limitation of `electron-updater`); reinstall the new `.rpm` to update.
+To package for your platform:
 
-### macOS
-
-> **macOS users:** The app is not code-signed or notarized. macOS will block it on first launch. To fix this, run the following after installing:
->
-> ```bash
-> xattr -cr "/Applications/Mercury.app"
-> ```
->
-> Or right-click the app → **Open** → click **Open** in the confirmation dialog.
+```bash
+npm run build        # all platforms
+npm run build:mac    # macOS .dmg
+npm run build:win    # Windows .exe
+npm run build:linux  # Linux .AppImage
+npm run build:rpm    # Fedora / RHEL .rpm
+```
 
 ## Features
 
