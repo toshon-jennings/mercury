@@ -90,6 +90,7 @@ import {
   updateSessionTitle,
 } from "./session-cache";
 import { listModels, addModel, removeModel, updateModel } from "./models";
+import { detectLocalModels } from "./local-models";
 import {
   listProfiles,
   createProfile,
@@ -386,7 +387,8 @@ function setupIPC(): void {
         return {
           success: false,
           action: "none",
-          message: "Repair from Mercury currently supports local Hermes installs only.",
+          message:
+            "Repair from Mercury currently supports local Hermes installs only.",
           affectsMercury: false,
           error:
             "Repair from Mercury currently supports local Hermes installs only.",
@@ -1032,6 +1034,7 @@ function setupIPC(): void {
     (_event, id: string, fields: Record<string, string>) =>
       updateModel(id, fields),
   );
+  ipcMain.handle("detect-local-models", () => detectLocalModels());
 
   // Claw3D
   ipcMain.handle("claw3d-status", () => getClaw3dStatus());
@@ -1244,7 +1247,7 @@ function buildMenu(): void {
         {
           label: "Report an Issue",
           click: (): void => {
-            openExternalUrl("https://github.com/fathah/hermes-desktop/issues");
+            openExternalUrl("https://github.com/toshon-jennings/mercury/issues");
           },
         },
       ],

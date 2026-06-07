@@ -1,4 +1,4 @@
-# Contributing to Hermes Desktop
+# Contributing to Mercury
 
 Thanks for your interest in contributing to Hermes Desktop! Whether it's a bug fix, a new feature, improved docs, or just a typo — every contribution helps.
 
