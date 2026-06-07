@@ -1,13 +1,7 @@
-<img width="100%" alt="MERCURY" src="https://github.com/user-attachments/assets/80585955-3bae-4aee-af90-a1e61757ccb8" />
-
-<br/>
 <p align="center">
   <a href="https://hermes-agent.nousresearch.com/docs/"><img src="https://img.shields.io/badge/Docs-hermes--agent.nousresearch.com-FFD700?style=for-the-badge" alt="Documentation"></a>
-  <a href="https://t.me/hermes_agent_desktop"><img src="https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram"></a>
   <a href="https://github.com/toshon-jennings/mercury/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://github.com/toshon-jennings/mercury/releases/"><img src="https://img.shields.io/badge/Download-Releases-FF6600?style=for-the-badge" alt="Releases"></a>
-  <a href="https://github.com/toshon-jennings/mercury/stargazers">
-    <img src="https://img.shields.io/github/stars/toshon-jennings/mercury?style=for-the-badge&color=FFD700&label=Stars" alt="Stars">
   </a>
 </p>
 
