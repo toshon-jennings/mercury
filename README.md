@@ -5,7 +5,7 @@
   </a>
 </p>
 
-> **Mercury is a community fork of [fathah/hermes-desktop](https://github.com/fathah/hermes-desktop)** — the official desktop companion for [Hermes Agent](https://github.com/NousResearch/hermes-agent). It shares the same core vision: a native desktop app for installing, configuring, and chatting with Hermes Agent. Mercury diverges in UI choices and development direction. It is **not** the official Hermes Desktop app.
+> **Mercury is a native desktop app for [Hermes Agent](https://github.com/NousResearch/hermes-agent).** It originated as a community fork of [Hermes Desktop](https://github.com/fathah/hermes-desktop) but has evolved independently with its own UI choices and development direction. It is **not** the official Hermes Desktop app.
 > 
 > **This project is in active development.** Features may change, and some things might break. If you run into a problem or have an idea, [open an issue](https://github.com/toshon-jennings/mercury/issues). Contributions are welcome!
 
@@ -13,7 +13,7 @@
 
 Mercury is a native desktop app for installing, configuring, and chatting with [Hermes Agent](https://github.com/NousResearch/hermes-agent) — a self-improving AI assistant with tool use, multi-platform messaging, and a closed learning loop.
 
-Instead of managing the CLI by hand, the app walks through install, provider setup, and day-to-day usage in one place. It uses the official Hermes install script, stores Hermes in `~/.hermes`, and gives you a GUI for chat, sessions, profiles, memory, skills, tools, scheduling, messaging gateways, and more.
+Instead of managing the CLI by hand, the app walks through install, provider setup, and day-to-day usage in one place.
 
 **A genuine terminal experience is built right in.** Run shell commands, inspect output, and interact with your system — all without leaving the app.
 
@@ -215,7 +215,7 @@ Hermes files are managed in:
 
 ## Notes
 
-- The desktop app depends on the upstream Hermes Agent project for agent behavior and tool execution.
+- The desktop app was originally built around the upstream Hermes Agent project for agent behavior and tool execution. Mercury has since diverged with its own development direction while maintaining compatibility with Hermes Agent installation and local model serving.
 - The built-in installer runs the official Hermes install script with `--skip-setup`, then completes provider configuration in the GUI.
 - Local model providers do not require an API key, but the compatible server must already be running.
 - Alternative npm registry routes are supported for environments with restricted network access.
@@ -226,5 +226,5 @@ Contributions are welcome! Check out the [Contributing Guide](CONTRIBUTING.md) t
 
 ## Related Projects
 
-- [Hermes Agent](https://github.com/NousResearch/hermes-agent) — the core agent, docs, and CLI workflows
-- [Hermes Desktop](https://github.com/fathah/hermes-desktop) — the official desktop app (upstream)
+- [Hermes Agent](https://github.com/NousResearch/hermes-agent) — the core agent Mercury wraps; docs and CLI workflows
+- [Hermes Desktop](https://github.com/fathah/hermes-desktop) — the original desktop app Mercury was forked from
