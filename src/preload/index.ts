@@ -535,6 +535,15 @@ const hermesAPI = {
   updateModel: (id: string, fields: Record<string, string>): Promise<boolean> =>
     ipcRenderer.invoke("update-model", id, fields),
 
+  detectLocalModels: (): Promise<
+    Array<{
+      id: string;
+      name: string;
+      baseUrl: string;
+      models: string[];
+    }>
+  > => ipcRenderer.invoke("detect-local-models"),
+
   // Claw3D
   claw3dStatus: (): Promise<{
     cloned: boolean;

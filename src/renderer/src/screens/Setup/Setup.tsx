@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowRight, ExternalLink } from "../../assets/icons";
 import { PROVIDERS, LOCAL_PRESETS } from "../../constants";
 import { useI18n } from "../../components/useI18n";
@@ -25,9 +25,32 @@ function Setup({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showKey, setShowKey] = useState(false);
+  const [detecting, setDetecting] = useState(false);
+  const [detected, setDetected] = useState<
+    Array<{ id: string; name: string; baseUrl: string; models: string[] }>
+  >([]);
 
   const provider = PROVIDERS.setup.find((p) => p.id === selectedProvider)!;
   const isLocal = selectedProvider === "local";
+
+  // Auto-scan for running local model servers when the Local tab is opened.
+  useEffect(() => {
+    if (!isLocal) return;
+    let cancelled = false;
+    async function scan(): Promise<void> {
+      setDetecting(true);
+      try {
+        const servers = await window.hermesAPI.detectLocalModels();
+        if (!cancelled) setDetected(servers);
+      } finally {
+        if (!cancelled) setDetecting(false);
+      }
+    }
+    scan();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLocal]);
 
   function applyLocalPreset(presetBaseUrl: string): void {
     setBaseUrl(presetBaseUrl);
@@ -118,6 +141,41 @@ function Setup({
       <div className="setup-form">
         {isLocal ? (
           <>
+            {detecting && (
+              <div className="setup-field-hint">{t("setup.detecting")}</div>
+            )}
+            {detected.length > 0 && (
+              <>
+                <label className="setup-label">
+                  {t("setup.detectedTitle")}
+                </label>
+                <div className="setup-local-presets">
+                  {detected.flatMap((server) =>
+                    server.models.map((model) => {
+                      const active =
+                        baseUrl === server.baseUrl && modelName === model;
+                      return (
+                        <button
+                          key={`${server.id}-${model}`}
+                          className={`setup-local-preset ${active ? "active" : ""}`}
+                          onClick={() => {
+                            setBaseUrl(server.baseUrl);
+                            setModelName(model);
+                            setError("");
+                          }}
+                        >
+                          {server.name}: {model}
+                        </button>
+                      );
+                    }),
+                  )}
+                </div>
+                <div className="setup-field-hint" style={{ marginBottom: 8 }}>
+                  {t("setup.detectedHint")}
+                </div>
+              </>
+            )}
+
             <label className="setup-label">{t("setup.localGroupLabel")}</label>
             <div className="setup-local-presets">
               {LOCAL_PRESETS.filter((p) => p.group === "local").map(

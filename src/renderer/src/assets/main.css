@@ -4275,6 +4275,54 @@ body {
   font-size: 12px;
 }
 
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+.models-detect-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.models-detect-group + .models-detect-group {
+  margin-top: 14px;
+}
+
+.models-detect-server {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.models-detect-url {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.models-detect-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.models-detect-item:hover {
+  background: var(--bg-secondary);
+}
+
+.models-detect-item input {
+  cursor: pointer;
+}
+
 .models-search {
   display: flex;
   align-items: center;

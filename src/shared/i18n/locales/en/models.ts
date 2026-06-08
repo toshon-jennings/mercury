@@ -24,4 +24,11 @@ export default {
   apiKeyLabel: "API Key",
   apiKeyHint:
     "Stored as an environment variable. Picks the matching env key based on the URL, or CUSTOM_API_KEY otherwise.",
+  detectLocal: "Detect Local",
+  detecting: "Scanning…",
+  detectTitle: "Local Models",
+  detectSubtitle: "Pick which detected models to add to your library",
+  detectEmpty: "No local servers detected. Is Ollama or LM Studio running?",
+  detectSelectAll: "Select all",
+  addSelected: "Add Selected",
 } as const;
