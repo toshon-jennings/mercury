@@ -360,6 +360,14 @@ interface HermesAPI {
   }>;
   removeModel: (id: string) => Promise<boolean>;
   updateModel: (id: string, fields: Record<string, string>) => Promise<boolean>;
+  detectLocalModels: () => Promise<
+    Array<{
+      id: string;
+      name: string;
+      baseUrl: string;
+      models: string[];
+    }>
+  >;
 
   // Claw3D
   claw3dStatus: () => Promise<{

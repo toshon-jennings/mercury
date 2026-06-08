@@ -44,4 +44,7 @@ export default {
   localLlm: "Local LLM",
   modelBaseUrlPlaceholder: "http://localhost:1234/v1",
   modelNamePlaceholder: "e.g. llama-3.1-8b",
+  detecting: "Scanning for local models…",
+  detectedTitle: "Detected on your machine",
+  detectedHint: "Click a model to use it — no setup needed",
 } as const;
