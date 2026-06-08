@@ -1,11 +1,11 @@
 <p align="center">
-  <a href="https://hermes-agent.nousresearch.com/docs/"><img src="https://img.shields.io/badge/Docs-hermes--agent.nousresearch.com-FFD700?style=for-the-badge" alt="Documentation"></a>
+  <a href="https://hermes-agent.nousresearch.com/docs/"><img src="https://img.shields.io/badge/Hermes%20Agent%20Docs-hermes--agent.nousresearch.com-FFD700?style=for-the-badge" alt="Hermes Agent Docs"></a>
   <a href="https://github.com/toshon-jennings/mercury/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
   <a href="https://github.com/toshon-jennings/mercury/releases/"><img src="https://img.shields.io/badge/Download-Releases-FF6600?style=for-the-badge" alt="Releases"></a>
   </a>
 </p>
 
-> **Mercury is a native desktop app for [Hermes Agent](https://github.com/NousResearch/hermes-agent).** It originated as a community fork of [Hermes Desktop](https://github.com/fathah/hermes-desktop) but has evolved independently with its own UI choices and development direction. It is **not** the official Hermes Desktop app.
+> **Mercury is a native desktop app for [Hermes Agent](https://github.com/NousResearch/hermes-agent).** It originated as a community fork of [hermes-desktop](https://github.com/fathah/hermes-desktop) but has evolved independently with its own UI choices and development direction. It is **not** affiliated with Nous Research or the [official Hermes Desktop app](https://hermes-agent.nousresearch.com/desktop).
 > 
 > **This project is in active development.** Features may change, and some things might break. If you run into a problem or have an idea, [open an issue](https://github.com/toshon-jennings/mercury/issues). Contributions are welcome!
 
@@ -227,4 +227,5 @@ Contributions are welcome! Check out the [Contributing Guide](CONTRIBUTING.md) t
 ## Related Projects
 
 - [Hermes Agent](https://github.com/NousResearch/hermes-agent) — the core agent Mercury wraps; docs and CLI workflows
-- [Hermes Desktop](https://github.com/fathah/hermes-desktop) — the original desktop app Mercury was forked from
+- [Hermes Desktop (official)](https://hermes-agent.nousresearch.com/desktop) — the official desktop app by Nous Research
+- [hermes-desktop](https://github.com/fathah/hermes-desktop) — the community project Mercury was forked from
