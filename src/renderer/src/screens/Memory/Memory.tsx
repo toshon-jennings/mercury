@@ -203,7 +203,12 @@ function Memory({ profile }: { profile?: string }): React.JSX.Element {
           <h2 className="page-title">{t("memory.title")}</h2>
           <p className="page-subtitle">{t("memory.subtitle")}</p>
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={loadData}>
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={loadData}
+          title={t("common.refresh")}
+          aria-label={t("common.refresh")}
+        >
           <Refresh size={13} />
         </button>
       </div>
@@ -504,6 +509,7 @@ function Memory({ profile }: { profile?: string }): React.JSX.Element {
                           window.hermesAPI.openExternal(PROVIDER_URLS[p.name])
                         }
                         title={t("memory.openProviderWebsite")}
+                        aria-label={t("memory.openProviderWebsite")}
                       >
                         <ExternalLink size={12} />
                       </button>
