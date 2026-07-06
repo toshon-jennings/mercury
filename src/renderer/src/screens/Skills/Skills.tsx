@@ -170,6 +170,8 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
                 <button
                   className="btn-ghost"
                   onClick={() => setDetailSkill(null)}
+                  aria-label={t("common.close")}
+                  title={t("common.close")}
                 >
                   <X size={18} />
                 </button>
@@ -196,7 +198,12 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
       {error && (
         <div className="skills-error">
           {error}
-          <button className="btn-ghost" onClick={() => setError("")}>
+          <button
+            className="btn-ghost"
+            onClick={() => setError("")}
+            aria-label={t("common.close")}
+            title={t("common.close")}
+          >
             <X size={14} />
           </button>
         </div>
@@ -240,6 +247,8 @@ function Skills({ profile }: SkillsProps): React.JSX.Element {
               setSearch("");
               searchRef.current?.focus();
             }}
+            aria-label={t("common.close")}
+            title={t("common.close")}
           >
             <X size={14} />
           </button>

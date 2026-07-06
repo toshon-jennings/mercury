@@ -262,7 +262,12 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
           <div className="schedules-modal" onClick={(e) => e.stopPropagation()}>
             <div className="schedules-modal-header">
               <h3>{t("schedules.newTask")}</h3>
-              <button className="btn-ghost" onClick={closeCreateModal}>
+              <button
+                className="btn-ghost"
+                onClick={closeCreateModal}
+                aria-label={t("common.close")}
+                title={t("common.close")}
+              >
                 <X size={18} />
               </button>
             </div>
@@ -480,6 +485,8 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
               <button
                 className="btn-ghost"
                 onClick={() => setConfirmDelete(null)}
+                aria-label={t("common.close")}
+                title={t("common.close")}
               >
                 <X size={18} />
               </button>
@@ -533,7 +540,12 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
       {error && (
         <div className="skills-error">
           {error}
-          <button className="btn-ghost" onClick={() => setError("")}>
+          <button
+            className="btn-ghost"
+            onClick={() => setError("")}
+            aria-label={t("common.close")}
+            title={t("common.close")}
+          >
             <X size={14} />
           </button>
         </div>
