@@ -262,7 +262,12 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
           <div className="schedules-modal" onClick={(e) => e.stopPropagation()}>
             <div className="schedules-modal-header">
               <h3>{t("schedules.newTask")}</h3>
-              <button className="btn-ghost" onClick={closeCreateModal}>
+              <button
+                className="btn-ghost"
+                onClick={closeCreateModal}
+                title={t("common.close")}
+                aria-label={t("common.close")}
+              >
                 <X size={18} />
               </button>
             </div>
