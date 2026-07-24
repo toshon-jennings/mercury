@@ -40,7 +40,7 @@ export function getHermesPrimaryAction(
       return { label: "Update Hermes", disabled: false, kind: "update" };
     case "customized":
       return {
-        label: "Restore standard Hermes",
+        label: "Reset to official Hermes",
         disabled: false,
         kind: "normalize",
       };
@@ -570,6 +570,46 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
           <div className="settings-field-hint" style={{ marginTop: 6 }}>
             This changes Hermes Agent only, not Mercury.
           </div>
+          {hermesHealth?.mode === "customized" && (
+            <div
+              className="settings-field-hint"
+              style={{
+                marginTop: 10,
+                padding: "10px 12px",
+                background: "rgba(245, 158, 11, 0.1)",
+                border: "1px solid rgba(245, 158, 11, 0.3)",
+                borderRadius: 6,
+                color: "#fbbf24",
+                fontSize: 13,
+                lineHeight: 1.5,
+              }}
+            >
+              Your Hermes install has local changes or untracked files
+              (custom branch, modified files, or a forked remote). Resetting
+              will <strong>discard</strong> all local modifications and restore
+              the official upstream release. If you have uncommitted work, back
+              it up first.
+            </div>
+          )}
+          {hermesHealth?.mode === "update_available" && (hermesHealth.git.isDirty || hermesHealth.git.hasUntrackedFiles) && (
+            <div
+              className="settings-field-hint"
+              style={{
+                marginTop: 10,
+                padding: "10px 12px",
+                background: "rgba(59, 130, 246, 0.08)",
+                border: "1px solid rgba(59, 130, 246, 0.2)",
+                borderRadius: 6,
+                color: "#93c5fd",
+                fontSize: 13,
+                lineHeight: 1.5,
+              }}
+            >
+              You have local modifications in the Hermes directory. Updating
+              may affect these files. Changes from upstream will be merged, but
+              conflicts should be resolved manually if they occur.
+            </div>
+          )}
           {hermesHealth && (
             <details className="settings-field" style={{ marginTop: 12 }}>
               <summary className="settings-field-label">
@@ -610,7 +650,11 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
           )}
           <div className="settings-hermes-actions">
             <button
-              className="btn btn-primary"
+              className={`btn ${
+                primaryAction.kind === "normalize" || primaryAction.kind === "repair"
+                  ? "btn-danger"
+                  : "btn-primary"
+              }`}
               onClick={() => {
                 switch (primaryAction.kind) {
                   case "update":
