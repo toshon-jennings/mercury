@@ -1042,6 +1042,8 @@ function Chat({
                   profile,
                 );
               }}
+              title={t("chat.fastMode")}
+              aria-label={t("chat.fastMode")}
             >
               <Zap size={14} />
             </button>
