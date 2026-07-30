@@ -579,6 +579,11 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
                           ? t("schedules.resume")
                           : t("schedules.pause")
                       }
+                      aria-label={
+                        job.state === "paused"
+                          ? t("schedules.resume")
+                          : t("schedules.pause")
+                      }
                       onClick={() => handleToggle(job)}
                       disabled={actionInProgress === job.id}
                     >
@@ -593,6 +598,7 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
                     <button
                       className="btn-ghost schedules-action-btn"
                       data-tooltip={t("schedules.triggerNow")}
+                      aria-label={t("schedules.triggerNow")}
                       onClick={() => handleTrigger(job.id)}
                       disabled={actionInProgress === job.id}
                     >
