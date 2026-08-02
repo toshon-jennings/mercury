@@ -168,12 +168,7 @@ export class OfficeTerminalAgentBridge {
       }
 
       if (tracked.ended) {
-        await this.rpc("agents.delete", { agentId }).catch((error: unknown) => {
-          console.warn(
-            "[Office Agents] Failed deleting agent created after terminal ended:",
-            error,
-          );
-        });
+        await this.rpc("agents.delete", { agentId }).catch(() => {});
         return;
       }
 
