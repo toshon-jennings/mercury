@@ -771,7 +771,6 @@ export const GATEWAY_PLATFORMS: PlatformDef[] = [
 
 export const UNIX_INSTALL_CMD =
   "curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash";
-export const INSTALL_CMD_UNIX = UNIX_INSTALL_CMD;
 export const WINDOWS_INSTALL_CMD =
   "powershell -NoProfile -ExecutionPolicy Bypass -c \"$hermesHome = Join-Path $env:USERPROFILE '.hermes'; $installDir = Join-Path $hermesHome 'hermes-agent'; $installer = [ScriptBlock]::Create((irm https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.ps1 -UseBasicParsing)); & $installer -SkipSetup -HermesHome $hermesHome -InstallDir $installDir\"";
 export const INSTALL_CMD =
