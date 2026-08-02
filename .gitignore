@@ -34,3 +34,13 @@ release/
 **/src-tauri/target/
 **/src-tauri/gen/
 **/src-tauri/WixTools/
+
+# Personal agent working docs — local to the maintainer, not part of the package
+HANDOFF.md
+SUMMARY.md
+HITL.md
+
+# Personal agent working docs — local to the maintainer, not part of the package
+AGENTS.md
+CLAUDE.md
+DECISIONS.md
