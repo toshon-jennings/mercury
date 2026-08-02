@@ -339,8 +339,8 @@ if not os.path.exists(db):
     sys.exit(0)
 conn = sqlite3.connect(db)
 try:
-    s = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
-    m = conn.execute("SELECT COUNT(*) FROM messages").fetchone()[0]
+    row = conn.execute("SELECT (SELECT COUNT(*) FROM sessions), (SELECT COUNT(*) FROM messages)").fetchone()
+    s, m = row[0], row[1]
     print(json.dumps({"totalSessions": s, "totalMessages": m}))
 except:
     print(json.dumps({"totalSessions": 0, "totalMessages": 0}))
