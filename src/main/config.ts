@@ -109,22 +109,34 @@ export function readEnv(profile?: string): Record<string, string> {
   const content = readFileSync(envFile, "utf-8");
   const result: Record<string, string> = {};
 
-  for (const line of content.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("#") || !trimmed.includes("=")) continue;
+  let start = 0;
+  while (start < content.length) {
+    let end = content.indexOf("\n", start);
+    if (end === -1) end = content.length;
 
-    const eqIndex = trimmed.indexOf("=");
-    const key = trimmed.substring(0, eqIndex).trim();
-    let value = trimmed.substring(eqIndex + 1).trim();
+    let i = start;
+    while (i < end && content.charCodeAt(i) <= 32) i++;
 
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
+    if (i < end && content.charCodeAt(i) !== 35) { // 35 is '#'
+      const line = content.substring(i, end);
+      const eqIndex = line.indexOf("=");
+      if (eqIndex !== -1) {
+        const key = line.substring(0, eqIndex).trimEnd();
+        let value = line.substring(eqIndex + 1).trim();
+
+        if (
+          value.length >= 2 &&
+          ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'")))
+        ) {
+          value = value.slice(1, -1);
+        }
+
+        if (value) result[key] = value;
+      }
     }
 
-    if (value) result[key] = value;
+    start = end + 1;
   }
 
   setCache(cacheKey, result);
