@@ -1134,7 +1134,7 @@ export async function sshGatewayStatus(config: SshConfig): Promise<boolean> {
       config,
       `if [ -f $HOME/.hermes/gateway.pid ]; then ` +
         `pid=$(python3 -c "import json,sys; d=json.load(open('$HOME/.hermes/gateway.pid')); print(d.get('pid',d) if isinstance(d,dict) else d)" 2>/dev/null || cat $HOME/.hermes/gateway.pid); ` +
-        `kill -0 $pid 2>/dev/null && echo "running" || echo "stopped"; ` +
+        `kill -0 "$pid" 2>/dev/null && echo "running" || echo "stopped"; ` +
         `else echo "stopped"; fi`,
     );
     return out.trim() === "running";
@@ -1161,7 +1161,7 @@ export async function sshStopGateway(config: SshConfig): Promise<void> {
       `hermes gateway stop 2>/dev/null || ` +
         `(if [ -f $HOME/.hermes/gateway.pid ]; then ` +
         `pid=$(python3 -c "import json; d=json.load(open('$HOME/.hermes/gateway.pid')); print(d['pid'] if isinstance(d,dict) else d)" 2>/dev/null); ` +
-        `[ -n "$pid" ] && kill $pid 2>/dev/null; fi); true`,
+        `[ -n "$pid" ] && kill "$pid" 2>/dev/null; fi); true`,
     );
   } catch {
     // best effort
