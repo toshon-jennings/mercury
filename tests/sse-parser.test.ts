@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 import {
-  processCustomEvent,
   processSseData,
   parseSseBlock,
 } from "../src/main/sse-parser";
@@ -39,68 +38,6 @@ describe("parseSseBlock", () => {
       eventType: "hermes.tool.progress",
       data: "{}",
     });
-  });
-});
-
-// ─── processCustomEvent ─────────────────────────────────
-
-describe("processCustomEvent", () => {
-  it("handles hermes.tool.progress with emoji and label", () => {
-    const onToolProgress = vi.fn();
-    const handled = processCustomEvent(
-      "hermes.tool.progress",
-      JSON.stringify({ tool: "search_web", emoji: "🔍", label: "Searching" }),
-      { onToolProgress },
-    );
-    expect(handled).toBe(true);
-    expect(onToolProgress).toHaveBeenCalledWith("🔍 Searching");
-  });
-
-  it("uses tool name as fallback when label is missing", () => {
-    const onToolProgress = vi.fn();
-    processCustomEvent(
-      "hermes.tool.progress",
-      JSON.stringify({ tool: "read_file", emoji: "📄" }),
-      { onToolProgress },
-    );
-    expect(onToolProgress).toHaveBeenCalledWith("📄 read_file");
-  });
-
-  it("handles missing emoji gracefully", () => {
-    const onToolProgress = vi.fn();
-    processCustomEvent(
-      "hermes.tool.progress",
-      JSON.stringify({ tool: "terminal", label: "Running command" }),
-      { onToolProgress },
-    );
-    expect(onToolProgress).toHaveBeenCalledWith("Running command");
-  });
-
-  it("ignores unknown event types", () => {
-    const onToolProgress = vi.fn();
-    const handled = processCustomEvent("unknown.event", "{}", {
-      onToolProgress,
-    });
-    expect(handled).toBe(false);
-    expect(onToolProgress).not.toHaveBeenCalled();
-  });
-
-  it("ignores malformed JSON data", () => {
-    const onToolProgress = vi.fn();
-    const handled = processCustomEvent("hermes.tool.progress", "not-json", {
-      onToolProgress,
-    });
-    expect(handled).toBe(false);
-    expect(onToolProgress).not.toHaveBeenCalled();
-  });
-
-  it("does nothing when onToolProgress callback is absent", () => {
-    const handled = processCustomEvent(
-      "hermes.tool.progress",
-      JSON.stringify({ tool: "x" }),
-      {},
-    );
-    expect(handled).toBe(false);
   });
 });
 

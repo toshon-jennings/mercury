@@ -22,29 +22,6 @@ export interface SseCallbacks {
 /** Tool progress pattern: `emoji tool_name` or `emoji description` */
 const toolProgressRe = /^`([^\s`]+)\s+([^`]+)`$/;
 
-/**
- * Process a custom SSE event (e.g. hermes.tool.progress).
- * Returns true if the event was handled.
- */
-export function processCustomEvent(
-  eventType: string,
-  data: string,
-  cb: Pick<SseCallbacks, "onToolProgress">,
-): boolean {
-  if (eventType === "hermes.tool.progress" && cb.onToolProgress) {
-    try {
-      const payload = JSON.parse(data);
-      const label = payload.label || payload.tool || "";
-      const emoji = payload.emoji || "";
-      cb.onToolProgress(emoji ? `${emoji} ${label}` : label);
-      return true;
-    } catch {
-      /* malformed — skip */
-    }
-  }
-  return false;
-}
-
 export interface SseDataResult {
   done: boolean;
   hasContent: boolean;
