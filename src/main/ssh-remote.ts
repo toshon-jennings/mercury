@@ -819,10 +819,21 @@ export async function sshGetModelConfig(
   config: SshConfig,
   profile?: string,
 ): Promise<{ provider: string; model: string; baseUrl: string }> {
+  const content = await sshReadFile(config, remoteConfigPath(profile));
+  if (!content) return { provider: "auto", model: "", baseUrl: "" };
+
+  const getValue = (key: string) => {
+    const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = content.match(
+      new RegExp(`^\\s*${escapedKey}:\\s*["']?([^"'\\n#]+)["']?`, "m"),
+    );
+    return match ? match[1] : null;
+  };
+
   return {
-    provider: (await sshGetConfigValue(config, "provider", profile)) || "auto",
-    model: (await sshGetConfigValue(config, "default", profile)) || "",
-    baseUrl: (await sshGetConfigValue(config, "base_url", profile)) || "",
+    provider: getValue("provider") || "auto",
+    model: getValue("default") || "",
+    baseUrl: getValue("base_url") || "",
   };
 }
 
