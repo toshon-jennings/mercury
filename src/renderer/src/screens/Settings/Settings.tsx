@@ -22,9 +22,7 @@ const LANGUAGE_LABEL_KEYS: Record<AppLocale, string> = {
   "zh-CN": "settings.language.chinese",
 };
 
-export function getHermesPrimaryAction(
-  health: HermesInstallHealth | null,
-): {
+export function getHermesPrimaryAction(health: HermesInstallHealth | null): {
   label: string;
   disabled: boolean;
   kind: "install" | "update" | "normalize" | "repair" | "none";
@@ -565,7 +563,8 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
             {hermesHealth?.summary || "Checking Hermes…"}
           </div>
           <div className="settings-field-hint" style={{ marginTop: 6 }}>
-            {hermesHealth?.detail || "Mercury is checking your Hermes installation."}
+            {hermesHealth?.detail ||
+              "Mercury is checking your Hermes installation."}
           </div>
           <div className="settings-field-hint" style={{ marginTop: 6 }}>
             This changes Hermes Agent only, not Mercury.
@@ -584,32 +583,34 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
                 lineHeight: 1.5,
               }}
             >
-              Your Hermes install has local changes or untracked files
-              (custom branch, modified files, or a forked remote). Resetting
-              will <strong>discard</strong> all local modifications and restore
-              the official upstream release. If you have uncommitted work, back
-              it up first.
+              Your Hermes install has local changes or untracked files (custom
+              branch, modified files, or a forked remote). Resetting will{" "}
+              <strong>discard</strong> all local modifications and restore the
+              official upstream release. If you have uncommitted work, back it
+              up first.
             </div>
           )}
-          {hermesHealth?.mode === "update_available" && (hermesHealth.git.isDirty || hermesHealth.git.hasUntrackedFiles) && (
-            <div
-              className="settings-field-hint"
-              style={{
-                marginTop: 10,
-                padding: "10px 12px",
-                background: "rgba(59, 130, 246, 0.08)",
-                border: "1px solid rgba(59, 130, 246, 0.2)",
-                borderRadius: 6,
-                color: "#93c5fd",
-                fontSize: 13,
-                lineHeight: 1.5,
-              }}
-            >
-              You have local modifications in the Hermes directory. Updating
-              may affect these files. Changes from upstream will be merged, but
-              conflicts should be resolved manually if they occur.
-            </div>
-          )}
+          {hermesHealth?.mode === "update_available" &&
+            (hermesHealth.git.isDirty ||
+              hermesHealth.git.hasUntrackedFiles) && (
+              <div
+                className="settings-field-hint"
+                style={{
+                  marginTop: 10,
+                  padding: "10px 12px",
+                  background: "rgba(59, 130, 246, 0.08)",
+                  border: "1px solid rgba(59, 130, 246, 0.2)",
+                  borderRadius: 6,
+                  color: "#93c5fd",
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                }}
+              >
+                You have local modifications in the Hermes directory. Updating
+                may affect these files. Changes from upstream will be merged,
+                but conflicts should be resolved manually if they occur.
+              </div>
+            )}
           {hermesHealth && (
             <details className="settings-field" style={{ marginTop: 12 }}>
               <summary className="settings-field-label">
@@ -619,11 +620,13 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
                 Current branch: {hermesHealth.currentBranch || "—"}
               </div>
               <div className="settings-field-hint">
-                Connected repositories: origin {hermesHealth.remotes.origin || "—"} · upstream{" "}
+                Connected repositories: origin{" "}
+                {hermesHealth.remotes.origin || "—"} · upstream{" "}
                 {hermesHealth.remotes.upstream || "—"}
               </div>
               <div className="settings-field-hint">
-                Standard Hermes source: {hermesHealth.remotes.officialRemote || "—"}
+                Standard Hermes source:{" "}
+                {hermesHealth.remotes.officialRemote || "—"}
               </div>
               <div className="settings-field-hint">
                 Custom source: {hermesHealth.remotes.forkRemote || "—"}
@@ -651,7 +654,8 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
           <div className="settings-hermes-actions">
             <button
               className={`btn ${
-                primaryAction.kind === "normalize" || primaryAction.kind === "repair"
+                primaryAction.kind === "normalize" ||
+                primaryAction.kind === "repair"
                   ? "btn-danger"
                   : "btn-primary"
               }`}
@@ -935,6 +939,7 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
               className="btn-ghost settings-migration-dismiss"
               onClick={handleDismissMigration}
               title={t("settings.migrationDismiss")}
+              aria-label={t("settings.migrationDismiss")}
             >
               &times;
             </button>
