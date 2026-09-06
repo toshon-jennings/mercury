@@ -203,12 +203,7 @@ function Memory({ profile }: { profile?: string }): React.JSX.Element {
           <h2 className="page-title">{t("memory.title")}</h2>
           <p className="page-subtitle">{t("memory.subtitle")}</p>
         </div>
-        <button
-          className="btn btn-secondary btn-sm"
-          onClick={loadData}
-          title={t("common.refresh")}
-          aria-label={t("common.refresh")}
-        >
+        <button className="btn btn-secondary btn-sm" onClick={loadData}>
           <Refresh size={13} />
         </button>
       </div>
