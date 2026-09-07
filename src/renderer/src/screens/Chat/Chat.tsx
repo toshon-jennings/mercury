@@ -1271,6 +1271,8 @@ function Chat({
                 if (!showModelPicker) loadModelConfig();
                 setShowModelPicker(!showModelPicker);
               }}
+              title={t("common.model")}
+              aria-label={t("common.model")}
             >
               <span className="chat-model-name">{displayModel}</span>
               <ChevronDown size={12} />
