@@ -239,6 +239,8 @@ function Sessions({
           {searchQuery && (
             <button
               className="btn-ghost sessions-searchbar-clear"
+              title={t("common.reset")}
+              aria-label={t("common.reset")}
               onClick={() => {
                 setSearchQuery("");
                 searchRef.current?.focus();

@@ -1033,6 +1033,8 @@ function Chat({
           <div className="chat-fast-wrapper">
             <button
               className={`btn-ghost chat-fast-btn ${fastMode ? "chat-fast-active" : ""}`}
+              title={fastMode ? t("chat.fastModeOn") : t("chat.fastMode")}
+              aria-label={fastMode ? t("chat.fastModeOn") : t("chat.fastMode")}
               onClick={async () => {
                 const next = !fastMode;
                 setFastMode(next);
@@ -1042,8 +1044,6 @@ function Chat({
                   profile,
                 );
               }}
-              title={t("chat.fastMode")}
-              aria-label={t("chat.fastMode")}
             >
               <Zap size={14} />
             </button>
