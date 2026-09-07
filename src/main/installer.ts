@@ -414,24 +414,38 @@ export function classifyHermesInstallHealth(
     };
   }
 
+  // A "development mode" install: user is on main, has an official remote,
+  // and the only non-standard signal is local modifications (dirty/untracked)
+  // while also having a fork remote. This is a normal dev workflow -- not a
+  // "customized" install that needs resetting.
+  const isDevelopmentMode =
+    isMainBranch &&
+    hasOfficialRemote &&
+    hasForkRemote &&
+    aheadOfOfficial !== null &&
+    aheadOfOfficial === 0 &&
+    behindOfFork !== null &&
+    behindOfFork === 0;
+
   const hasRecoverableCustomization =
-    dirty ||
-    untracked ||
-    !isMainBranch ||
-    (aheadOfOfficial !== null && aheadOfOfficial > 0) ||
-    (aheadOfFork !== null && aheadOfFork > 0) ||
-    (behindOfFork !== null && behindOfFork > 0) ||
-    (originUrl &&
-      upstreamUrl &&
-      isOfficialHermesRemote(originUrl) &&
-      !isOfficialHermesRemote(upstreamUrl));
+    !isDevelopmentMode &&
+    (dirty ||
+      untracked ||
+      !isMainBranch ||
+      (aheadOfOfficial !== null && aheadOfOfficial > 0) ||
+      (aheadOfFork !== null && aheadOfFork > 0) ||
+      (behindOfFork !== null && behindOfFork > 0) ||
+      (originUrl &&
+        upstreamUrl &&
+        isOfficialHermesRemote(originUrl) &&
+        !isOfficialHermesRemote(upstreamUrl)));
 
   if (hasRecoverableCustomization) {
     return {
       mode: "customized",
-      summary: "Hermes has local customizations",
+      summary: "Custom Hermes build detected",
       detail:
-        "Mercury can back up your current Hermes install and restore the standard Hermes version. This changes Hermes Agent only, not Mercury.",
+        "This Hermes install is on a non-standard branch, has diverged from upstream, or has misconfigured remotes. Resetting will discard local modifications and restore the official upstream version. This changes Hermes Agent only, not Mercury.",
       affectsMercury: false,
       backupRecommended: true,
       canAutoFix: true,

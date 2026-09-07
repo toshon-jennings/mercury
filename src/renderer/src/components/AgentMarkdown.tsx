@@ -98,8 +98,8 @@ function CodeBlock({
         <button
           className="chat-code-copy"
           onClick={handleCopy}
-          aria-label={t("common.copy")}
-          title={t("common.copy")}
+          aria-label={copied ? t("common.copied") : t("common.copy")}
+          title={copied ? t("common.copied") : t("common.copy")}
         >
           {copied ? t("common.copied") : <Copy size={13} />}
         </button>

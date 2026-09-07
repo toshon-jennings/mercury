@@ -102,7 +102,7 @@ describe("Hermes maintenance CTA mapping", () => {
           "Hermes v1",
         ),
       ).label,
-    ).toBe("Restore standard Hermes");
+    ).toBe("Reset to official Hermes");
     expect(
       getHermesPrimaryAction(
         classifyHermesInstallHealth(

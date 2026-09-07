@@ -345,6 +345,7 @@ function Welcome({
                   className="btn-ghost welcome-copy-btn"
                   onClick={() => navigator.clipboard.writeText(getInstallCmd())}
                   title={t("welcome.copyInstallCommand")}
+                  aria-label={t("welcome.copyInstallCommand")}
                 >
                   <Copy size={14} />
                 </button>
