@@ -143,6 +143,7 @@ interface HermesAPI {
   abortChat: () => Promise<void>;
   onChatChunk: (callback: (chunk: string) => void) => () => void;
   onChatDone: (callback: (sessionId?: string) => void) => () => void;
+  onChatActivity: (callback: () => void) => () => void;
   onChatToolProgress: (callback: (tool: string) => void) => () => void;
   onChatUsage: (
     callback: (usage: {
@@ -359,6 +360,14 @@ interface HermesAPI {
   }>;
   removeModel: (id: string) => Promise<boolean>;
   updateModel: (id: string, fields: Record<string, string>) => Promise<boolean>;
+  detectLocalModels: () => Promise<
+    Array<{
+      id: string;
+      name: string;
+      baseUrl: string;
+      models: string[];
+    }>
+  >;
 
   // Claw3D
   claw3dStatus: () => Promise<{

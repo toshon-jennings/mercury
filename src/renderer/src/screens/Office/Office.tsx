@@ -443,6 +443,7 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
                 className="btn-ghost office-toolbar-btn"
                 onClick={refreshWebview}
                 title={t("common.refresh")}
+                aria-label={t("common.refresh")}
               >
                 <Refresh size={16} />
               </button>
@@ -450,6 +451,7 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
                 className="btn-ghost office-toolbar-btn"
                 onClick={() => window.hermesAPI.openExternal(claw3dUrl)}
                 title={t("office.openInBrowser")}
+                aria-label={t("office.openInBrowser")}
               >
                 <ExternalLink size={16} />
               </button>
@@ -459,6 +461,7 @@ function Office({ visible }: { visible?: boolean }): React.JSX.Element {
             className="btn-ghost office-toolbar-btn"
             onClick={() => setShowSettings(!showSettings)}
             title={t("common.settings")}
+            aria-label={t("common.settings")}
           >
             <Settings size={16} />
           </button>

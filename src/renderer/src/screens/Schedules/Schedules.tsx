@@ -266,6 +266,7 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
                 className="btn-ghost"
                 onClick={closeCreateModal}
                 aria-label={t("common.close")}
+                title={t("common.close")}
               >
                 <X size={18} />
               </button>
@@ -485,6 +486,7 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
                 className="btn-ghost"
                 onClick={() => setConfirmDelete(null)}
                 aria-label={t("common.close")}
+                title={t("common.close")}
               >
                 <X size={18} />
               </button>
@@ -542,6 +544,7 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
             className="btn-ghost"
             onClick={() => setError("")}
             aria-label={t("common.close")}
+            title={t("common.close")}
           >
             <X size={14} />
           </button>
@@ -613,7 +616,7 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
                     data-tooltip={t("schedules.delete")}
                     onClick={() => setConfirmDelete(job.id)}
                     disabled={actionInProgress === job.id}
-                    aria-label={t("common.delete")}
+                    aria-label={t("schedules.delete")}
                   >
                     <Trash size={14} />
                   </button>

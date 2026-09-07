@@ -120,6 +120,7 @@ describe("Legacy APIs preserved (backward compat)", () => {
     "abortChat",
     "onChatChunk",
     "onChatDone",
+    "onChatActivity",
     "onChatToolProgress",
     "onChatUsage",
     "onChatError",

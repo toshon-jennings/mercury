@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { ArrowRight, Copy, Send } from "../../assets/icons";
 
-const TELEGRAM_COMMUNITY_URL = "https://t.me/hermes_agent_desktop";
+// TODO: Replace with Mercury Telegram channel link (create before v1.0.0)
+const TELEGRAM_COMMUNITY_URL = "";
 import { useI18n } from "../../components/useI18n";
 
 interface InstallProgress {
@@ -126,13 +127,11 @@ function Install({ onComplete, onFailed }: InstallProps): React.JSX.Element {
             </button>
             <button
               className="btn btn-secondary btn-sm"
-              onClick={() =>
-                window.hermesAPI.openExternal(TELEGRAM_COMMUNITY_URL)
-              }
-              title={TELEGRAM_COMMUNITY_URL}
+              disabled
+              title="Community coming soon"
             >
               <Send size={13} />
-              Join Community
+              Join Community (soon)
             </button>
           </div>
         </div>

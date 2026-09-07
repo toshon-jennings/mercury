@@ -90,6 +90,7 @@ import {
   updateSessionTitle,
 } from "./session-cache";
 import { listModels, addModel, removeModel, updateModel } from "./models";
+import { detectLocalModels } from "./local-models";
 import {
   listProfiles,
   createProfile,
@@ -193,6 +194,7 @@ process.on("unhandledRejection", (reason) => {
 
 let mainWindow: BrowserWindow | null = null;
 let currentChatAbort: (() => void) | null = null;
+let currentChatSettleAbort: (() => void) | null = null;
 
 function openExternalUrl(rawUrl: unknown): void {
   if (!isAllowedExternalUrl(rawUrl)) {
@@ -385,7 +387,8 @@ function setupIPC(): void {
         return {
           success: false,
           action: "none",
-          message: "Repair from Mercury currently supports local Hermes installs only.",
+          message:
+            "Repair from Mercury currently supports local Hermes installs only.",
           affectsMercury: false,
           error:
             "Repair from Mercury currently supports local Hermes installs only.",
@@ -678,6 +681,9 @@ function setupIPC(): void {
 
       if (currentChatAbort) {
         currentChatAbort();
+        currentChatSettleAbort?.();
+        currentChatAbort = null;
+        currentChatSettleAbort = null;
       }
 
       let fullResponse = "";
@@ -698,8 +704,12 @@ function setupIPC(): void {
             fullResponse += chunk;
             event.sender.send("chat-chunk", chunk);
           },
+          onActivity: () => {
+            event.sender.send("chat-activity");
+          },
           onDone: (sessionId) => {
             currentChatAbort = null;
+            currentChatSettleAbort = null;
             event.sender.send("chat-done", sessionId || "");
             resolveChat({ response: fullResponse, sessionId });
             // Desktop notification when window is not focused and response took >10s
@@ -720,6 +730,7 @@ function setupIPC(): void {
           },
           onError: (error) => {
             currentChatAbort = null;
+            currentChatSettleAbort = null;
             event.sender.send("chat-error", error);
             rejectChat(new Error(error));
             // Notify on error too if window not focused
@@ -744,6 +755,9 @@ function setupIPC(): void {
       );
 
       currentChatAbort = handle.abort;
+      currentChatSettleAbort = () => {
+        resolveChat({ response: fullResponse });
+      };
       return promise;
     },
   );
@@ -751,7 +765,9 @@ function setupIPC(): void {
   ipcMain.handle("abort-chat", () => {
     if (currentChatAbort) {
       currentChatAbort();
+      currentChatSettleAbort?.();
       currentChatAbort = null;
+      currentChatSettleAbort = null;
     }
   });
 
@@ -1018,6 +1034,7 @@ function setupIPC(): void {
     (_event, id: string, fields: Record<string, string>) =>
       updateModel(id, fields),
   );
+  ipcMain.handle("detect-local-models", () => detectLocalModels());
 
   // Claw3D
   ipcMain.handle("claw3d-status", () => getClaw3dStatus());
@@ -1230,7 +1247,7 @@ function buildMenu(): void {
         {
           label: "Report an Issue",
           click: (): void => {
-            openExternalUrl("https://github.com/fathah/hermes-desktop/issues");
+            openExternalUrl("https://github.com/toshon-jennings/mercury/issues");
           },
         },
       ],
@@ -1311,7 +1328,7 @@ function setupUpdater(): void {
 }
 
 app.whenReady().then(() => {
-  app.name = "Hermes";
+  app.name = "Mercury";
   electronApp.setAppUserModelId("com.nousresearch.hermes");
 
   app.on("browser-window-created", (_, window) => {

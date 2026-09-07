@@ -95,7 +95,12 @@ function CodeBlock({
         <span className="chat-code-lang">
           {isDiff ? "diff" : language || "code"}
         </span>
-        <button className="chat-code-copy" onClick={handleCopy}>
+        <button
+          className="chat-code-copy"
+          onClick={handleCopy}
+          aria-label={copied ? t("common.copied") : t("common.copy")}
+          title={copied ? t("common.copied") : t("common.copy")}
+        >
           {copied ? t("common.copied") : <Copy size={13} />}
         </button>
       </div>

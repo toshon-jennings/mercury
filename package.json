@@ -1,7 +1,7 @@
 {
   "name": "mercury",
-  "version": "0.6.8",
-  "description": "Mercury — self-improving AI assistant desktop forked from Hermes",
+  "version": "0.6.12",
+  "description": "Mercury \u2014 a native desktop app for Hermes Agent (community fork of fathah/hermes-desktop)",
   "main": "./out/main/index.js",
   "author": "toshon-jennings",
   "homepage": "https://github.com/toshon-jennings/mercury",
