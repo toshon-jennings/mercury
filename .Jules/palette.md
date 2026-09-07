@@ -10,3 +10,7 @@
 
 **Learning:** Found multiple instances of icon-only buttons (Trash, Refresh, X, Stop) without `aria-label` attributes. This negatively impacts screen reader users as they receive no context on what the button does.
 **Action:** Implementing `aria-label` attributes for these elements and establishing it as a pattern using the `t()` translation hook for accessibility.
+
+## 2026-07-14 - Redundant Aria-labels
+**Learning:** When adding `aria-label` to buttons, ensure they don't already have visible text. Adding `aria-label` to buttons with visible text is redundant and can cause screen readers to read the same thing twice.
+**Action:** Check if the button has text content before adding `aria-label`.

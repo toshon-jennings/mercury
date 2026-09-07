@@ -523,7 +523,10 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
           <p className="page-subtitle">{t("schedules.subtitle")}</p>
         </div>
         <div className="page-header-actions">
-          <button className="btn btn-secondary btn-sm" onClick={loadJobs}>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={loadJobs}
+          >
             <Refresh size={14} />
             {t("schedules.refresh")}
           </button>
@@ -593,6 +596,16 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
                       }
                       onClick={() => handleToggle(job)}
                       disabled={actionInProgress === job.id}
+                      title={
+                        job.state === "paused"
+                          ? t("schedules.resume")
+                          : t("schedules.pause")
+                      }
+                      aria-label={
+                        job.state === "paused"
+                          ? t("schedules.resume")
+                          : t("schedules.pause")
+                      }
                     >
                       {job.state === "paused" ? (
                         <Play size={14} />
@@ -607,6 +620,8 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
                       data-tooltip={t("schedules.triggerNow")}
                       onClick={() => handleTrigger(job.id)}
                       disabled={actionInProgress === job.id}
+                      title={t("schedules.triggerNow")}
+                      aria-label={t("schedules.triggerNow")}
                     >
                       <Zap size={14} />
                     </button>
@@ -616,6 +631,7 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
                     data-tooltip={t("schedules.delete")}
                     onClick={() => setConfirmDelete(job.id)}
                     disabled={actionInProgress === job.id}
+                    title={t("schedules.delete")}
                     aria-label={t("schedules.delete")}
                   >
                     <Trash size={14} />

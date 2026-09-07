@@ -206,6 +206,7 @@ function Memory({ profile }: { profile?: string }): React.JSX.Element {
         <button
           className="btn btn-secondary btn-sm"
           onClick={loadData}
+          title={t("common.refresh")}
           aria-label={t("common.refresh")}
         >
           <Refresh size={13} />
@@ -400,6 +401,7 @@ function Memory({ profile }: { profile?: string }): React.JSX.Element {
                         <button
                           className="btn-ghost memory-entry-btn"
                           onClick={() => setConfirmDelete(entry.index)}
+                          title={t("common.delete")}
                           aria-label={t("common.delete")}
                         >
                           <Trash size={13} />
@@ -508,6 +510,7 @@ function Memory({ profile }: { profile?: string }): React.JSX.Element {
                           window.hermesAPI.openExternal(PROVIDER_URLS[p.name])
                         }
                         title={t("memory.openProviderWebsite")}
+                        aria-label={t("memory.openProviderWebsite")}
                       >
                         <ExternalLink size={12} />
                       </button>
