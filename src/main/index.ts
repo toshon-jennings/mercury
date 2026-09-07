@@ -1247,7 +1247,9 @@ function buildMenu(): void {
         {
           label: "Report an Issue",
           click: (): void => {
-            openExternalUrl("https://github.com/toshon-jennings/mercury/issues");
+            openExternalUrl(
+              "https://github.com/toshon-jennings/mercury/issues",
+            );
           },
         },
       ],

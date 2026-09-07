@@ -1,19 +1,5 @@
-import { createContext, useContext, useEffect, useState } from "react";
-
-type Theme = "light" | "dark" | "system";
-type ResolvedTheme = "light" | "dark";
-
-interface ThemeContextValue {
-  theme: Theme;
-  resolved: ResolvedTheme;
-  setTheme: (theme: Theme) => void;
-}
-
-const ThemeContext = createContext<ThemeContextValue>({
-  theme: "system",
-  resolved: "dark",
-  setTheme: () => {},
-});
+import { useEffect, useState } from "react";
+import { ThemeContext, type Theme, type ResolvedTheme } from "./ThemeContext";
 
 import { THEME_STORAGE_KEY as STORAGE_KEY } from "../constants";
 
@@ -83,8 +69,4 @@ export function ThemeProvider({
       {children}
     </ThemeContext.Provider>
   );
-}
-
-export function useTheme(): ThemeContextValue {
-  return useContext(ThemeContext);
 }

@@ -56,6 +56,10 @@ function Install({ onComplete, onFailed }: InstallProps): React.JSX.Element {
       isMounted = false;
       cleanup();
     };
+    // `t` is deliberately excluded: this effect starts the install and must run
+    // exactly once. `t` is read only for a failure string, and adding it would
+    // re-run the effect — restarting the installation — on a language change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

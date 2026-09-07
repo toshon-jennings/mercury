@@ -3,7 +3,7 @@ import {
   classifyHermesInstallHealth,
   type HermesRepoSnapshot,
 } from "../src/main/installer";
-import { getHermesPrimaryAction } from "../src/renderer/src/screens/Settings/Settings";
+import { getHermesPrimaryAction } from "../src/renderer/src/screens/Settings/hermesPrimaryAction";
 
 function makeSnapshot(
   overrides: Partial<HermesRepoSnapshot> = {},

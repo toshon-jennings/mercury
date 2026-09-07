@@ -107,7 +107,7 @@ describe("processCustomEvent", () => {
 // ─── processSseData ─────────────────────────────────────
 
 describe("processSseData", () => {
-  function makeState() {
+  function makeState(): { hasContent: boolean; lastError: string } {
     return { hasContent: false, lastError: "" };
   }
 

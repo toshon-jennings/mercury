@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useTheme } from "../../components/ThemeProvider";
+import { useTheme } from "../../components/useTheme";
+import { getHermesPrimaryAction } from "./hermesPrimaryAction";
 import { THEME_OPTIONS } from "../../constants";
 import { useI18n } from "../../components/useI18n";
 import { APP_LOCALES, type AppLocale } from "../../../../shared/i18n";
@@ -20,33 +21,6 @@ const LANGUAGE_LABEL_KEYS: Record<AppLocale, string> = {
   "pt-BR": "settings.language.portuguese",
   "zh-CN": "settings.language.chinese",
 };
-
-export function getHermesPrimaryAction(health: HermesInstallHealth | null): {
-  label: string;
-  disabled: boolean;
-  kind: "install" | "update" | "normalize" | "repair" | "none";
-} {
-  if (!health) {
-    return { label: "Checking Hermes…", disabled: true, kind: "none" };
-  }
-
-  switch (health.mode) {
-    case "up_to_date":
-      return { label: "Up to date", disabled: true, kind: "none" };
-    case "update_available":
-      return { label: "Update Hermes", disabled: false, kind: "update" };
-    case "customized":
-      return {
-        label: "Reset to official Hermes",
-        disabled: false,
-        kind: "normalize",
-      };
-    case "repair_needed":
-      return { label: "Repair Hermes", disabled: false, kind: "repair" };
-    case "not_installed":
-      return { label: "Install Hermes", disabled: false, kind: "install" };
-  }
-}
 
 // Read cached values from localStorage for instant display
 function getCachedVersion(): string | null {

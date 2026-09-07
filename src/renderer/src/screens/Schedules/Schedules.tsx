@@ -85,6 +85,10 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
     } finally {
       setLoading(false);
     }
+    // `t` is deliberately excluded: it is read only for an error string, and
+    // including it would rebuild this callback on every language change and
+    // refetch the job list through the effect below for no benefit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile]);
 
   useEffect(() => {
@@ -523,10 +527,7 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
           <p className="page-subtitle">{t("schedules.subtitle")}</p>
         </div>
         <div className="page-header-actions">
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={loadJobs}
-          >
+          <button className="btn btn-secondary btn-sm" onClick={loadJobs}>
             <Refresh size={14} />
             {t("schedules.refresh")}
           </button>

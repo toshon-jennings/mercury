@@ -33,7 +33,7 @@ function generateTitle(message: string): string {
   let text = message.trim();
 
   // Remove markdown formatting
-  text = text.replace(/[#*_`~\[\]()]/g, "");
+  text = text.replace(/[#*_`~[\]()]/g, "");
   // Remove URLs
   text = text.replace(/https?:\/\/\S+/g, "");
   // Remove extra whitespace
