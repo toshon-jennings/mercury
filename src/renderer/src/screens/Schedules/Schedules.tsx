@@ -523,10 +523,7 @@ function Schedules({ profile }: SchedulesProps): React.JSX.Element {
           <p className="page-subtitle">{t("schedules.subtitle")}</p>
         </div>
         <div className="page-header-actions">
-          <button
-            className="btn btn-secondary btn-sm"
-            onClick={loadJobs}
-          >
+          <button className="btn btn-secondary btn-sm" onClick={loadJobs}>
             <Refresh size={14} />
             {t("schedules.refresh")}
           </button>
