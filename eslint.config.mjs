@@ -41,5 +41,12 @@ export default defineConfig(
       ...eslintPluginReactRefresh.configs.vite.rules,
     },
   },
+  {
+    // electron-builder hooks and .cjs helpers are CommonJS by contract — they
+    // are loaded by Node's require(), not bundled — so require() is the correct
+    // form here rather than a lint violation.
+    files: ["build/**/*.js", "**/*.cjs"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
   eslintConfigPrettier,
 );
