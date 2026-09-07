@@ -39,6 +39,13 @@ export default defineConfig(
     rules: {
       ...eslintPluginReactHooks.configs.recommended.rules,
       ...eslintPluginReactRefresh.configs.vite.rules,
+      // react-hooks v7's recommended set added set-state-in-effect. Every
+      // occurrence here is a screen loading its data on mount over Electron
+      // IPC — synchronizing with an external system, which is what effects
+      // are for. Kept visible as a warning rather than silenced, but not
+      // blocking: restructuring 10 working screens has no user-visible
+      // benefit and real regression risk.
+      "react-hooks/set-state-in-effect": "warn",
     },
   },
   {

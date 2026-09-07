@@ -30,9 +30,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Hard gate as of the lint cleanup: the repo is at 0 eslint errors, so any
+      # new error fails the build. The 10 remaining set-state-in-effect
+      # warnings do not fail eslint and stay visible in the log.
       - name: Run ESLint
         run: npm run lint
-        continue-on-error: true
 
       # Hard gate. This is the step that catches duplicate JSX attributes
       # (TS17001), which is how two accessibility PRs silently merged a worse
