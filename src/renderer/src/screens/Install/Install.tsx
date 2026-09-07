@@ -1,8 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { ArrowRight, Copy, Send } from "../../assets/icons";
 
-// TODO: Replace with Mercury Telegram channel link (create before v1.0.0)
-const TELEGRAM_COMMUNITY_URL = "";
+// TODO: Add a Mercury Telegram channel link here (create before v1.0.0)
 import { useI18n } from "../../components/useI18n";
 
 interface InstallProgress {

@@ -8,11 +8,10 @@ import type {
   HermesMaintenanceResult,
 } from "../../../../main/installer";
 import openclawLogo from "../../assets/openclaw-color.png";
-import { Download, Upload, FileText, Send } from "lucide-react";
+import { Download, Upload, FileText } from "lucide-react";
 import { Trans } from "react-i18next";
 
-// TODO: Replace with Mercury Telegram channel link (create before v1.0.0)
-const TELEGRAM_COMMUNITY_URL = "";
+// TODO: Add a Mercury Telegram channel link here (create before v1.0.0)
 
 const LANGUAGE_LABEL_KEYS: Record<AppLocale, string> = {
   en: "settings.language.english",
