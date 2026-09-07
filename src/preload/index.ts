@@ -253,6 +253,12 @@ const hermesAPI = {
     return () => ipcRenderer.removeListener("chat-done", handler);
   },
 
+  onChatActivity: (callback: () => void): (() => void) => {
+    const handler = (): void => callback();
+    ipcRenderer.on("chat-activity", handler);
+    return () => ipcRenderer.removeListener("chat-activity", handler);
+  },
+
   onChatToolProgress: (callback: (tool: string) => void): (() => void) => {
     const handler = (_event: Electron.IpcRendererEvent, tool: string): void =>
       callback(tool);
@@ -528,6 +534,15 @@ const hermesAPI = {
 
   updateModel: (id: string, fields: Record<string, string>): Promise<boolean> =>
     ipcRenderer.invoke("update-model", id, fields),
+
+  detectLocalModels: (): Promise<
+    Array<{
+      id: string;
+      name: string;
+      baseUrl: string;
+      models: string[];
+    }>
+  > => ipcRenderer.invoke("detect-local-models"),
 
   // Claw3D
   claw3dStatus: (): Promise<{

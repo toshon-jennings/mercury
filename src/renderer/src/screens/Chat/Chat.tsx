@@ -463,6 +463,10 @@ function Chat({
       setIsLoading(false);
     });
 
+    const cleanupActivity = window.hermesAPI.onChatActivity(() => {
+      startSendTimeout();
+    });
+
     const cleanupError = window.hermesAPI.onChatError((error) => {
       clearSendTimeout();
       chatErrorHandledRef.current = true;
@@ -496,6 +500,7 @@ function Chat({
       clearSendTimeout();
       cleanupChunk();
       cleanupDone();
+      cleanupActivity();
       cleanupError();
       cleanupToolProgress();
       cleanupUsage();

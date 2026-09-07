@@ -1,9 +1,9 @@
-# Hermes Desktop: Project Instructions & Context
+# Mercury: Project Instructions # Hermes Desktop: Project Instructions & Context Context
 
 This document serves as the primary architectural and conventional guide for **Hermes Desktop**. It is intended to provide persistent context for developers and AI agents working within this repository.
 
 ## Project Overview
-Hermes Desktop is a native cross-platform application (macOS, Windows, Linux) designed to manage the installation, configuration, and operation of the **Hermes Agent**.
+Mercury is a native cross-platform application (macOS, Windows, Linux) designed to manage the installation, configuration, and operation of the **Hermes Agent**.
 
 ### Core Tech Stack
 - **Electron 39**: Shell for cross-platform desktop integration.

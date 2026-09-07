@@ -11,7 +11,8 @@ import openclawLogo from "../../assets/openclaw-color.png";
 import { Download, Upload, FileText, Send } from "lucide-react";
 import { Trans } from "react-i18next";
 
-const TELEGRAM_COMMUNITY_URL = "https://t.me/hermes_agent_desktop";
+// TODO: Replace with Mercury Telegram channel link (create before v1.0.0)
+const TELEGRAM_COMMUNITY_URL = "";
 
 const LANGUAGE_LABEL_KEYS: Record<AppLocale, string> = {
   en: "settings.language.english",
@@ -39,7 +40,7 @@ export function getHermesPrimaryAction(
       return { label: "Update Hermes", disabled: false, kind: "update" };
     case "customized":
       return {
-        label: "Restore official Hermes",
+        label: "Reset to official Hermes",
         disabled: false,
         kind: "normalize",
       };
@@ -564,29 +565,68 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
             {hermesHealth?.summary || "Checking Hermes…"}
           </div>
           <div className="settings-field-hint" style={{ marginTop: 6 }}>
-            {hermesHealth?.detail ||
-              "Mercury is checking Hermes install health."}
+            {hermesHealth?.detail || "Mercury is checking your Hermes installation."}
           </div>
           <div className="settings-field-hint" style={{ marginTop: 6 }}>
             This changes Hermes Agent only, not Mercury.
           </div>
+          {hermesHealth?.mode === "customized" && (
+            <div
+              className="settings-field-hint"
+              style={{
+                marginTop: 10,
+                padding: "10px 12px",
+                background: "rgba(245, 158, 11, 0.1)",
+                border: "1px solid rgba(245, 158, 11, 0.3)",
+                borderRadius: 6,
+                color: "#fbbf24",
+                fontSize: 13,
+                lineHeight: 1.5,
+              }}
+            >
+              Your Hermes install has local changes or untracked files
+              (custom branch, modified files, or a forked remote). Resetting
+              will <strong>discard</strong> all local modifications and restore
+              the official upstream release. If you have uncommitted work, back
+              it up first.
+            </div>
+          )}
+          {hermesHealth?.mode === "update_available" && (hermesHealth.git.isDirty || hermesHealth.git.hasUntrackedFiles) && (
+            <div
+              className="settings-field-hint"
+              style={{
+                marginTop: 10,
+                padding: "10px 12px",
+                background: "rgba(59, 130, 246, 0.08)",
+                border: "1px solid rgba(59, 130, 246, 0.2)",
+                borderRadius: 6,
+                color: "#93c5fd",
+                fontSize: 13,
+                lineHeight: 1.5,
+              }}
+            >
+              You have local modifications in the Hermes directory. Updating
+              may affect these files. Changes from upstream will be merged, but
+              conflicts should be resolved manually if they occur.
+            </div>
+          )}
           {hermesHealth && (
             <details className="settings-field" style={{ marginTop: 12 }}>
               <summary className="settings-field-label">
                 Advanced details
               </summary>
               <div className="settings-field-hint" style={{ marginTop: 8 }}>
-                Branch: {hermesHealth.currentBranch || "—"}
+                Current branch: {hermesHealth.currentBranch || "—"}
               </div>
               <div className="settings-field-hint">
-                Remotes: origin {hermesHealth.remotes.origin || "—"} · upstream{" "}
+                Connected repositories: origin {hermesHealth.remotes.origin || "—"} · upstream{" "}
                 {hermesHealth.remotes.upstream || "—"}
               </div>
               <div className="settings-field-hint">
-                Official remote: {hermesHealth.remotes.officialRemote || "—"}
+                Standard Hermes source: {hermesHealth.remotes.officialRemote || "—"}
               </div>
               <div className="settings-field-hint">
-                Fork remote: {hermesHealth.remotes.forkRemote || "—"}
+                Custom source: {hermesHealth.remotes.forkRemote || "—"}
               </div>
               {hermesHealth.warnings.length > 0 && (
                 <div className="settings-field-hint" style={{ marginTop: 8 }}>
@@ -610,7 +650,11 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
           )}
           <div className="settings-hermes-actions">
             <button
-              className="btn btn-primary"
+              className={`btn ${
+                primaryAction.kind === "normalize" || primaryAction.kind === "repair"
+                  ? "btn-danger"
+                  : "btn-primary"
+              }`}
               onClick={() => {
                 switch (primaryAction.kind) {
                   case "update":
@@ -674,20 +718,7 @@ function Settings({ profile }: { profile?: string }): React.JSX.Element {
         <div className="settings-section-title">Community</div>
         <div className="settings-field">
           <div className="settings-field-hint" style={{ marginBottom: 10 }}>
-            Join our Telegram group to ask questions, report issues, and chat
-            with other Hermes users.
-          </div>
-          <div className="settings-hermes-actions">
-            <button
-              className="btn btn-secondary"
-              onClick={() =>
-                window.hermesAPI.openExternal(TELEGRAM_COMMUNITY_URL)
-              }
-              title={TELEGRAM_COMMUNITY_URL}
-            >
-              <Send size={14} style={{ marginRight: 6 }} />
-              Join Telegram Community
-            </button>
+            A Mercury community channel is coming soon.
           </div>
         </div>
       </div>
