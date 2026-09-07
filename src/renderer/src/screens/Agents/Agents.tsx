@@ -254,6 +254,7 @@ function Agents({
                       setConfirmDelete(p.name);
                     }}
                     title={t("agents.deleteTitle")}
+                    aria-label={t("agents.deleteTitle")}
                   >
                     <Trash size={14} />
                   </button>

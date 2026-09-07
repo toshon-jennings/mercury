@@ -243,8 +243,6 @@ function Sessions({
                 setSearchQuery("");
                 searchRef.current?.focus();
               }}
-              aria-label={t("common.close")}
-              title={t("common.close")}
             >
               <X size={13} />
             </button>
