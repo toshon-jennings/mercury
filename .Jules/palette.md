@@ -5,3 +5,8 @@
 ## 2026-06-01 - Icon-Only Button Accessibility Pattern Across the App
 **Learning:** An app-wide pattern emerged where interactive `btn-ghost` components containing only icons were systematically lacking `aria-label` attributes. While hover `title` tags were sometimes present (which helps sighted mouse users), screen reader users were left with unannounced generic button roles.
 **Action:** Always check `btn-ghost` usages and `<X size={...} />` clear/close buttons. Ensure `aria-label` is populated using the `t()` translation strings for internationalized screen reader support.
+
+## 2025-05-22 - Add ARIA Labels to Icon-only Buttons
+
+**Learning:** Found multiple instances of icon-only buttons (Trash, Refresh, X, Stop) without `aria-label` attributes. This negatively impacts screen reader users as they receive no context on what the button does.
+**Action:** Implementing `aria-label` attributes for these elements and establishing it as a pattern using the `t()` translation hook for accessibility.

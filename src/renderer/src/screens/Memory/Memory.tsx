@@ -203,7 +203,11 @@ function Memory({ profile }: { profile?: string }): React.JSX.Element {
           <h2 className="page-title">{t("memory.title")}</h2>
           <p className="page-subtitle">{t("memory.subtitle")}</p>
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={loadData}>
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={loadData}
+          aria-label={t("common.refresh")}
+        >
           <Refresh size={13} />
         </button>
       </div>
@@ -396,7 +400,7 @@ function Memory({ profile }: { profile?: string }): React.JSX.Element {
                         <button
                           className="btn-ghost memory-entry-btn"
                           onClick={() => setConfirmDelete(entry.index)}
-                          aria-label={t("memory.deleteConfirm")}
+                          aria-label={t("common.delete")}
                         >
                           <Trash size={13} />
                         </button>
