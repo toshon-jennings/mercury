@@ -1,22 +1,6 @@
 const { execSync } = require("child_process");
 const path = require("path");
 
-// Sign a single path, ignoring "not an Mach-O" errors for non-binary files.
-function sign(target) {
-  try {
-    execSync(`codesign --force --sign - "${target}"`, { stdio: "pipe" });
-  } catch (e) {
-    // Ignore files that aren't signable (scripts, plists, etc.)
-    const msg = (e.stderr || e.stdout || "").toString();
-    if (
-      !msg.includes("is not an Mach-O file") &&
-      !msg.includes("bundle format unrecognized")
-    ) {
-      throw e;
-    }
-  }
-}
-
 exports.default = async function afterPack(context) {
   if (context.electronPlatformName !== "darwin") return;
 
