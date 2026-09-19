@@ -1011,6 +1011,7 @@ function Chat({
               className={`chat-folder-trigger ${selectedFolder ? "chat-folder-selected" : ""}`}
               onClick={handleSelectFolder}
               title={selectedFolder || t("chat.chooseFolder")}
+              aria-label={selectedFolder || t("chat.chooseFolder")}
               type="button"
             >
               <FolderOpen size={14} />
